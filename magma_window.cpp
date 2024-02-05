@@ -1,5 +1,7 @@
 #include "magma_window.hpp"
 #include <GLFW/glfw3.h>
+#include <stdexcept>
+#include <vulkan/vulkan_core.h>
 
 namespace magma {
 
@@ -21,4 +23,13 @@ void MagmaWindow::initWindow() {
   window =
       glfwCreateWindow(width, height, windowName.c_str(), nullptr, nullptr);
 }
+
+void MagmaWindow::createWindowSurface(VkInstance instance,
+                                      VkSurfaceKHR *surface) {
+  if (glfwCreateWindowSurface(instance, window, nullptr, surface) !=
+      VK_SUCCESS) {
+    throw std::runtime_error("failed to create window surface!");
+  }
+}
+
 } // namespace magma

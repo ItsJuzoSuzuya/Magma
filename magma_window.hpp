@@ -1,4 +1,5 @@
 #include <string>
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -14,6 +15,8 @@ public:
   MagmaWindow &operator=(const MagmaWindow &) = delete;
 
   bool shouldClose() { return glfwWindowShouldClose(window); }
+
+  void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
 
 private:
   void initWindow();

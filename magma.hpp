@@ -1,6 +1,7 @@
 #pragma once
 
-#include "magma_window.hpp"
+#include "magma_device.hpp"
+#include "magma_pipeline.hpp"
 
 namespace magma {
 class Magma {
@@ -12,6 +13,11 @@ public:
 
 private:
   MagmaWindow magmaWindow{WIDTH, HEIGHT, "MAGMA!"};
+  MagmaDevice magmaDevice{magmaWindow};
+  MagmaPipeline magmaPipeline{
+      magmaDevice, "shaders/simple_shader.vert.spv",
+      "shaders/simple_shader.frag.spv",
+      MagmaPipeline::defaultPipelineConfigInfo(WIDTH, HEIGHT)};
 };
 
 } // namespace magma
