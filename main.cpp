@@ -1,5 +1,4 @@
 #include "magma.hpp"
-#include "magma_pipeline.hpp"
 #include <exception>
 
 #include <cstdlib>

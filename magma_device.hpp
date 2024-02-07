@@ -3,7 +3,6 @@
 #include "magma_window.hpp"
 
 // std lib headers
-#include <string>
 #include <vector>
 
 namespace magma {
