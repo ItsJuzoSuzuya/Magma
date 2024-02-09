@@ -1,4 +1,5 @@
 #include "magma_device.hpp"
+#include <glm/fwd.hpp>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -12,6 +13,7 @@ class MagmaModel {
 public:
   struct Vertex {
     glm::vec2 position;
+    glm::vec3 color;
 
     static std::vector<VkVertexInputBindingDescription>
     getBindingDescriptions();

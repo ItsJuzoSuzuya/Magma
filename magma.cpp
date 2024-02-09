@@ -40,9 +40,9 @@ void Magma::run() {
 void Magma::loadModels() {
   std::vector<MagmaModel::Vertex> vertices;
   std::vector<MagmaModel::Vertex> intialVertices{
-      {{0.0f, -0.5f}},
-      {{0.5f, 0.5f}},
-      {{-0.5f, 0.5f}},
+      {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+      {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+      {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
   };
 
   calculateSiepinskiTriangle(intialVertices, &vertices, 0);
@@ -52,7 +52,7 @@ void Magma::loadModels() {
 void Magma::calculateSiepinskiTriangle(
     std::vector<MagmaModel::Vertex> preVertices,
     std::vector<MagmaModel::Vertex> *result, int counter) {
-  if (counter > 6) {
+  if (counter > 4) {
     result->insert(result->end(), preVertices.begin(), preVertices.end());
     return;
   }
@@ -69,19 +69,19 @@ void Magma::calculateSiepinskiTriangle(
                  glm::vec2(bottomCenter.x / 2.0f, bottomCenter.y / 2.0f);
 
   std::vector<MagmaModel::Vertex> leftVertices{
-      {{preVertices[0].position}},
-      {{leftCenter}},
-      {{bottomCenter}},
+      {{preVertices[0].position}, preVertices[0].color},
+      {{leftCenter}, preVertices[1].color},
+      {{bottomCenter}, preVertices[2].color},
   };
   std::vector<MagmaModel::Vertex> topVertices{
-      {{leftCenter}},
-      {{preVertices[1].position}},
-      {{rightCenter}},
+      {{leftCenter}, preVertices[0].color},
+      {{preVertices[1].position}, preVertices[1].color},
+      {{rightCenter}, preVertices[2].color},
   };
   std::vector<MagmaModel::Vertex> rightVertices{
-      {{bottomCenter}},
-      {{rightCenter}},
-      {{preVertices[2].position}},
+      {{bottomCenter}, preVertices[0].color},
+      {{rightCenter}, preVertices[1].color},
+      {{preVertices[2].position}, preVertices[2].color},
   };
 
   calculateSiepinskiTriangle(leftVertices, result, counter + 1);
