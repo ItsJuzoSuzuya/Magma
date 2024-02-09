@@ -3,8 +3,10 @@
 // std headers
 #include <cstring>
 #include <iostream>
+#include <ostream>
 #include <set>
 #include <unordered_set>
+#include <vulkan/vulkan_core.h>
 
 namespace magma {
 

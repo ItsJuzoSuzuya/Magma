@@ -1,6 +1,7 @@
 #pragma once
 
 #include "magma_device.hpp"
+#include "magma_model.hpp"
 #include "magma_pipeline.hpp"
 #include "magma_swap_chain.hpp"
 #include <memory>
@@ -22,6 +23,10 @@ public:
   void run();
 
 private:
+  void loadModels();
+  void calculateSiepinskiTriangle(std::vector<MagmaModel::Vertex> preVertices,
+                                  std::vector<MagmaModel::Vertex> *result,
+                                  int counter);
   void createPipelineLayout();
   void createPipeline();
   void createCommandBuffers();
@@ -33,6 +38,7 @@ private:
   std::unique_ptr<MagmaPipeline> magmaPipeline;
   VkPipelineLayout pipelineLayout;
   std::vector<VkCommandBuffer> commandBuffers;
+  std::unique_ptr<MagmaModel> magmaModel;
 };
 
 } // namespace magma

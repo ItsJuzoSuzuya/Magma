@@ -7,6 +7,7 @@ VulkanTest: *.cpp *.hpp
 .PHONY: test clean
 
 test: VulkanTest
+	bash shaders/compile.sh
 	./VulkanTest
 
 clean: 

@@ -2,15 +2,23 @@
 #include "magma_pipeline.hpp"
 #include "magma_swap_chain.hpp"
 #include <GLFW/glfw3.h>
+#include <algorithm>
 #include <array>
 #include <cstdint>
+#include <functional>
+#include <glm/fwd.hpp>
+#include <iostream>
 #include <memory>
+#include <numeric>
+#include <ostream>
 #include <stdexcept>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
 namespace magma {
 
 Magma::Magma() {
+  loadModels();
   createPipelineLayout();
   createPipeline();
   createCommandBuffers();
@@ -25,6 +33,60 @@ void Magma::run() {
     glfwPollEvents();
     drawFrame();
   }
+
+  vkDeviceWaitIdle(magmaDevice.device());
+}
+
+void Magma::loadModels() {
+  std::vector<MagmaModel::Vertex> vertices;
+  std::vector<MagmaModel::Vertex> intialVertices{
+      {{0.0f, -0.5f}},
+      {{0.5f, 0.5f}},
+      {{-0.5f, 0.5f}},
+  };
+
+  calculateSiepinskiTriangle(intialVertices, &vertices, 0);
+  magmaModel = std::make_unique<MagmaModel>(magmaDevice, vertices);
+}
+
+void Magma::calculateSiepinskiTriangle(
+    std::vector<MagmaModel::Vertex> preVertices,
+    std::vector<MagmaModel::Vertex> *result, int counter) {
+  if (counter > 6) {
+    result->insert(result->end(), preVertices.begin(), preVertices.end());
+    return;
+  }
+
+  glm::vec2 leftCenter = preVertices[1].position - preVertices[0].position;
+  glm::vec2 rightCenter = preVertices[1].position - preVertices[2].position;
+  glm::vec2 bottomCenter = preVertices[2].position - preVertices[0].position;
+
+  leftCenter = preVertices[1].position -
+               glm::vec2(leftCenter.x / 2.0f, leftCenter.y / 2.0f);
+  rightCenter = preVertices[1].position -
+                glm::vec2(rightCenter.x / 2.0f, rightCenter.y / 2.0f);
+  bottomCenter = preVertices[2].position -
+                 glm::vec2(bottomCenter.x / 2.0f, bottomCenter.y / 2.0f);
+
+  std::vector<MagmaModel::Vertex> leftVertices{
+      {{preVertices[0].position}},
+      {{leftCenter}},
+      {{bottomCenter}},
+  };
+  std::vector<MagmaModel::Vertex> topVertices{
+      {{leftCenter}},
+      {{preVertices[1].position}},
+      {{rightCenter}},
+  };
+  std::vector<MagmaModel::Vertex> rightVertices{
+      {{bottomCenter}},
+      {{rightCenter}},
+      {{preVertices[2].position}},
+  };
+
+  calculateSiepinskiTriangle(leftVertices, result, counter + 1);
+  calculateSiepinskiTriangle(topVertices, result, counter + 1);
+  calculateSiepinskiTriangle(rightVertices, result, counter + 1);
 }
 
 void Magma::createPipelineLayout() {
@@ -93,7 +155,8 @@ void Magma::createCommandBuffers() {
                          VK_SUBPASS_CONTENTS_INLINE);
 
     magmaPipeline->bind(commandBuffers[i]);
-    vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+    magmaModel->bind(commandBuffers[i]);
+    magmaModel->draw(commandBuffers[i]);
 
     vkCmdEndRenderPass(commandBuffers[i]);
     if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {

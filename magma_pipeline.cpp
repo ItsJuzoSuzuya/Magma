@@ -1,4 +1,5 @@
 #include "magma_pipeline.hpp"
+#include "magma_model.hpp"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -81,13 +82,17 @@ void MagmaPipeline::createGraphicsPipeline(
   shaderStages[1].pNext = nullptr;
   shaderStages[1].pSpecializationInfo = nullptr;
 
+  auto bindingDescriptions = MagmaModel::Vertex::getBindingDescriptions();
+  auto attributeDescriptions = MagmaModel::Vertex::getAttributeDescriptions();
   VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
   vertexInputInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-  vertexInputInfo.vertexAttributeDescriptionCount = 0;
-  vertexInputInfo.vertexBindingDescriptionCount = 0;
-  vertexInputInfo.pVertexAttributeDescriptions = nullptr;
-  vertexInputInfo.pVertexBindingDescriptions = nullptr;
+  vertexInputInfo.vertexAttributeDescriptionCount =
+      static_cast<uint32_t>(attributeDescriptions.size());
+  vertexInputInfo.vertexBindingDescriptionCount =
+      static_cast<uint32_t>(bindingDescriptions.size());
+  vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+  vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 
   // combination of scissor and viewport aka stretch,squish and cut
   VkPipelineViewportStateCreateInfo viewportInfo{};
