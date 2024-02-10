@@ -6,12 +6,27 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <stdexcept>
 
 namespace magma {
 
 MagmaSwapChain::MagmaSwapChain(MagmaDevice &deviceRef, VkExtent2D extent)
     : device{deviceRef}, windowExtent{extent} {
+  init();
+}
+
+MagmaSwapChain::MagmaSwapChain(MagmaDevice &deviceRef, VkExtent2D extent,
+                               std::shared_ptr<MagmaSwapChain> previous)
+    : device{deviceRef}, windowExtent{extent}, oldSwapChain{previous} {
+  init();
+
+  // clean up old swap chain since its no longer in use
+  oldSwapChain = nullptr;
+}
+
+void MagmaSwapChain::init() {
+
   createSwapChain();
   createImageViews();
   createRenderPass();
@@ -160,7 +175,8 @@ void MagmaSwapChain::createSwapChain() {
   createInfo.presentMode = presentMode;
   createInfo.clipped = VK_TRUE;
 
-  createInfo.oldSwapchain = VK_NULL_HANDLE;
+  createInfo.oldSwapchain =
+      oldSwapChain == nullptr ? VK_NULL_HANDLE : oldSwapChain->swapChain;
 
   if (vkCreateSwapchainKHR(device.device(), &createInfo, nullptr, &swapChain) !=
       VK_SUCCESS) {

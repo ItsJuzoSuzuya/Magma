@@ -2,16 +2,13 @@
 #include "magma_pipeline.hpp"
 #include "magma_swap_chain.hpp"
 #include <GLFW/glfw3.h>
-#include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstdint>
-#include <functional>
 #include <glm/fwd.hpp>
-#include <iostream>
 #include <memory>
-#include <numeric>
-#include <ostream>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -20,7 +17,7 @@ namespace magma {
 Magma::Magma() {
   loadModels();
   createPipelineLayout();
-  createPipeline();
+  recreateSwapChain();
   createCommandBuffers();
 }
 
@@ -39,14 +36,14 @@ void Magma::run() {
 
 void Magma::loadModels() {
   std::vector<MagmaModel::Vertex> vertices;
-  std::vector<MagmaModel::Vertex> intialVertices{
+  std::vector<MagmaModel::Vertex> initialVertices{
       {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
       {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
       {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
   };
 
-  calculateSiepinskiTriangle(intialVertices, &vertices, 0);
-  magmaModel = std::make_unique<MagmaModel>(magmaDevice, vertices);
+  // calculateSiepinskiTriangle(initialVertices, &vertices, 0);
+  magmaModel = std::make_unique<MagmaModel>(magmaDevice, initialVertices);
 }
 
 void Magma::calculateSiepinskiTriangle(
@@ -106,17 +103,44 @@ void Magma::createPipelineLayout() {
 }
 
 void Magma::createPipeline() {
-  auto pipelineConfig = MagmaPipeline::defaultPipelineConfigInfo(
-      magmaSwapChain.width(), magmaSwapChain.height());
-  pipelineConfig.renderPass = magmaSwapChain.getRenderPass();
+  assert(magmaSwapChain != nullptr &&
+         "Cannot create pipeline before swap chain");
+  assert(pipelineLayout != nullptr &&
+         "Cannot create pipeline before pipeline layout");
+
+  PipelineConfigInfo pipelineConfig{};
+  MagmaPipeline::defaultPipelineConfigInfo(pipelineConfig);
+  pipelineConfig.renderPass = magmaSwapChain->getRenderPass();
   pipelineConfig.pipelineLayout = pipelineLayout;
   magmaPipeline = std::make_unique<MagmaPipeline>(
       magmaDevice, "shaders/simple_shader.vert.spv",
       "shaders/simple_shader.frag.spv", pipelineConfig);
 }
 
+void Magma::recreateSwapChain() {
+  auto extent = magmaWindow.getExtent();
+  while (extent.width == 0 || extent.height == 0) {
+    extent = magmaWindow.getExtent();
+    glfwWaitEvents();
+  }
+
+  vkDeviceWaitIdle(magmaDevice.device());
+
+  if (magmaSwapChain == nullptr) {
+    magmaSwapChain = std::make_unique<MagmaSwapChain>(magmaDevice, extent);
+  } else {
+    magmaSwapChain = std::make_unique<MagmaSwapChain>(
+        magmaDevice, extent, std::move(magmaSwapChain));
+    if (magmaSwapChain->imageCount() != commandBuffers.size()) {
+      freeCommandBuffers();
+      createCommandBuffers();
+    }
+  }
+  createPipeline();
+}
+
 void Magma::createCommandBuffers() {
-  commandBuffers.resize(magmaSwapChain.imageCount());
+  commandBuffers.resize(magmaSwapChain->imageCount());
 
   VkCommandBufferAllocateInfo allocInfo{};
   allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -128,53 +152,87 @@ void Magma::createCommandBuffers() {
                                commandBuffers.data()) != VK_SUCCESS) {
     throw std::runtime_error("failed to create command buffer!");
   }
+}
+void Magma::freeCommandBuffers() {
+  vkFreeCommandBuffers(magmaDevice.device(), magmaDevice.getCommandPool(),
+                       static_cast<uint32_t>(commandBuffers.size()),
+                       commandBuffers.data());
+  commandBuffers.clear();
+}
 
-  for (int i = 0; i < commandBuffers.size(); i++) {
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+void Magma::recordCommandBuffer(int imageIndex) {
 
-    if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS) {
-      throw std::runtime_error("failed to begin recording command buffer!");
-    }
+  VkCommandBufferBeginInfo beginInfo{};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = magmaSwapChain.getRenderPass();
-    renderPassInfo.framebuffer = magmaSwapChain.getFrameBuffer(i);
+  if (vkBeginCommandBuffer(commandBuffers[imageIndex], &beginInfo) !=
+      VK_SUCCESS) {
+    throw std::runtime_error("failed to begin recording command buffer!");
+  }
 
-    renderPassInfo.renderArea.offset = {0, 0};
-    renderPassInfo.renderArea.extent = magmaSwapChain.getSwapChainExtent();
+  VkRenderPassBeginInfo renderPassInfo{};
+  renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  renderPassInfo.renderPass = magmaSwapChain->getRenderPass();
+  renderPassInfo.framebuffer = magmaSwapChain->getFrameBuffer(imageIndex);
 
-    std::array<VkClearValue, 2> clearValues{};
-    clearValues[0].color = {0.1f, 0.1f, 0.1f, 0.1f};
-    clearValues[1].depthStencil = {1.0f, 0};
-    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-    renderPassInfo.pClearValues = clearValues.data();
+  renderPassInfo.renderArea.offset = {0, 0};
+  renderPassInfo.renderArea.extent = magmaSwapChain->getSwapChainExtent();
 
-    vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo,
-                         VK_SUBPASS_CONTENTS_INLINE);
+  std::array<VkClearValue, 2> clearValues{};
+  clearValues[0].color = {0.1f, 0.1f, 0.1f, 0.1f};
+  clearValues[1].depthStencil = {1.0f, 0};
+  renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+  renderPassInfo.pClearValues = clearValues.data();
 
-    magmaPipeline->bind(commandBuffers[i]);
-    magmaModel->bind(commandBuffers[i]);
-    magmaModel->draw(commandBuffers[i]);
+  vkCmdBeginRenderPass(commandBuffers[imageIndex], &renderPassInfo,
+                       VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdEndRenderPass(commandBuffers[i]);
-    if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
-      throw std::runtime_error("failed to record command buffer!");
-    }
+  VkViewport viewport{};
+  viewport.x = 0.0f;
+  viewport.y = 0.0f;
+  viewport.width =
+      static_cast<float>(magmaSwapChain->getSwapChainExtent().width);
+  viewport.height =
+      static_cast<float>(magmaSwapChain->getSwapChainExtent().height);
+  viewport.minDepth = 0.0f;
+  viewport.maxDepth = 1.0f;
+  VkRect2D scissor{{0, 0}, magmaSwapChain->getSwapChainExtent()};
+  vkCmdSetViewport(commandBuffers[imageIndex], 0, 1, &viewport);
+  vkCmdSetScissor(commandBuffers[imageIndex], 0, 1, &scissor);
+
+  magmaPipeline->bind(commandBuffers[imageIndex]);
+  magmaModel->bind(commandBuffers[imageIndex]);
+  magmaModel->draw(commandBuffers[imageIndex]);
+
+  vkCmdEndRenderPass(commandBuffers[imageIndex]);
+  if (vkEndCommandBuffer(commandBuffers[imageIndex]) != VK_SUCCESS) {
+    throw std::runtime_error("failed to record command buffer!");
   }
 }
 
 void Magma::drawFrame() {
   uint32_t imageIndex;
-  auto result = magmaSwapChain.acquireNextImage(&imageIndex);
+  auto result = magmaSwapChain->acquireNextImage(&imageIndex);
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    recreateSwapChain();
+    return;
+  }
 
   if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
     throw std::runtime_error("failed to acquire swap chain image!");
   }
 
-  result = magmaSwapChain.submitCommandBuffers(&commandBuffers[imageIndex],
-                                               &imageIndex);
+  recordCommandBuffer(imageIndex);
+  result = magmaSwapChain->submitCommandBuffers(&commandBuffers[imageIndex],
+                                                &imageIndex);
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
+      magmaWindow.wasWindowResized()) {
+    magmaWindow.resetWindowResizedFlag();
+    recreateSwapChain();
+    return;
+  }
+
   if (result != VK_SUCCESS) {
     throw std::runtime_error("failed to present swap chain image");
   }

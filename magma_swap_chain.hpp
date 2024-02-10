@@ -3,10 +3,10 @@
 #include "magma_device.hpp"
 
 // vulkan headers
+#include <memory>
 #include <vulkan/vulkan.h>
 
 // std lib headers
-#include <string>
 #include <vector>
 
 namespace magma {
@@ -16,10 +16,12 @@ public:
   static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
   MagmaSwapChain(MagmaDevice &deviceRef, VkExtent2D windowExtent);
+  MagmaSwapChain(MagmaDevice &deviceRef, VkExtent2D windowExtent,
+                 std::shared_ptr<MagmaSwapChain> previous);
   ~MagmaSwapChain();
 
   MagmaSwapChain(const MagmaSwapChain &) = delete;
-  void operator=(const MagmaSwapChain &) = delete;
+  MagmaSwapChain operator=(const MagmaSwapChain &) = delete;
 
   VkFramebuffer getFrameBuffer(int index) {
     return swapChainFramebuffers[index];
@@ -43,6 +45,7 @@ public:
                                 uint32_t *imageIndex);
 
 private:
+  void init();
   void createSwapChain();
   void createImageViews();
   void createDepthResources();
@@ -73,6 +76,7 @@ private:
   VkExtent2D windowExtent;
 
   VkSwapchainKHR swapChain;
+  std::shared_ptr<MagmaSwapChain> oldSwapChain;
 
   std::vector<VkSemaphore> imageAvailableSemaphores;
   std::vector<VkSemaphore> renderFinishedSemaphores;

@@ -30,11 +30,14 @@ private:
   void createPipelineLayout();
   void createPipeline();
   void createCommandBuffers();
+  void freeCommandBuffers();
   void drawFrame();
+  void recreateSwapChain();
+  void recordCommandBuffer(int imageIndex);
 
   MagmaWindow magmaWindow{WIDTH, HEIGHT, "MAGMA!"};
   MagmaDevice magmaDevice{magmaWindow};
-  MagmaSwapChain magmaSwapChain{magmaDevice, magmaWindow.getExtent()};
+  std::unique_ptr<MagmaSwapChain> magmaSwapChain;
   std::unique_ptr<MagmaPipeline> magmaPipeline;
   VkPipelineLayout pipelineLayout;
   std::vector<VkCommandBuffer> commandBuffers;

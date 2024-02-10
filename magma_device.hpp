@@ -34,7 +34,7 @@ public:
 
   // Not copyable or movable
   MagmaDevice(const MagmaDevice &) = delete;
-  void operator=(const MagmaDevice &) = delete;
+  MagmaDevice operator=(const MagmaDevice &) = delete;
   MagmaDevice(MagmaDevice &&) = delete;
   MagmaDevice &operator=(MagmaDevice &&) = delete;
 
