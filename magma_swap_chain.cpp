@@ -8,6 +8,7 @@
 #include <limits>
 #include <memory>
 #include <stdexcept>
+#include <vulkan/vulkan_core.h>
 
 namespace magma {
 
@@ -392,8 +393,8 @@ VkSurfaceFormatKHR MagmaSwapChain::chooseSwapSurfaceFormat(
 VkPresentModeKHR MagmaSwapChain::chooseSwapPresentMode(
     const std::vector<VkPresentModeKHR> &availablePresentModes) {
   for (const auto &availablePresentMode : availablePresentModes) {
-    if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
-      std::cout << "Present mode: Mailbox" << std::endl;
+    if (availablePresentMode == VK_PRESENT_MODE_FIFO_KHR) {
+      std::cout << "Present mode: VSync" << std::endl;
       return availablePresentMode;
     }
   }
