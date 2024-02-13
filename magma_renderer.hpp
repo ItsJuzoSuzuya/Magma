@@ -21,6 +21,7 @@ public:
   VkRenderPass getSwapChainRenderPass() const {
     return magmaSwapChain->getRenderPass();
   }
+  float getAspectRatio() const { return magmaSwapChain->extentAspectRatio(); }
   bool isFrameInProgress() const { return isFrameStarted; }
 
   VkCommandBuffer getCurrentCommandBuffer() const {

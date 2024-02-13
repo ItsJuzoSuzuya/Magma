@@ -1,6 +1,7 @@
 
 #pragma once
 
+#include "magma_camera.hpp"
 #include "magma_device.hpp"
 #include "magma_game_object.hpp"
 #include "magma_pipeline.hpp"
@@ -18,7 +19,8 @@ public:
   SimpleRenderSystem &operator=(const SimpleRenderSystem &) = delete;
 
   void renderGameObjects(VkCommandBuffer commandBuffer,
-                         std::vector<MagmaGameObject> &gameObjects);
+                         std::vector<MagmaGameObject> &gameObjects,
+                         const MagmaCamera &camera);
 
 private:
   void createPipelineLayout();

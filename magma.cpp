@@ -1,8 +1,12 @@
 #include "magma.hpp"
+#include "keyboard_movement_controller.hpp"
+#include "magma_camera.hpp"
 #include "magma_game_object.hpp"
 #include "simple_render_system.hpp"
 #include <GLFW/glfw3.h>
+#include <chrono>
 #include <glm/common.hpp>
+#include <glm/detail/qualifier.hpp>
 #include <glm/ext/scalar_constants.hpp>
 #include <glm/fwd.hpp>
 #include <glm/gtc/constants.hpp>
@@ -24,13 +28,34 @@ Magma::~Magma() {}
 void Magma::run() {
   SimpleRenderSystem simpleRenderSystem{magmaDevice,
                                         magmaRenderer.getSwapChainRenderPass()};
+  MagmaCamera camera{};
+  camera.setViewTarget(glm::vec3{.0f}, glm::vec3{.0f, .0f, 2.5f});
+
+  auto viewerObject = MagmaGameObject::createGameObject();
+  KeyboardMovementController cameraController{};
+
+  auto currentTime = std::chrono::high_resolution_clock::now();
 
   while (!magmaWindow.shouldClose()) {
     glfwPollEvents();
 
+    auto newTime = std::chrono::high_resolution_clock::now();
+    float frameTime =
+        std::chrono::duration<float, std::chrono::seconds::period>(newTime -
+                                                                   currentTime)
+            .count();
+    currentTime = newTime;
+
+    cameraController.move(magmaWindow.getGLFWwindow(), frameTime, viewerObject);
+    camera.setViewYXZ(viewerObject.transform.position,
+                      viewerObject.transform.rotation);
+
+    float aspect = magmaRenderer.getAspectRatio();
+    camera.setPerspectiveProjection(glm::radians(50.f), aspect, .1f, 10.f);
+
     if (auto commandBuffer = magmaRenderer.beginFrame()) {
       magmaRenderer.beginSwapChainRenderPass(commandBuffer);
-      simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects);
+      simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera);
       magmaRenderer.endSwapChainRenderPass(commandBuffer);
       magmaRenderer.endFrame();
     }
@@ -102,11 +127,10 @@ void Magma::loadGameObjects() {
       createCubeModel(magmaDevice, {.0f, .0f, .0f});
   auto cube = MagmaGameObject::createGameObject();
   cube.model = cubeModel;
-  cube.transform.position = {.0f, .0f, .5f};
+  cube.transform.position = {.0f, .0f, 2.5f};
   cube.transform.scale = {.5f, .5f, .5f};
 
   gameObjects.push_back(std::move(cube));
-
 }
 
 } // namespace magma
