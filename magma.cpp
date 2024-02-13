@@ -1,16 +1,12 @@
 #include "magma.hpp"
 #include "magma_game_object.hpp"
-#include "magma_pipeline.hpp"
+#include "simple_render_system.hpp"
 #include <GLFW/glfw3.h>
-#include <cassert>
 #include <glm/common.hpp>
 #include <glm/ext/scalar_constants.hpp>
 #include <glm/fwd.hpp>
 #include <glm/gtc/constants.hpp>
-#include <iostream>
 #include <memory>
-#include <ostream>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -21,29 +17,20 @@
 
 namespace magma {
 
-struct SimplePushConstantData {
-  glm::mat2 transform{1.f};
-  glm::vec2 offset;
-  alignas(16) glm::vec3 color;
-};
+Magma::Magma() { loadGameObjects(); }
 
-Magma::Magma() {
-  loadGameObjects();
-  createPipelineLayout();
-  createPipeline();
-}
-
-Magma::~Magma() {
-  vkDestroyPipelineLayout(magmaDevice.device(), pipelineLayout, nullptr);
-}
+Magma::~Magma() {}
 
 void Magma::run() {
+  SimpleRenderSystem simpleRenderSystem{magmaDevice,
+                                        magmaRenderer.getSwapChainRenderPass()};
+
   while (!magmaWindow.shouldClose()) {
     glfwPollEvents();
 
     if (auto commandBuffer = magmaRenderer.beginFrame()) {
       magmaRenderer.beginSwapChainRenderPass(commandBuffer);
-      renderGameObjects(commandBuffer);
+      simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects);
       magmaRenderer.endSwapChainRenderPass(commandBuffer);
       magmaRenderer.endFrame();
     }
@@ -51,121 +38,75 @@ void Magma::run() {
 
   vkDeviceWaitIdle(magmaDevice.device());
 }
+std::unique_ptr<MagmaModel> createCubeModel(MagmaDevice &device,
+                                            glm::vec3 offset) {
+  std::vector<MagmaModel::Vertex> vertices{
+
+      // left face (white)
+      {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
+      {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
+      {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
+      {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
+      {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
+      {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
+
+      // right face (yellow)
+      {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
+      {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
+      {{.5f, -.5f, .5f}, {.8f, .8f, .1f}},
+      {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
+      {{.5f, .5f, -.5f}, {.8f, .8f, .1f}},
+      {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
+
+      // top face (orange, remember y axis points down)
+      {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
+      {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
+      {{-.5f, -.5f, .5f}, {.9f, .6f, .1f}},
+      {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
+      {{.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
+      {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
+
+      // bottom face (red)
+      {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
+      {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
+      {{-.5f, .5f, .5f}, {.8f, .1f, .1f}},
+      {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
+      {{.5f, .5f, -.5f}, {.8f, .1f, .1f}},
+      {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
+
+      // nose face (blue)
+      {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
+      {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
+      {{-.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
+      {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
+      {{.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
+      {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
+
+      // tail face (green)
+      {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
+      {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
+      {{-.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
+      {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
+      {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
+      {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
+
+  };
+  for (auto &v : vertices) {
+    v.position += offset;
+  }
+  return std::make_unique<MagmaModel>(device, vertices);
+}
 
 void Magma::loadGameObjects() {
-  std::vector<MagmaModel::Vertex> vertices{
-      {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-      {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-      {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-  };
+  std::shared_ptr<MagmaModel> cubeModel =
+      createCubeModel(magmaDevice, {.0f, .0f, .0f});
+  auto cube = MagmaGameObject::createGameObject();
+  cube.model = cubeModel;
+  cube.transform.position = {.0f, .0f, .5f};
+  cube.transform.scale = {.5f, .5f, .5f};
 
-  auto magmaModel = std::make_shared<MagmaModel>(magmaDevice, vertices);
+  gameObjects.push_back(std::move(cube));
 
-  auto triangle = MagmaGameObject::createGameObject();
-  triangle.model = magmaModel;
-  triangle.color = {.0f, 1.f, .0f};
-  triangle.transform2D.position.x = .2f;
-  triangle.transform2D.scale = {2.f, 0.5f};
-  triangle.transform2D.rotation = 0.5f * glm::pi<float>();
-
-  gameObjects.push_back(std::move(triangle));
-}
-
-void Magma::calculateSiepinskiTriangle(
-    std::vector<MagmaModel::Vertex> preVertices,
-    std::vector<MagmaModel::Vertex> *result, int counter) {
-  if (counter > 4) {
-    result->insert(result->end(), preVertices.begin(), preVertices.end());
-    return;
-  }
-
-  glm::vec2 leftCenter = preVertices[1].position - preVertices[0].position;
-  glm::vec2 rightCenter = preVertices[1].position - preVertices[2].position;
-  glm::vec2 bottomCenter = preVertices[2].position - preVertices[0].position;
-
-  leftCenter = preVertices[1].position -
-               glm::vec2(leftCenter.x / 2.0f, leftCenter.y / 2.0f);
-  rightCenter = preVertices[1].position -
-                glm::vec2(rightCenter.x / 2.0f, rightCenter.y / 2.0f);
-  bottomCenter = preVertices[2].position -
-                 glm::vec2(bottomCenter.x / 2.0f, bottomCenter.y / 2.0f);
-
-  std::vector<MagmaModel::Vertex> leftVertices{
-      {{preVertices[0].position}, preVertices[0].color},
-      {{leftCenter}, preVertices[1].color},
-      {{bottomCenter}, preVertices[2].color},
-  };
-  std::vector<MagmaModel::Vertex> topVertices{
-      {{leftCenter}, preVertices[0].color},
-      {{preVertices[1].position}, preVertices[1].color},
-      {{rightCenter}, preVertices[2].color},
-  };
-  std::vector<MagmaModel::Vertex> rightVertices{
-      {{bottomCenter}, preVertices[0].color},
-      {{rightCenter}, preVertices[1].color},
-      {{preVertices[2].position}, preVertices[2].color},
-  };
-
-  calculateSiepinskiTriangle(leftVertices, result, counter + 1);
-  calculateSiepinskiTriangle(topVertices, result, counter + 1);
-  calculateSiepinskiTriangle(rightVertices, result, counter + 1);
-}
-
-void Magma::createPipelineLayout() {
-
-  VkPushConstantRange pushConstantRange{};
-  pushConstantRange.stageFlags =
-      VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-  pushConstantRange.offset = 0;
-  pushConstantRange.size = sizeof(SimplePushConstantData);
-
-  VkPipelineLayoutCreateInfo pipelineLayoutInfo;
-  pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  pipelineLayoutInfo.setLayoutCount = 0;
-  pipelineLayoutInfo.pSetLayouts = nullptr;
-  pipelineLayoutInfo.pushConstantRangeCount = 1;
-  pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
-  pipelineLayoutInfo.pNext = nullptr;
-  pipelineLayoutInfo.flags = 0;
-
-  if (vkCreatePipelineLayout(magmaDevice.device(), &pipelineLayoutInfo, nullptr,
-                             &pipelineLayout) != VK_SUCCESS) {
-    throw std::runtime_error("failed to create pipeline layout");
-  };
-}
-
-void Magma::createPipeline() {
-  assert(pipelineLayout != nullptr &&
-         "Cannot create pipeline before pipeline layout");
-
-  PipelineConfigInfo pipelineConfig{};
-  MagmaPipeline::defaultPipelineConfigInfo(pipelineConfig);
-  pipelineConfig.renderPass = magmaRenderer.getSwapChainRenderPass();
-  pipelineConfig.pipelineLayout = pipelineLayout;
-  magmaPipeline = std::make_unique<MagmaPipeline>(
-      magmaDevice, "shaders/simple_shader.vert.spv",
-      "shaders/simple_shader.frag.spv", pipelineConfig);
-}
-
-void Magma::renderGameObjects(VkCommandBuffer commandBuffer) {
-  magmaPipeline->bind(commandBuffer);
-
-  for (auto &obj : gameObjects) {
-    obj.transform2D.rotation =
-        glm::mod(obj.transform2D.rotation + 0.01f, glm::two_pi<float>());
-
-    SimplePushConstantData push{};
-    push.offset = obj.transform2D.position;
-    push.color = obj.color;
-    push.transform = obj.transform2D.mat2();
-
-    vkCmdPushConstants(commandBuffer, pipelineLayout,
-                       VK_SHADER_STAGE_VERTEX_BIT |
-                           VK_SHADER_STAGE_FRAGMENT_BIT,
-                       0, sizeof(SimplePushConstantData), &push);
-    obj.model->bind(commandBuffer);
-    obj.model->draw(commandBuffer);
-  }
 }
 
 } // namespace magma

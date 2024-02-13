@@ -1,4 +1,3 @@
-
 #include "magma_renderer.hpp"
 #include "magma_device.hpp"
 #include "magma_swap_chain.hpp"
@@ -38,17 +37,19 @@ void MagmaRenderer::recreateSwapChain() {
   if (magmaSwapChain == nullptr) {
     magmaSwapChain = std::make_unique<MagmaSwapChain>(magmaDevice, extent);
   } else {
-    magmaSwapChain = std::make_unique<MagmaSwapChain>(
-        magmaDevice, extent, std::move(magmaSwapChain));
-    if (magmaSwapChain->imageCount() != commandBuffers.size()) {
-      freeCommandBuffers();
-      createCommandBuffers();
+    std::shared_ptr<MagmaSwapChain> oldSwapChain = std::move(magmaSwapChain);
+    magmaSwapChain =
+        std::make_unique<MagmaSwapChain>(magmaDevice, extent, oldSwapChain);
+
+    if (!oldSwapChain->compareSwapFormats(*magmaSwapChain.get())) {
+      throw std::runtime_error(
+          "Swap chain image(or depth) format has changed!");
     }
   }
 }
 
 void MagmaRenderer::createCommandBuffers() {
-  commandBuffers.resize(magmaSwapChain->imageCount());
+  commandBuffers.resize(MagmaSwapChain::MAX_FRAMES_IN_FLIGHT);
 
   VkCommandBufferAllocateInfo allocInfo{};
   allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -110,13 +111,13 @@ void MagmaRenderer::endFrame() {
       magmaWindow.wasWindowResized()) {
     magmaWindow.resetWindowResizedFlag();
     recreateSwapChain();
-  }
-
-  if (result != VK_SUCCESS) {
+  } else if (result != VK_SUCCESS) {
     throw std::runtime_error("failed to present swap chain image");
   }
 
   isFrameStarted = false;
+  currentFrameIndex =
+      (currentFrameIndex + 1) % MagmaSwapChain::MAX_FRAMES_IN_FLIGHT;
 }
 
 void MagmaRenderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer) {

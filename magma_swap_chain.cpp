@@ -308,6 +308,7 @@ void MagmaSwapChain::createFramebuffers() {
 
 void MagmaSwapChain::createDepthResources() {
   VkFormat depthFormat = findDepthFormat();
+  swapChainDepthFormat = depthFormat;
   VkExtent2D swapChainExtent = getSwapChainExtent();
 
   depthImages.resize(imageCount());

@@ -2,9 +2,7 @@
 
 #include "magma_device.hpp"
 #include "magma_game_object.hpp"
-#include "magma_pipeline.hpp"
 #include "magma_renderer.hpp"
-#include <memory>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -27,15 +25,11 @@ private:
   void calculateSiepinskiTriangle(std::vector<MagmaModel::Vertex> preVertices,
                                   std::vector<MagmaModel::Vertex> *result,
                                   int counter);
-  void createPipelineLayout();
-  void createPipeline();
-  void renderGameObjects(VkCommandBuffer commandBuffer);
 
   MagmaWindow magmaWindow{WIDTH, HEIGHT, "MAGMA!"};
   MagmaDevice magmaDevice{magmaWindow};
   MagmaRenderer magmaRenderer{magmaWindow, magmaDevice};
-  std::unique_ptr<MagmaPipeline> magmaPipeline;
-  VkPipelineLayout pipelineLayout;
+
   std::vector<MagmaGameObject> gameObjects;
 };
 
