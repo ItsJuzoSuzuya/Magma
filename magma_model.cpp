@@ -1,23 +1,60 @@
 #include "magma_model.hpp"
 #include "magma_device.hpp"
+#include "magma_utils.hpp"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
+#include <memory>
+#include <stdexcept>
+#include <string>
 #include <sys/types.h>
+#include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tinyobjloader/tiny_obj_loader.h>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
+namespace std {
+template <> struct hash<magma::MagmaModel::Vertex> {
+  size_t operator()(magma::MagmaModel::Vertex const &vertex) const {
+    size_t seed = 0;
+    magma::hashCombine(seed, vertex.position, vertex.color, vertex.normal,
+                       vertex.uv);
+    return seed;
+  }
+};
+} // namespace std
+
 namespace magma {
 
-MagmaModel::MagmaModel(MagmaDevice &device, const std::vector<Vertex> &vertices)
+MagmaModel::MagmaModel(MagmaDevice &device, const MagmaModel::Builder &builder)
     : magmaDevice{device} {
-  createVertexBuffers(vertices);
+  createVertexBuffers(builder.vertices);
+  createIndexBuffers(builder.indices);
 }
 
 MagmaModel::~MagmaModel() {
   vkDestroyBuffer(magmaDevice.device(), vertexBuffer, nullptr);
   vkFreeMemory(magmaDevice.device(), vertexBufferMemory, nullptr);
+
+  if (hasIndexBuffer) {
+    vkDestroyBuffer(magmaDevice.device(), indexBuffer, nullptr);
+    vkFreeMemory(magmaDevice.device(), indexBufferMemory, nullptr);
+  }
+}
+
+std::unique_ptr<MagmaModel>
+MagmaModel::createModelFromFile(MagmaDevice &device,
+                                const std::string &filepath) {
+  Builder builder{};
+  builder.loadModel(filepath);
+
+  return std::make_unique<MagmaModel>(device, builder);
 }
 
 void MagmaModel::createVertexBuffers(const std::vector<Vertex> &vertices) {
@@ -25,25 +62,82 @@ void MagmaModel::createVertexBuffers(const std::vector<Vertex> &vertices) {
   assert(vertexCount >= 3 && "Vertex count must be at least 3");
 
   VkDeviceSize bufferSize = sizeof(vertices[0]) * vertexCount;
-  magmaDevice.createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+
+  VkBuffer stagingBuffer{};
+  VkDeviceMemory stagingBufferMemory{};
+
+  magmaDevice.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                           vertexBuffer, vertexBufferMemory);
+                           stagingBuffer, stagingBufferMemory);
+
   void *data;
-  vkMapMemory(magmaDevice.device(), vertexBufferMemory, 0, bufferSize, 0,
+  vkMapMemory(magmaDevice.device(), stagingBufferMemory, 0, bufferSize, 0,
               &data);
   memcpy(data, vertices.data(), static_cast<uint32_t>(bufferSize));
-  vkUnmapMemory(magmaDevice.device(), vertexBufferMemory);
+  vkUnmapMemory(magmaDevice.device(), stagingBufferMemory);
+
+  magmaDevice.createBuffer(
+      bufferSize,
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+
+  magmaDevice.copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+  vkDestroyBuffer(magmaDevice.device(), stagingBuffer, nullptr);
+  vkFreeMemory(magmaDevice.device(), stagingBufferMemory, nullptr);
+}
+
+void MagmaModel::createIndexBuffers(const std::vector<uint32_t> &indices) {
+  indexCount = static_cast<uint32_t>(indices.size());
+  hasIndexBuffer = indexCount > 0;
+
+  if (!hasIndexBuffer)
+    return;
+
+  VkDeviceSize bufferSize = sizeof(indices[0]) * indexCount;
+
+  VkBuffer stagingBuffer{};
+  VkDeviceMemory stagingBufferMemory{};
+
+  magmaDevice.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                           stagingBuffer, stagingBufferMemory);
+
+  void *data;
+  vkMapMemory(magmaDevice.device(), stagingBufferMemory, 0, bufferSize, 0,
+              &data);
+  memcpy(data, indices.data(), static_cast<uint32_t>(bufferSize));
+  vkUnmapMemory(magmaDevice.device(), stagingBufferMemory);
+
+  magmaDevice.createBuffer(
+      bufferSize,
+      VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+
+  magmaDevice.copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+
+  vkDestroyBuffer(magmaDevice.device(), stagingBuffer, nullptr);
+  vkFreeMemory(magmaDevice.device(), stagingBufferMemory, nullptr);
+}
+
+void MagmaModel::draw(VkCommandBuffer commandBuffer) {
+  if (hasIndexBuffer) {
+    vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+  } else {
+    vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);
+  }
 }
 
 void MagmaModel::bind(VkCommandBuffer commandBuffer) {
   VkBuffer buffers[] = {vertexBuffer};
   VkDeviceSize offsets[] = {0};
   vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets);
-}
 
-void MagmaModel::draw(VkCommandBuffer commandBuffer) {
-  vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);
+  if (hasIndexBuffer) {
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+  }
 }
 
 std::vector<VkVertexInputBindingDescription>
@@ -57,16 +151,74 @@ MagmaModel::Vertex::getBindingDescriptions() {
 
 std::vector<VkVertexInputAttributeDescription>
 MagmaModel::Vertex::getAttributeDescriptions() {
-  std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
-  attributeDescriptions[0].binding = 0;
-  attributeDescriptions[0].location = 0;
-  attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-  attributeDescriptions[0].offset = offsetof(Vertex, position);
+  std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
 
-  attributeDescriptions[1].binding = 0;
-  attributeDescriptions[1].location = 1;
-  attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-  attributeDescriptions[1].offset = offsetof(Vertex, color);
+  attributeDescriptions.push_back(
+      {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position)});
+  attributeDescriptions.push_back(
+      {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, color)});
+  attributeDescriptions.push_back(
+      {2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal)});
+  attributeDescriptions.push_back(
+      {3, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv)});
+
   return attributeDescriptions;
 }
+
+void MagmaModel::Builder::loadModel(const std::string &filepath) {
+  tinyobj::attrib_t attrib;
+  std::vector<tinyobj::shape_t> shapes;
+  std::vector<tinyobj::material_t> materials;
+  std::string warn, err;
+
+  if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err,
+                        filepath.c_str())) {
+    std::runtime_error(warn + err);
+  }
+
+  vertices.clear();
+  indices.clear();
+
+  std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+  for (const auto &shape : shapes) {
+    for (const auto &index : shape.mesh.indices) {
+      Vertex vertex{};
+
+      if (index.vertex_index >= 0) {
+        vertex.position = {
+            attrib.vertices[3 * index.vertex_index + 0],
+            attrib.vertices[3 * index.vertex_index + 1],
+            attrib.vertices[3 * index.vertex_index + 2],
+        };
+
+        vertex.color = {
+            attrib.colors[3 * index.vertex_index + 0],
+            attrib.colors[3 * index.vertex_index + 1],
+            attrib.colors[3 * index.vertex_index + 2],
+        };
+      }
+      if (index.normal_index >= 0) {
+        vertex.normal = {
+            attrib.normals[3 * index.normal_index + 0],
+            attrib.normals[3 * index.normal_index + 1],
+            attrib.normals[3 * index.normal_index + 2],
+        };
+      }
+
+      if (index.texcoord_index >= 0) {
+        vertex.uv = {
+            attrib.texcoords[2 * index.texcoord_index + 0],
+            attrib.texcoords[2 * index.texcoord_index + 1],
+        };
+      }
+
+      if (uniqueVertices.count(vertex) == 0) {
+        uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+        vertices.push_back(vertex);
+      }
+      indices.push_back(uniqueVertices[vertex]);
+    }
+  }
+}
+
 } // namespace magma

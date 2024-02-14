@@ -63,74 +63,16 @@ void Magma::run() {
 
   vkDeviceWaitIdle(magmaDevice.device());
 }
-std::unique_ptr<MagmaModel> createCubeModel(MagmaDevice &device,
-                                            glm::vec3 offset) {
-  std::vector<MagmaModel::Vertex> vertices{
-
-      // left face (white)
-      {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-      {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-      {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
-      {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-      {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
-      {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-
-      // right face (yellow)
-      {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-      {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
-      {{.5f, -.5f, .5f}, {.8f, .8f, .1f}},
-      {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-      {{.5f, .5f, -.5f}, {.8f, .8f, .1f}},
-      {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
-
-      // top face (orange, remember y axis points down)
-      {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-      {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-      {{-.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-      {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-      {{.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-      {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-
-      // bottom face (red)
-      {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-      {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-      {{-.5f, .5f, .5f}, {.8f, .1f, .1f}},
-      {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-      {{.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-      {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-
-      // nose face (blue)
-      {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-      {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-      {{-.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-      {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-      {{.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-      {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-
-      // tail face (green)
-      {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-      {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-      {{-.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-      {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-      {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-      {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-
-  };
-  for (auto &v : vertices) {
-    v.position += offset;
-  }
-  return std::make_unique<MagmaModel>(device, vertices);
-}
 
 void Magma::loadGameObjects() {
-  std::shared_ptr<MagmaModel> cubeModel =
-      createCubeModel(magmaDevice, {.0f, .0f, .0f});
-  auto cube = MagmaGameObject::createGameObject();
-  cube.model = cubeModel;
-  cube.transform.position = {.0f, .0f, 2.5f};
-  cube.transform.scale = {.5f, .5f, .5f};
+  std::shared_ptr<MagmaModel> gameObjectModel =
+      MagmaModel::createModelFromFile(magmaDevice, "./models/smooth_vase.obj");
+  auto gameObject = MagmaGameObject::createGameObject();
+  gameObject.model = gameObjectModel;
+  gameObject.transform.position = {.0f, .0f, 2.5f};
+  gameObject.transform.scale = glm::vec3{3.f};
 
-  gameObjects.push_back(std::move(cube));
+  gameObjects.push_back(std::move(gameObject));
 }
 
 } // namespace magma
