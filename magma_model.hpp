@@ -1,3 +1,4 @@
+#include "magma_buffer.hpp"
 #include "magma_device.hpp"
 #include <cstdint>
 #include <glm/fwd.hpp>
@@ -56,13 +57,11 @@ private:
 
   MagmaDevice &magmaDevice;
 
-  VkBuffer vertexBuffer;
-  VkDeviceMemory vertexBufferMemory;
+  std::unique_ptr<MagmaBuffer> vertexBuffer;
   uint32_t vertexCount;
 
   bool hasIndexBuffer = false;
-  VkBuffer indexBuffer;
-  VkDeviceMemory indexBufferMemory;
+  std::unique_ptr<MagmaBuffer> indexBuffer;
   uint32_t indexCount;
 };
 

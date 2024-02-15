@@ -18,7 +18,7 @@ namespace magma {
 
 struct SimplePushConstantData {
   glm::mat4 transform{1.f};
-  alignas(16) glm::vec3 color;
+  glm::mat4 modelMatrix{1.f};
 };
 
 SimpleRenderSystem::SimpleRenderSystem(MagmaDevice &device,
@@ -77,8 +77,9 @@ void SimpleRenderSystem::renderGameObjects(
 
   for (auto &obj : gameObjects) {
     SimplePushConstantData push{};
-    push.color = obj.color;
-    push.transform = projectionView * obj.transform.mat4();
+    auto modelMatrix = obj.transform.mat4();
+    push.transform = projectionView * modelMatrix;
+    push.modelMatrix = modelMatrix;
 
     vkCmdPushConstants(commandBuffer, pipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT |

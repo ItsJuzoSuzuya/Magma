@@ -6,16 +6,22 @@ layout(location = 2) in vec3 normal;
 layout(location = 3) in vec2 uv;
 
 layout(location = 0) out vec3 fragColor;
-layout(location = 1) out vec3 fragNormal;
 
 layout(push_constant) uniform Push {
   mat4 transform;
-  vec3 color;
+  mat4 modelMatrix;
 } push;
 
-void main() {
-  gl_Position = push.transform * vec4(position ,1.0);
+const vec3 lightDir = normalize(vec3(1.0, -1.0, 1.0));
+const float ambient = 0.1;
 
-  fragColor = color;
-  fragNormal = normal;
+void main() {
+  gl_Position = push.transform * vec4(position, 1.0);
+
+  mat3 normalMatrix = transpose(inverse(mat3(push.modelMatrix)));
+  vec3 normalWorldSpace = normalize(normalMatrix * normal);
+
+  float lightIntensity = ambient + max(dot(normalWorldSpace, lightDir), 0.0);
+
+  fragColor = lightIntensity * color;
 }

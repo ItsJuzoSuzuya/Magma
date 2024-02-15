@@ -1,4 +1,5 @@
 #include "magma_model.hpp"
+#include "magma_buffer.hpp"
 #include "magma_device.hpp"
 #include "magma_utils.hpp"
 #include <cassert>
@@ -38,15 +39,7 @@ MagmaModel::MagmaModel(MagmaDevice &device, const MagmaModel::Builder &builder)
   createIndexBuffers(builder.indices);
 }
 
-MagmaModel::~MagmaModel() {
-  vkDestroyBuffer(magmaDevice.device(), vertexBuffer, nullptr);
-  vkFreeMemory(magmaDevice.device(), vertexBufferMemory, nullptr);
-
-  if (hasIndexBuffer) {
-    vkDestroyBuffer(magmaDevice.device(), indexBuffer, nullptr);
-    vkFreeMemory(magmaDevice.device(), indexBufferMemory, nullptr);
-  }
-}
+MagmaModel::~MagmaModel() {}
 
 std::unique_ptr<MagmaModel>
 MagmaModel::createModelFromFile(MagmaDevice &device,
@@ -62,30 +55,22 @@ void MagmaModel::createVertexBuffers(const std::vector<Vertex> &vertices) {
   assert(vertexCount >= 3 && "Vertex count must be at least 3");
 
   VkDeviceSize bufferSize = sizeof(vertices[0]) * vertexCount;
+  uint32_t vertexSize = sizeof(vertices[0]);
 
-  VkBuffer stagingBuffer{};
-  VkDeviceMemory stagingBufferMemory{};
+  MagmaBuffer stagingBuffer{magmaDevice, vertexSize, vertexCount,
+                            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT};
+  stagingBuffer.map();
+  stagingBuffer.writeToBuffer((void *)vertices.data());
 
-  magmaDevice.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                           stagingBuffer, stagingBufferMemory);
-
-  void *data;
-  vkMapMemory(magmaDevice.device(), stagingBufferMemory, 0, bufferSize, 0,
-              &data);
-  memcpy(data, vertices.data(), static_cast<uint32_t>(bufferSize));
-  vkUnmapMemory(magmaDevice.device(), stagingBufferMemory);
-
-  magmaDevice.createBuffer(
-      bufferSize,
+  vertexBuffer = std::make_unique<MagmaBuffer>(
+      magmaDevice, vertexSize, vertexCount,
       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-  magmaDevice.copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-
-  vkDestroyBuffer(magmaDevice.device(), stagingBuffer, nullptr);
-  vkFreeMemory(magmaDevice.device(), stagingBufferMemory, nullptr);
+  magmaDevice.copyBuffer(stagingBuffer.getBuffer(), vertexBuffer->getBuffer(),
+                         bufferSize);
 }
 
 void MagmaModel::createIndexBuffers(const std::vector<uint32_t> &indices) {
@@ -96,30 +81,23 @@ void MagmaModel::createIndexBuffers(const std::vector<uint32_t> &indices) {
     return;
 
   VkDeviceSize bufferSize = sizeof(indices[0]) * indexCount;
+  uint32_t indexSize = sizeof(indices[0]);
 
-  VkBuffer stagingBuffer{};
-  VkDeviceMemory stagingBufferMemory{};
+  MagmaBuffer stagingBuffer{magmaDevice, indexSize, indexCount,
+                            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT};
 
-  magmaDevice.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                           stagingBuffer, stagingBufferMemory);
+  stagingBuffer.map();
+  stagingBuffer.writeToBuffer((void *)indices.data());
 
-  void *data;
-  vkMapMemory(magmaDevice.device(), stagingBufferMemory, 0, bufferSize, 0,
-              &data);
-  memcpy(data, indices.data(), static_cast<uint32_t>(bufferSize));
-  vkUnmapMemory(magmaDevice.device(), stagingBufferMemory);
-
-  magmaDevice.createBuffer(
-      bufferSize,
+  indexBuffer = std::make_unique<MagmaBuffer>(
+      magmaDevice, indexSize, indexCount,
       VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-  magmaDevice.copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-
-  vkDestroyBuffer(magmaDevice.device(), stagingBuffer, nullptr);
-  vkFreeMemory(magmaDevice.device(), stagingBufferMemory, nullptr);
+  magmaDevice.copyBuffer(stagingBuffer.getBuffer(), indexBuffer->getBuffer(),
+                         bufferSize);
 }
 
 void MagmaModel::draw(VkCommandBuffer commandBuffer) {
@@ -131,12 +109,13 @@ void MagmaModel::draw(VkCommandBuffer commandBuffer) {
 }
 
 void MagmaModel::bind(VkCommandBuffer commandBuffer) {
-  VkBuffer buffers[] = {vertexBuffer};
+  VkBuffer buffers[] = {vertexBuffer->getBuffer()};
   VkDeviceSize offsets[] = {0};
   vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets);
 
   if (hasIndexBuffer) {
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer->getBuffer(), 0,
+                         VK_INDEX_TYPE_UINT32);
   }
 }
 

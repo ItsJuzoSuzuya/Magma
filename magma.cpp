@@ -1,7 +1,9 @@
 #include "magma.hpp"
 #include "keyboard_movement_controller.hpp"
+#include "magma_buffer.hpp"
 #include "magma_camera.hpp"
 #include "magma_game_object.hpp"
+#include "magma_swap_chain.hpp"
 #include "simple_render_system.hpp"
 #include <GLFW/glfw3.h>
 #include <chrono>
@@ -21,11 +23,27 @@
 
 namespace magma {
 
+struct GlobalUBO {
+  glm::mat4 projectionView{1.f};
+  glm::vec3 lightDirection{1.f, -1.f, -1.f};
+};
+
 Magma::Magma() { loadGameObjects(); }
 
 Magma::~Magma() {}
 
 void Magma::run() {
+
+  MagmaBuffer globalUboBuffer{
+      magmaDevice,
+      sizeof(GlobalUBO),
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+      MagmaSwapChain::MAX_FRAMES_IN_FLIGHT,
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+      magmaDevice.properties.limits.minUniformBufferOffsetAlignment};
+
+  globalUboBuffer.map();
+
   SimpleRenderSystem simpleRenderSystem{magmaDevice,
                                         magmaRenderer.getSwapChainRenderPass()};
   MagmaCamera camera{};
@@ -54,6 +72,15 @@ void Magma::run() {
     camera.setPerspectiveProjection(glm::radians(50.f), aspect, .1f, 10.f);
 
     if (auto commandBuffer = magmaRenderer.beginFrame()) {
+      int frameIndex = magmaRenderer.getFrameIndex();
+
+      // update uniform buffer
+      GlobalUBO ubo{};
+      ubo.projectionView = camera.getProjection() * camera.getView();
+      globalUboBuffer.writeToIndex(&ubo, frameIndex);
+      globalUboBuffer.flushIndex(frameIndex);
+
+      // render
       magmaRenderer.beginSwapChainRenderPass(commandBuffer);
       simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera);
       magmaRenderer.endSwapChainRenderPass(commandBuffer);
@@ -71,6 +98,7 @@ void Magma::loadGameObjects() {
   gameObject.model = gameObjectModel;
   gameObject.transform.position = {.0f, .0f, 2.5f};
   gameObject.transform.scale = glm::vec3{3.f};
+  gameObject.transform.rotation = glm::vec3{0.f, 10.0f, .0f};
 
   gameObjects.push_back(std::move(gameObject));
 }
