@@ -1,30 +1,27 @@
-
 #include "simple_render_system.hpp"
-#include "magma_device.hpp"
-#include "magma_game_object.hpp"
-#include "magma_pipeline.hpp"
-#include <GLFW/glfw3.h>
-#include <cassert>
-#include <glm/common.hpp>
-#include <glm/ext/scalar_constants.hpp>
-#include <glm/fwd.hpp>
+
+// libs
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
-#include <memory>
+
+// std
+#include <cassert>
 #include <stdexcept>
-#include <vector>
-#include <vulkan/vulkan_core.h>
 
 namespace magma {
 
 struct SimplePushConstantData {
-  glm::mat4 transform{1.f};
   glm::mat4 modelMatrix{1.f};
+  glm::mat4 normalMatrix{1.f};
 };
 
 SimpleRenderSystem::SimpleRenderSystem(MagmaDevice &device,
-                                       VkRenderPass renderPass)
+                                       VkRenderPass renderPass,
+                                       VkDescriptorSetLayout globalSetLayout)
     : magmaDevice{device} {
-  createPipelineLayout();
+  createPipelineLayout(globalSetLayout);
   createPipeline(renderPass);
 }
 
@@ -32,27 +29,27 @@ SimpleRenderSystem::~SimpleRenderSystem() {
   vkDestroyPipelineLayout(magmaDevice.device(), pipelineLayout, nullptr);
 }
 
-void SimpleRenderSystem::createPipelineLayout() {
-
+void SimpleRenderSystem::createPipelineLayout(
+    VkDescriptorSetLayout globalSetLayout) {
   VkPushConstantRange pushConstantRange{};
   pushConstantRange.stageFlags =
       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
   pushConstantRange.offset = 0;
   pushConstantRange.size = sizeof(SimplePushConstantData);
 
-  VkPipelineLayoutCreateInfo pipelineLayoutInfo;
+  std::vector<VkDescriptorSetLayout> descriptorSetLayouts{globalSetLayout};
+
+  VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
   pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  pipelineLayoutInfo.setLayoutCount = 0;
-  pipelineLayoutInfo.pSetLayouts = nullptr;
+  pipelineLayoutInfo.setLayoutCount =
+      static_cast<uint32_t>(descriptorSetLayouts.size());
+  pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
   pipelineLayoutInfo.pushConstantRangeCount = 1;
   pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
-  pipelineLayoutInfo.pNext = nullptr;
-  pipelineLayoutInfo.flags = 0;
-
   if (vkCreatePipelineLayout(magmaDevice.device(), &pipelineLayoutInfo, nullptr,
                              &pipelineLayout) != VK_SUCCESS) {
-    throw std::runtime_error("failed to create pipeline layout");
-  };
+    throw std::runtime_error("failed to create pipeline layout!");
+  }
 }
 
 void SimpleRenderSystem::createPipeline(VkRenderPass renderPass) {
@@ -69,24 +66,24 @@ void SimpleRenderSystem::createPipeline(VkRenderPass renderPass) {
 }
 
 void SimpleRenderSystem::renderGameObjects(
-    VkCommandBuffer commandBuffer, std::vector<MagmaGameObject> &gameObjects,
-    const MagmaCamera &camera) {
-  magmaPipeline->bind(commandBuffer);
+    FrameInfo &frameInfo, std::vector<MagmaGameObject> &gameObjects) {
+  magmaPipeline->bind(frameInfo.commandBuffer);
 
-  auto projectionView = camera.getProjection() * camera.getView();
+  vkCmdBindDescriptorSets(frameInfo.commandBuffer,
+                          VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
+                          &frameInfo.globalDescriptorSet, 0, nullptr);
 
   for (auto &obj : gameObjects) {
     SimplePushConstantData push{};
-    auto modelMatrix = obj.transform.mat4();
-    push.transform = projectionView * modelMatrix;
-    push.modelMatrix = modelMatrix;
+    push.modelMatrix = obj.transform.mat4();
+    push.normalMatrix = obj.transform.normalMatrix();
 
-    vkCmdPushConstants(commandBuffer, pipelineLayout,
+    vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT |
                            VK_SHADER_STAGE_FRAGMENT_BIT,
                        0, sizeof(SimplePushConstantData), &push);
-    obj.model->bind(commandBuffer);
-    obj.model->draw(commandBuffer);
+    obj.model->bind(frameInfo.commandBuffer);
+    obj.model->draw(frameInfo.commandBuffer);
   }
 }
 

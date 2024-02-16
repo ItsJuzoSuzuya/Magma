@@ -1,10 +1,13 @@
 #pragma once
 
+#include "magma_descriptors.hpp"
 #include "magma_device.hpp"
 #include "magma_game_object.hpp"
 #include "magma_renderer.hpp"
+
+// std
+#include <memory>
 #include <vector>
-#include <vulkan/vulkan_core.h>
 
 namespace magma {
 class Magma {
@@ -22,15 +25,13 @@ public:
 
 private:
   void loadGameObjects();
-  void calculateSiepinskiTriangle(std::vector<MagmaModel::Vertex> preVertices,
-                                  std::vector<MagmaModel::Vertex> *result,
-                                  int counter);
 
-  MagmaWindow magmaWindow{WIDTH, HEIGHT, "MAGMA!"};
+  MagmaWindow magmaWindow{WIDTH, HEIGHT, "Magma!"};
   MagmaDevice magmaDevice{magmaWindow};
   MagmaRenderer magmaRenderer{magmaWindow, magmaDevice};
 
+  // note: order of declarations matters
+  std::unique_ptr<MagmaDescriptorPool> globalPool{};
   std::vector<MagmaGameObject> gameObjects;
 };
-
 } // namespace magma

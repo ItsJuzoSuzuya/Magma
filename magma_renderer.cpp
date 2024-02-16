@@ -2,6 +2,7 @@
 #include "magma_device.hpp"
 #include "magma_swap_chain.hpp"
 #include <GLFW/glfw3.h>
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstdint>
@@ -9,6 +10,7 @@
 #include <glm/ext/scalar_constants.hpp>
 #include <glm/fwd.hpp>
 #include <glm/gtc/constants.hpp>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <utility>

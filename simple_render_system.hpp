@@ -1,29 +1,29 @@
-
 #pragma once
 
-#include "magma_camera.hpp"
 #include "magma_device.hpp"
+#include "magma_frame_info.hpp"
 #include "magma_game_object.hpp"
 #include "magma_pipeline.hpp"
+
+// std
 #include <memory>
 #include <vector>
-#include <vulkan/vulkan_core.h>
 
 namespace magma {
 class SimpleRenderSystem {
 public:
-  SimpleRenderSystem(MagmaDevice &device, VkRenderPass renderPass);
+  SimpleRenderSystem(MagmaDevice &device, VkRenderPass renderPass,
+                     VkDescriptorSetLayout globalSetLayout);
   ~SimpleRenderSystem();
 
   SimpleRenderSystem(const SimpleRenderSystem &) = delete;
   SimpleRenderSystem &operator=(const SimpleRenderSystem &) = delete;
 
-  void renderGameObjects(VkCommandBuffer commandBuffer,
-                         std::vector<MagmaGameObject> &gameObjects,
-                         const MagmaCamera &camera);
+  void renderGameObjects(FrameInfo &frameInfo,
+                         std::vector<MagmaGameObject> &gameObjects);
 
 private:
-  void createPipelineLayout();
+  void createPipelineLayout(VkDescriptorSetLayout globalSetLayout);
   void createPipeline(VkRenderPass renderPass);
 
   MagmaDevice &magmaDevice;
@@ -31,5 +31,4 @@ private:
   std::unique_ptr<MagmaPipeline> magmaPipeline;
   VkPipelineLayout pipelineLayout;
 };
-
 } // namespace magma
