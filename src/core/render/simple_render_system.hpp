@@ -1,9 +1,9 @@
 #pragma once
 
-#include "magma_device.hpp"
-#include "magma_frame_info.hpp"
-#include "magma_game_object.hpp"
-#include "magma_pipeline.hpp"
+#include "../magma_device.hpp"
+#include "../magma_frame_info.hpp"
+#include "../magma_game_object.hpp"
+#include "../magma_pipeline.hpp"
 
 // std
 #include <memory>

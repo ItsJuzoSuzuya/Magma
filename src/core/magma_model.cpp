@@ -1,7 +1,7 @@
 #include "magma_model.hpp"
 #include "magma_buffer.hpp"
 #include "magma_device.hpp"
-#include "magma_utils.hpp"
+#include "utils/magma_utils.hpp"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

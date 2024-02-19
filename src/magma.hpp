@@ -1,9 +1,9 @@
 #pragma once
 
-#include "magma_descriptors.hpp"
-#include "magma_device.hpp"
-#include "magma_game_object.hpp"
-#include "magma_renderer.hpp"
+#include "core/magma_descriptors.hpp"
+#include "core/magma_device.hpp"
+#include "core/magma_game_object.hpp"
+#include "core/render/magma_renderer.hpp"
 
 // std
 #include <memory>

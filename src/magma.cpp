@@ -1,10 +1,8 @@
 #include "magma.hpp"
+#include "core/magma_buffer.hpp"
+#include "core/magma_camera.hpp"
+#include "core/render/simple_render_system.hpp"
 #include "keyboard_movement_controller.hpp"
-#include "magma_buffer.hpp"
-#include "magma_camera.hpp"
-#include "simple_render_system.hpp"
-#include <iostream>
-#include <iterator>
 
 // libs
 #define GLM_FORCE_RADIANS

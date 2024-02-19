@@ -1,14 +1,16 @@
-
 CFLAGS = -std=c++17 -ggdb 
 LDFLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 
-VulkanTest: *.cpp *.hpp
-	clang++ $(CFLAGS) -o VulkanTest *.cpp $(LDFLAGS)
+SOURCES := $(shell find src -name '*.cpp')
+HEADERS := $(shell find src -name '*.hpp')
+
+VulkanTest: $(SOURCES) $(HEADERS)
+	clang++ $(CFLAGS) -o VulkanTest $(SOURCES) $(LDFLAGS)
 
 .PHONY: test clean
 
 test: VulkanTest
-	bash shaders/compile.sh
+	bash src/shaders/compile.sh
 	./VulkanTest
 
 clean: 

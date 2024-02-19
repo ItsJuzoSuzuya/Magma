@@ -1,6 +1,6 @@
 #pragma once
 
-#include "magma_game_object.hpp"
+#include "core/magma_game_object.hpp"
 #include <GLFW/glfw3.h>
 namespace magma {
 

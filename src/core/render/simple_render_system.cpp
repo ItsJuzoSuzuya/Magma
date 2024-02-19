@@ -61,8 +61,8 @@ void SimpleRenderSystem::createPipeline(VkRenderPass renderPass) {
   pipelineConfig.renderPass = renderPass;
   pipelineConfig.pipelineLayout = pipelineLayout;
   magmaPipeline = std::make_unique<MagmaPipeline>(
-      magmaDevice, "shaders/simple_shader.vert.spv",
-      "shaders/simple_shader.frag.spv", pipelineConfig);
+      magmaDevice, "src/shaders/simple_shader.vert.spv",
+      "src/shaders/simple_shader.frag.spv", pipelineConfig);
 }
 
 void SimpleRenderSystem::renderGameObjects(

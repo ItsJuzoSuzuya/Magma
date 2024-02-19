@@ -1,8 +1,8 @@
 
 #pragma once
 
-#include "magma_device.hpp"
-#include "magma_swap_chain.hpp"
+#include "../magma_device.hpp"
+#include "../magma_swap_chain.hpp"
 #include <cassert>
 #include <cstdint>
 #include <memory>
