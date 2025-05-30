@@ -1,5 +1,12 @@
 #include "game_object.hpp"
 #include "model.hpp"
-#include <memory>
-#include <type_traits>
+#include <iostream>
 
+namespace magma {
+
+GameObject GameObject::create() {
+  static id_t currentId = 0;
+  return GameObject{currentId++};
+}
+
+} // namespace magma

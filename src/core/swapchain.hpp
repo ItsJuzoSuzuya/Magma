@@ -6,6 +6,7 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
+using namespace std;
 namespace magma {
 
 class SwapChain {
@@ -14,12 +15,13 @@ public:
 
   SwapChain(Device &device, VkExtent2D extent);
   SwapChain(Device &device, VkExtent2D extent,
-            std::shared_ptr<SwapChain> oldSwapChain);
+            shared_ptr<SwapChain> oldSwapChain);
   ~SwapChain();
 
   SwapChain(const SwapChain &) = delete;
   SwapChain &operator=(const SwapChain &) = delete;
 
+  size_t imageCount() const { return swapChainImages.size(); }
   VkRenderPass getRenderPass() { return renderPass; }
   VkFramebuffer getFrameBuffer(int index) { return framebuffers[index]; }
   VkImage &getDepthImage(int index) { return depthImages[index]; }
@@ -48,22 +50,23 @@ private:
   VkFormat swapChainImageFormat;
   VkFormat swapChainDepthFormat;
   VkExtent2D swapChainExtent;
-  std::vector<VkImage> swapChainImages;
-  std::vector<VkImageView> swapChainImageViews;
-  std::shared_ptr<SwapChain> oldSwapChain;
+  vector<VkImage> swapChainImages;
+  vector<VkImageView> swapChainImageViews;
+  shared_ptr<SwapChain> oldSwapChain;
 
   VkRenderPass renderPass;
 
-  std::vector<VkImage> depthImages;
-  std::vector<VkDeviceMemory> depthImageMemories;
-  std::vector<VkImageView> depthImageViews;
-  std::vector<VkImageLayout> depthImageLayouts;
+  vector<VkImage> depthImages;
+  vector<VkDeviceMemory> depthImageMemories;
+  vector<VkImageView> depthImageViews;
+  vector<VkImageLayout> depthImageLayouts;
 
-  std::vector<VkFramebuffer> framebuffers;
+  vector<VkFramebuffer> framebuffers;
 
-  std::vector<VkSemaphore> imageAvailableSemaphores;
-  std::vector<VkSemaphore> renderFinishedSemaphores;
-  std::vector<VkFence> inFlightFences;
+  vector<VkSemaphore> imageAvailableSemaphores;
+  vector<VkSemaphore> renderFinishedSemaphores;
+  vector<VkFence> inFlightFences;
+  vector<VkFence> imagesInFlight;
 
   size_t currentFrame = 0;
 
@@ -74,10 +77,10 @@ private:
   void createFramebuffers();
   void createSyncObjects();
 
-  VkSurfaceFormatKHR chooseSwapSurfaceFormat(
-      const std::vector<VkSurfaceFormatKHR> &availableFormats);
-  VkPresentModeKHR chooseSwapPresentMode(
-      const std::vector<VkPresentModeKHR> &availablePresentModes);
+  VkSurfaceFormatKHR
+  chooseSwapSurfaceFormat(const vector<VkSurfaceFormatKHR> &availableFormats);
+  VkPresentModeKHR
+  chooseSwapPresentMode(const vector<VkPresentModeKHR> &availablePresentModes);
   VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
   VkFormat findDepthFormat();
 };

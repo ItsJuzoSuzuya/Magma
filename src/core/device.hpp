@@ -125,7 +125,8 @@ private:
       "VK_LAYER_KHRONOS_validation"};
   const std::vector<const char *> deviceExtensions = {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_EXT_MULTI_DRAW_EXTENSION_NAME,
-      VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME};
+      VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
+      };
 };
 } // namespace magma
 #endif

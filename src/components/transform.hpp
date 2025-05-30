@@ -5,11 +5,15 @@
 namespace magma {
 
 struct Transform : public Component {
-  Transform(GameObject *parent) : Component(parent) {}
-  Transform(GameObject *parent, glm::vec3 position)
-      : Component(parent), position{position} {}
-  Transform(GameObject *parent, float x, float y, float z)
-      : Transform(parent, glm::vec3(x, y, z)) {}
+  Transform(GameObject* parent) {}
+  Transform(GameObject* parent, glm::vec3 position)
+      : position{position} {
+    setParent(parent);
+  }
+  Transform(GameObject* parent, float x, float y, float z)
+      : Transform(parent, glm::vec3(x, y, z)) {
+    setParent(parent);
+  }
 
   glm::vec3 position{};
   glm::vec3 rotation{};

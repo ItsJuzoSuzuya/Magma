@@ -14,7 +14,7 @@
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <tinygltf/tiny_gltf.h>
+#include "../include/tiny_gltf.h"
 
 using namespace std;
 
@@ -156,13 +156,12 @@ Model::Builder::appendModel(const std::vector<Vertex> &vertices,
   return *this;
 }
 
-std::unique_ptr<Model> Model::createModelFromFile(GameObject *parent,
-                                                  Device &device,
-                                                  const std::string &filepath) {
+shared_ptr<Model> Model::createModelFromFile(GameObject *parent, Device &device,
+                                             const std::string &filepath) {
   Builder builder = {};
   builder.loadModel(filepath);
 
-  return std::make_unique<Model>(parent, device, builder);
+  return std::make_shared<Model>(parent, device, builder);
 }
 
 std::unique_ptr<Model> Model::loadFromMeshes(
@@ -179,26 +178,29 @@ std::unique_ptr<Model> Model::loadFromMeshes(
 }
 
 Model::Model(GameObject *parent, Device &device, const string &filepath)
-    : Component(parent), device{device} {
+    : device{device} {
   createModelFromFile(parent, device, filepath);
 }
 
 Model::Model(GameObject *parent, Device &device, const Model::Builder &builder)
-    : Component(parent), device{device} {
+    : device{device} {
+  setParent(parent);
   createVertexBuffer(builder.vertices);
   createIndexBuffer(builder.indices);
 }
 
 Model::Model(GameObject *parent, Device &device,
              const std::vector<Vertex> &vertices)
-    : Component(parent), device{device} {
+    : device{device} {
+  setParent(parent);
   createVertexBuffer(vertices);
 }
 
 Model::Model(GameObject *parent, Device &device,
              const std::vector<Vertex> &vertices,
              const std::vector<uint32_t> &indices)
-    : Component(parent), device{device} {
+    : device{device} {
+  setParent(parent);
   createVertexBuffer(vertices);
   createIndexBuffer(indices);
 }
@@ -226,8 +228,6 @@ void Model::createVertexBuffer(const std::vector<Vertex> &vertices) {
   device.copyBuffer(stagingBuffer.getBuffer(), vertexBuffer->getBuffer(),
                     bufferSize);
 }
-
-Model::~Model() {}
 
 void Model::createIndexBuffer(const std::vector<uint32_t> &indices) {
   indexCount = static_cast<uint32_t>(indices.size());
@@ -261,10 +261,9 @@ void Model::bind(VkCommandBuffer commandBuffer) {
   VkDeviceSize offsets[] = {0};
   vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets);
 
-  if (hasIndexBuffer) {
+  if (hasIndexBuffer)
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer->getBuffer(), 0,
                          VK_INDEX_TYPE_UINT32);
-  }
 }
 
 void Model::draw(VkCommandBuffer commandBuffer, uint32_t instanceCount) {

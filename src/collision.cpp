@@ -7,15 +7,14 @@ using namespace std;
 namespace magma {
 
 BoxCollider::BoxCollider(Transform &transform)
-    : Component(transform.parent), position(transform.position),
-      rotation(transform.rotation), scale(transform.scale) {
+    : position(transform.position), rotation(transform.rotation),
+      scale(transform.scale) {
   collisionBox.min = position - scale;
   collisionBox.max = position + scale;
 }
 
 BoxCollider::BoxCollider(const glm::vec3 &min, const glm::vec3 &max)
-    : Component(nullptr), position(min + max / 2.0f), rotation(0, 0, 0),
-      scale(1, 1, 1) {
+    : position(min + max / 2.0f), rotation(0, 0, 0), scale(1, 1, 1) {
   collisionBox.min = min;
   collisionBox.max = max;
 }

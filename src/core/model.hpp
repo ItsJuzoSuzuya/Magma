@@ -47,7 +47,6 @@ public:
   Model(GameObject *parent, Device &device, const vector<Vertex> &vertices);
   Model(GameObject *parent, Device &device, const vector<Vertex> &vertices,
         const vector<uint32_t> &indices);
-  ~Model();
 
   Model(const Model &) = delete;
   Model &operator=(const Model &) = delete;
@@ -61,7 +60,7 @@ public:
   void bind(VkCommandBuffer commandBuffer);
   void draw(VkCommandBuffer commandBuffer, uint32_t instanceCount = 1);
 
-  static unique_ptr<Model> createModelFromFile(GameObject *parent,
+  static shared_ptr<Model> createModelFromFile(GameObject *parent,
                                                Device &device,
                                                const string &filepath);
   static unique_ptr<Model>

@@ -41,7 +41,7 @@ private:
   Device &device;
 
   VkDeviceSize alignmentSize;
-  VkDeviceSize bufferSize;
+  VkDeviceSize bufferSize = 0;
 
   VkDeviceSize getAlignment(VkDeviceSize instanceSize,
                             VkDeviceSize minOffsetAlignment);

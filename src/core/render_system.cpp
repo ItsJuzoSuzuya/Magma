@@ -1,14 +1,8 @@
 #include "render_system.hpp"
 #include "buffer.hpp"
 #include "device.hpp"
-#include "frame_info.hpp"
-#include "game_object.hpp"
 #include "model.hpp"
 #include "object_data.hpp"
-#include "occlusion_culler.hpp"
-#include "swapchain.hpp"
-#include <algorithm>
-#include <any>
 #include <array>
 #include <cassert>
 #include <cstdint>
@@ -43,6 +37,9 @@ RenderSystem::~RenderSystem() {
 }
 
 void RenderSystem::recreateSwapChain() {
+
+  cout << "abcdef" << endl;
+
   auto extent = window.getExtent();
   while (extent.width == 0 || extent.height == 0) {
     extent = window.getExtent();
@@ -187,11 +184,12 @@ void RenderSystem::renderGameObjects(FrameInfo &frameInfo,
                           VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
                           &frameInfo.descriptorSet, 0, nullptr);
 
-  for (GameObject &gameObject : gameObjects) {
-    cout << "Getting Transform" << endl;
-    Transform *transform = gameObject.getComponent<Transform>();
+  if (gameObjects.empty())
+    return;
 
-    cout << "Pushing Transform" << endl;
+  for (GameObject &gameObject : gameObjects) {
+    shared_ptr<Transform> transform = gameObject.getComponent<Transform>();
+
     SimplePushConstantData push = {};
     push.modelMatrix = transform->mat4();
     push.normalMatrix = transform->normalMatrix();
@@ -201,10 +199,8 @@ void RenderSystem::renderGameObjects(FrameInfo &frameInfo,
                            VK_SHADER_STAGE_FRAGMENT_BIT,
                        0, sizeof(SimplePushConstantData), &push);
 
-    cout << "Getting Model" << endl;
-    Model *model = gameObject.getComponent<Model>();
+    shared_ptr<Model> model = gameObject.getComponent<Model>();
 
-    cout << "Binding Model" << endl;
     model->bind(frameInfo.commandBuffer);
     model->draw(frameInfo.commandBuffer);
   }

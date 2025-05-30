@@ -2,8 +2,8 @@
 #include "core/buffer.hpp"
 #include "core/game_object.hpp"
 #include "core/model.hpp"
-#include "core/occlusion_culler.hpp"
 #include "core/render_system.hpp"
+#include "movement_controller.hpp"
 #include <GLFW/glfw3.h>
 #include <chrono>
 #include <glm/common.hpp>
@@ -74,6 +74,11 @@ void Magma::run() {
   camera.setPerspectiveProjection(glm::radians(90.f),
                                   renderSystem.getAspectRatio(), 0.1f, 1000.f);
 
+  MovementController movementController{};
+
+  GameObject player = GameObject::create();
+  player.addComponent<Transform>();
+
   auto currentTime = chrono::high_resolution_clock::now();
 
   while (!window.shouldClose()) {
@@ -90,6 +95,11 @@ void Magma::run() {
         chrono::duration<float, chrono::seconds::period>(newTime - currentTime)
             .count();
     currentTime = newTime;
+
+    /* Movement */
+
+    movementController.move(window.getGLFWwindow(), player, deltaTime);
+    camera.follow(*player.getComponent<Transform>());
 
     /* Rendering */
 
@@ -110,10 +120,6 @@ void Magma::run() {
       renderSystem.endFrame();
     }
 
-    chrono::duration<double> frameTime =
-        chrono::high_resolution_clock::now() - currentTime;
-    // cout << "Frame Time: " << frameTime.count() * 1000 << "ms" << endl;
-    // cout << "\rFps: " << 1.0 / frameTime.count() << flush;
     frameCounter++;
   }
 
@@ -121,13 +127,11 @@ void Magma::run() {
 }
 
 void Magma::loadGameObjects() {
-  auto flatVase = GameObject::create();
+  GameObject flatVase = GameObject::create();
 
-  cout << "Adding Model" << endl;
-  flatVase.addComponent<Model>(device, "models/barrel/Barrel.gltf");
-  cout << "Adding Transform" << endl;
+  flatVase.addComponent<Model>(device, string("models/barrel/Barrel.gltf"));
   flatVase.addComponent<Transform>();
-  cout << "Pushing Object" << endl;
+  flatVase.getComponent<Transform>()->scale = glm::vec3(0.1f, 0.1f, 0.1f);
   gameObjects.push_back(std::move(flatVase));
 }
 

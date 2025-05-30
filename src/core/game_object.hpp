@@ -1,8 +1,10 @@
 #pragma once
 #include "../components/component.hpp"
 #include "model.hpp"
-#include <any>
 #include <glm/ext/matrix_transform.hpp>
+#include <iostream>
+#include <memory>
+#include <type_traits>
 #include <typeindex>
 #include <unordered_map>
 
@@ -19,26 +21,33 @@ public:
   GameObject(GameObject &&) = default;
   GameObject &operator=(GameObject &&) = default;
 
-  static GameObject create() {
-    static id_t currentId = 0;
-    return GameObject{currentId++};
-  }
+  static GameObject create();
 
   template <typename T, typename... Args>
   GameObject &addComponent(Args &&...args) {
-    components.emplace(typeid(T), T{this, std::forward<Args>(args)...});
+    shared_ptr<T> component = nullptr;
+    if constexpr (is_same_v<T, Model>)
+      component = Model::createModelFromFile(this, std::forward<Args>(args)...);
+    else
+      component = make_shared<T>(this, std::forward<Args>(args)...);
 
+    components[typeid(T)] = component;
     return *this;
   }
 
   template <typename T> void removeComponent() { components.erase(typeid(T)); }
 
-  template <typename T> T *getComponent() {
+  template <typename T> shared_ptr<T> getComponent() {
     auto it = components.find(typeid(T));
-    if (it != components.end())
-      return any_cast<T *>(&it->second);
+    if (it == components.end())
+      return nullptr;
 
-    return nullptr;
+    try {
+      return dynamic_pointer_cast<T>(it->second);
+    } catch (const std::bad_cast &e) {
+      cout << "Error: " << e.what() << endl;
+      return nullptr;
+    }
   }
 
   id_t getId() { return id; }
@@ -47,7 +56,7 @@ private:
   id_t id;
   GameObject(id_t id) : id{id} {}
 
-  unordered_map<type_index, Component> components;
+  unordered_map<type_index, shared_ptr<Component>> components;
   unordered_map<type_index, GameObject> *children;
 };
 } // namespace magma

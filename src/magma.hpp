@@ -1,7 +1,6 @@
 #pragma once
 #include "core/descriptors.hpp"
 #include "core/game_object.hpp"
-#include "core/object_data.hpp"
 #include <cstdint>
 #include <memory>
 

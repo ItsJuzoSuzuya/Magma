@@ -1,4 +1,5 @@
 #pragma once
+#include "../components/transform.hpp"
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <glm/ext/vector_float4.hpp>
@@ -16,8 +17,10 @@ public:
   const glm::mat4 &getProjection() const { return projectionMatrix; }
   const glm::mat4 &getView() const { return viewMatrix; }
 
-  void follow(const glm::vec3 &position, glm::vec3 &rotation,
-              glm::vec3 offset = {0.f, 0.f, 0.f}) {
+  void follow(const Transform &transform, glm::vec3 offset = {0.f, 0.f, 0.f}) {
+    glm::vec3 position = transform.position;
+    glm::vec3 rotation = transform.rotation;
+
     setView(position + offset, rotation);
   }
 

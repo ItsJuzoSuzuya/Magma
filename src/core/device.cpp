@@ -304,6 +304,9 @@ vector<const char *> Device::getRequiredExtensions() {
   if (enableValidationLayers)
     extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
+  extensions.push_back("VK_KHR_get_surface_capabilities2");
+  extensions.push_back("VK_EXT_surface_maintenance1");
+
   return extensions;
 }
 

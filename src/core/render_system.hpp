@@ -55,7 +55,7 @@ private:
 
   void recreateSwapChain();
 
-  uint32_t currentImageIndex;
+  uint32_t currentImageIndex = 0;
   int currentFrameIndex = 0;
 };
 } // namespace magma
