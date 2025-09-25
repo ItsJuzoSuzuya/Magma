@@ -1,10 +1,11 @@
-#ifndef BUFFER_HPP
-#define BUFFER_HPP
-#include "device.hpp"
+#pragma once
 #include <cstdint>
 #include <vector>
 #include <vulkan/vulkan_core.h>
-namespace magma {
+
+namespace Magma {
+
+class Device;
 
 class Buffer {
 public:
@@ -18,12 +19,15 @@ public:
   Buffer(const Buffer &) = delete;
   Buffer &operator=(const Buffer &) = delete;
 
+  // Getters
   VkBuffer &getBuffer() { return buffer; }
   VkDeviceSize getBufferSize() const { return bufferSize; }
   void *mappedData() const { return mappedMemory; }
 
+  // Descriptor Info
   VkDescriptorBufferInfo descriptorInfo();
 
+  // Memory Operations
   VkResult map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
   void writeToBuffer(void *data, VkDeviceSize size = VK_WHOLE_SIZE,
                      VkDeviceSize offset = 0);
@@ -34,18 +38,20 @@ public:
   void flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 
 private:
+  Device &device;
+
+  // Buffer
   VkBuffer buffer = VK_NULL_HANDLE;
   VkDeviceMemory bufferMemory = VK_NULL_HANDLE;
   void *mappedMemory = nullptr;
 
-  Device &device;
-
+  // Buffer properties 
+  VkDeviceSize bufferSize;
   VkDeviceSize alignmentSize;
-  VkDeviceSize bufferSize = 0;
-
   VkDeviceSize getAlignment(VkDeviceSize instanceSize,
                             VkDeviceSize minOffsetAlignment);
+
+  // Memory Operations
   void unmap();
 };
-} // namespace magma
-#endif
+} // namespace Magma

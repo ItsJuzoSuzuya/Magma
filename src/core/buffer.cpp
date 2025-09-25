@@ -1,19 +1,15 @@
 #include "buffer.hpp"
+#include "device.hpp"
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <glm/common.hpp>
+#include <vector>
 #include <vulkan/vulkan_core.h>
-
 using namespace std;
-namespace magma {
+namespace Magma {
 
-VkDeviceSize Buffer::getAlignment(VkDeviceSize instanceSize,
-                                  VkDeviceSize minOffsetAlignment) {
-  if (minOffsetAlignment == 0)
-    return instanceSize;
-
-  return (instanceSize + minOffsetAlignment - 1) & ~(minOffsetAlignment - 1);
-}
+// Constructor
 
 Buffer::Buffer(Device &device, VkDeviceSize instanceSize,
                uint32_t instanceCount, VkBufferUsageFlags usageFlags,
@@ -26,25 +22,31 @@ Buffer::Buffer(Device &device, VkDeviceSize instanceSize,
                       bufferMemory);
 }
 
-Buffer::~Buffer() { cleanUp(); }
+// Destructor
 
+Buffer::~Buffer() { cleanUp(); }
 void Buffer::cleanUp() {
   unmap();
   vkDestroyBuffer(device.device(), buffer, nullptr);
   vkFreeMemory(device.device(), bufferMemory, nullptr);
 }
+// --- Public ---
+// Descriptor Info
+
+VkDescriptorBufferInfo Buffer::descriptorInfo() {
+  VkDescriptorBufferInfo bufferInfo = {};
+  bufferInfo.offset = 0;
+  bufferInfo.range = bufferSize;
+  bufferInfo.buffer = buffer;
+  return bufferInfo;
+}
+
+// Memory Operations
 
 VkResult Buffer::map(VkDeviceSize size, VkDeviceSize offset) {
   assert(buffer && bufferMemory && "Buffer has to be created before mapping!");
   return vkMapMemory(device.device(), bufferMemory, offset, size, 0,
                      &mappedMemory);
-}
-
-void Buffer::unmap() {
-  if (mappedMemory) {
-    vkUnmapMemory(device.device(), bufferMemory);
-    mappedMemory = nullptr;
-  };
 }
 
 void Buffer::writeToBuffer(void *data, VkDeviceSize size, VkDeviceSize offset) {
@@ -64,7 +66,7 @@ void Buffer::getDepthBufferData(VkCommandBuffer &commandBuffer,
                                 const VkExtent2D &extent,
                                 std::vector<float> &depthData,
                                 VkDeviceSize offset) {
-  assert(mappedMemory && "Cannot write to unmapped memory!");
+  assert(mappedMemory && "Cannot read from unmapped memory!");
 
   VkImageCreateInfo imageInfo = {};
   imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -156,12 +158,24 @@ void Buffer::flush(VkDeviceSize size, VkDeviceSize offset) {
   vkFlushMappedMemoryRanges(device.device(), 1, &mappedRange);
 }
 
-VkDescriptorBufferInfo Buffer::descriptorInfo() {
-  VkDescriptorBufferInfo bufferInfo = {};
-  bufferInfo.offset = 0;
-  bufferInfo.range = bufferSize;
-  bufferInfo.buffer = buffer;
-  return bufferInfo;
+// --- Private ---
+// Buffer properties
+
+VkDeviceSize Buffer::getAlignment(VkDeviceSize instanceSize,
+                                  VkDeviceSize minOffsetAlignment) {
+  if (minOffsetAlignment == 0)
+    return instanceSize;
+
+  return (instanceSize + minOffsetAlignment - 1) & ~(minOffsetAlignment - 1);
 }
 
-} // namespace magma
+// Memory Operations
+
+void Buffer::unmap() {
+  if (mappedMemory) {
+    vkUnmapMemory(device.device(), bufferMemory);
+    mappedMemory = nullptr;
+  };
+}
+
+} // namespace Magma

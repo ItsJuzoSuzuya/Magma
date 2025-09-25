@@ -1,7 +1,4 @@
-#ifndef WINDOW_HPP
-#define WINDOW_HPP
-
-#include <stdexcept>
+#pragma once
 
 #include <vulkan/vulkan.h>
 #define GLFW_INCLUDE_VULKAN
@@ -9,37 +6,33 @@
 
 #include <string>
 
-namespace magma {
+namespace Magma {
+
+class EngineSpecifications;
 
 class Window {
 public:
-  Window(int width, int height, std::string name);
+  Window(EngineSpecifications &spec);
   ~Window();
-
-  bool shouldClose() { return glfwWindowShouldClose(window); }
 
   Window(const Window &) = delete;
   Window &operator=(const Window &) = delete;
 
+  void createSurface(VkInstance instance, VkSurfaceKHR *surface);
+
+  // Getters
   VkExtent2D getExtent() {
     return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
   }
   GLFWwindow *getGLFWwindow() { return window; }
 
-  void createSurface(VkInstance instance, VkSurfaceKHR *surface) {
-    if (glfwCreateWindowSurface(instance, window, nullptr, surface) !=
-        VK_SUCCESS)
-      throw std::runtime_error("Surface Creation was unsuccessful");
-  }
-
   bool wasWindowResized() { return framebufferResized; }
   void resetWindowResizedFlag() { framebufferResized = false; }
 
+  bool shouldClose() { return glfwWindowShouldClose(window); }
   void close();
 
 private:
-  void initWindow();
-
   int width;
   int height;
   bool framebufferResized = false;
@@ -47,8 +40,9 @@ private:
   std::string name;
   GLFWwindow *window;
 
+  void initWindow();
+
   static void framebufferResizeCallback(GLFWwindow *window, int width,
                                         int height);
 };
-} // namespace magma
-#endif
+} // namespace Magma

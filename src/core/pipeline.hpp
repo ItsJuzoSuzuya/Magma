@@ -1,9 +1,11 @@
-#include "device.hpp"
 #include <cstdint>
+#include <string>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-namespace magma {
+namespace Magma {
+
+class Device;
 
 struct PipelineConfigInfo {
   PipelineConfigInfo() = default;
@@ -28,7 +30,6 @@ struct PipelineConfigInfo {
 class Pipeline {
 public:
   Pipeline(Device &device, const std::string &vertFilepath,
-           const std::string &tcsFilepath, const std::string &tesFilepath,
            const std::string &fragFilepath,
            const PipelineConfigInfo &configInfo);
   ~Pipeline();
@@ -49,12 +50,10 @@ private:
   VkShaderModule fragShaderModule;
 
   void createGraphicsPipeline(const std::string &vertFilepath,
-                              const std::string &tcsFilepath,
-                              const std::string &tesFilepath,
                               const std::string &fragFilepath,
                               const PipelineConfigInfo &configInfo);
   std::vector<char> readFile(const std::string &filepath);
   void createShaderModule(const std::vector<char> &code,
                           VkShaderModule *shaderModule);
 };
-} // namespace magma
+} // namespace Magma

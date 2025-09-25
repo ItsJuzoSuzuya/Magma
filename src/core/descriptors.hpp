@@ -1,28 +1,29 @@
-#include "device.hpp"
+#pragma once
 #include <cstdint>
 #include <memory>
 #include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan_core.h>
+namespace Magma {
 
-namespace magma {
+class RenderPipeline;
 
 class DescriptorSetLayout {
 public:
   class Builder {
   public:
-    Builder(Device &device) : device{device} {};
+    Builder(VkDevice device) : device{device} {};
     Builder &addBinding(uint32_t binding, VkDescriptorType descriptorType,
                         VkShaderStageFlags stageFlags, uint32_t count = 1);
     std::unique_ptr<DescriptorSetLayout> build() const;
 
   private:
-    Device &device;
+    VkDevice device = VK_NULL_HANDLE;
     std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings{};
   };
 
   DescriptorSetLayout(
-      Device &device,
+      VkDevice device,
       std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings);
   ~DescriptorSetLayout();
 
@@ -31,7 +32,7 @@ public:
   }
 
 private:
-  Device &device;
+  VkDevice device = VK_NULL_HANDLE;
   VkDescriptorSetLayout descriptorSetLayout;
   std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings{};
 
@@ -42,7 +43,7 @@ class DescriptorPool {
 public:
   class Builder {
   public:
-    Builder(Device &device) : device{device} {};
+    Builder(VkDevice device) : device{device} {};
 
     Builder &addPoolSize(VkDescriptorType descriptorType, uint32_t count);
     Builder &setPoolFlags(VkDescriptorPoolCreateFlags flags);
@@ -50,23 +51,28 @@ public:
     std::unique_ptr<DescriptorPool> build() const;
 
   private:
-    Device &device;
+    VkDevice device = VK_NULL_HANDLE;
     std::vector<VkDescriptorPoolSize> poolSizes{};
     VkDescriptorPoolCreateFlags poolFlags{};
     uint32_t maxSets;
   };
 
-  DescriptorPool(Device &device, uint32_t maxSets,
+  DescriptorPool(VkDevice device, uint32_t maxSets,
                  VkDescriptorPoolCreateFlags poolFlags,
                  const std::vector<VkDescriptorPoolSize> &poolSizes);
   ~DescriptorPool();
 
   bool allocateDescriptor(VkDescriptorSetLayout setLayout,
                           VkDescriptorSet &set);
+  VkDescriptorPool getDescriptorPool() const {
+    if (descriptorPool == VK_NULL_HANDLE)
+      throw std::runtime_error("Descriptor Pool is not created!");
+    return descriptorPool;
+  }
 
 private:
-  Device &device;
-  VkDescriptorPool descriptorPool = {};
+  VkDevice device = VK_NULL_HANDLE;
+  VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 
   friend class DescriptorWriter;
 };
@@ -91,4 +97,4 @@ private:
   std::vector<VkWriteDescriptorSet> writes;
 };
 
-} // namespace magma
+} // namespace Magma

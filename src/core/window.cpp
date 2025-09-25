@@ -1,9 +1,13 @@
 #include "window.hpp"
+#include "../engine/specifications.hpp"
+#include <GLFW/glfw3.h>
+#include <stdexcept>
 
-namespace magma {
+using namespace std;
+namespace Magma {
 
-Window::Window(int width, int height, std::string name)
-    : width(width), height(height), name(name) {
+Window::Window(EngineSpecifications &spec)
+    : width(spec.windowWidth), height(spec.windowHeight), name(spec.name) {
   initWindow();
 }
 
@@ -22,10 +26,13 @@ void Window::initWindow() {
   glfwSetWindowUserPointer(window, this);
   glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 
-  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
   if (glfwRawMouseMotionSupported())
     glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+}
+
+void Window::createSurface(VkInstance instance, VkSurfaceKHR *surface) {
+  if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS)
+    throw runtime_error("Failed to create window surface!");
 }
 
 void Window::framebufferResizeCallback(GLFWwindow *window, int width,
@@ -37,4 +44,4 @@ void Window::framebufferResizeCallback(GLFWwindow *window, int width,
 }
 
 void Window::close() { glfwSetWindowShouldClose(window, GLFW_TRUE); }
-} // namespace magma
+} // namespace Magma

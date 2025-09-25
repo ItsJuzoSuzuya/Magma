@@ -1,5 +1,4 @@
 #include "descriptors.hpp"
-#include "device.hpp"
 #include <cassert>
 #include <cstdint>
 #include <memory>
@@ -8,8 +7,7 @@
 #include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan_core.h>
-
-namespace magma {
+namespace Magma {
 
 //                      Descriptor Set Layout Builder                         //
 
@@ -33,9 +31,9 @@ DescriptorSetLayout::Builder::build() const {
 //                      Descriptor Set Layout                                 //
 
 DescriptorSetLayout::DescriptorSetLayout(
-    Device &device,
+    VkDevice device,
     std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings)
-    : device{device}, bindings{bindings} {
+    : bindings{bindings} {
   std::vector<VkDescriptorSetLayoutBinding> layoutBindings;
   for (const auto &binding : bindings)
     layoutBindings.push_back(binding.second);
@@ -45,13 +43,13 @@ DescriptorSetLayout::DescriptorSetLayout(
   layoutCreateInfo.pBindings = layoutBindings.data();
   layoutCreateInfo.bindingCount = static_cast<uint32_t>(bindings.size());
 
-  if (vkCreateDescriptorSetLayout(device.device(), &layoutCreateInfo, nullptr,
+  if (vkCreateDescriptorSetLayout(device, &layoutCreateInfo, nullptr,
                                   &descriptorSetLayout) != VK_SUCCESS)
     throw std::runtime_error("Failed to create descriptor set layout!");
 }
 
 DescriptorSetLayout::~DescriptorSetLayout() {
-  vkDestroyDescriptorSetLayout(device.device(), descriptorSetLayout, nullptr);
+  vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 }
 
 //                      Descriptor Pool Builder                             //
@@ -82,7 +80,7 @@ std::unique_ptr<DescriptorPool> DescriptorPool::Builder::build() const {
 //                      Descriptor Pool                                       //
 
 DescriptorPool::DescriptorPool(
-    Device &device, uint32_t maxSets, VkDescriptorPoolCreateFlags poolFlags,
+    VkDevice device, uint32_t maxSets, VkDescriptorPoolCreateFlags poolFlags,
     const std::vector<VkDescriptorPoolSize> &poolSizes)
     : device{device} {
 
@@ -93,12 +91,11 @@ DescriptorPool::DescriptorPool(
   createInfo.maxSets = maxSets;
   createInfo.flags = poolFlags;
 
-  vkCreateDescriptorPool(device.device(), &createInfo, nullptr,
-                         &descriptorPool);
+  vkCreateDescriptorPool(device, &createInfo, nullptr, &descriptorPool);
 }
 
 DescriptorPool::~DescriptorPool() {
-  vkDestroyDescriptorPool(device.device(), descriptorPool, nullptr);
+  vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 }
 
 bool DescriptorPool::allocateDescriptor(VkDescriptorSetLayout setLayout,
@@ -109,8 +106,7 @@ bool DescriptorPool::allocateDescriptor(VkDescriptorSetLayout setLayout,
   allocInfo.pSetLayouts = &setLayout;
   allocInfo.descriptorSetCount = 1;
 
-  if (vkAllocateDescriptorSets(device.device(), &allocInfo, &set) !=
-      VK_SUCCESS) {
+  if (vkAllocateDescriptorSets(device, &allocInfo, &set) != VK_SUCCESS) {
     return false;
   } else {
     return true;
@@ -185,10 +181,9 @@ void DescriptorWriter::overwrite(VkDescriptorSet &set) {
     write.dstSet = set;
   }
 
-  vkUpdateDescriptorSets(pool.device.device(), writes.size(), writes.data(), 0,
-                         nullptr);
+  vkUpdateDescriptorSets(pool.device, writes.size(), writes.data(), 0, nullptr);
 }
 
-} // namespace engine
+} // namespace Magma
 
 // namespace engine
