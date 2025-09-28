@@ -138,6 +138,11 @@ void Renderer::recordImGui(VkCommandBuffer commandBuffer) {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
+  
+  // Enable docking by creating a dockspace over the main viewport
+  if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DockingEnable) {
+    ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+  }
 }
 
 void Renderer::endImGui(VkCommandBuffer commandBuffer) {
