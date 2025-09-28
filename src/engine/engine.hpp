@@ -11,7 +11,6 @@ class EngineSpecifications;
 class Engine {
 public:
   Engine(EngineSpecifications &spec);
-  ~Engine();
 
   void run();
 

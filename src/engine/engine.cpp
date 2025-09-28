@@ -46,13 +46,6 @@ void Engine::initImGui() {
         "Failed to initialize ImGui Vulkan implementation!");
 }
 
-// Destructor
-
-Engine::~Engine() {
-  ImGui::DestroyContext();
-  ImGui::Shutdown();
-}
-
 // Main loop
 
 void Engine::run() {

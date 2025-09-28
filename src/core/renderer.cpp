@@ -19,7 +19,7 @@ Renderer::Renderer(Device &device, Window &window,
     : device{device}, window{window} {
   swapChain = make_unique<SwapChain>(device, window.getExtent());
   offscreenRenderTarget = make_unique<OffscreenRenderTarget>(
-      device, VkExtent2D{1280, 720}, swapChain->getImageFormat(),
+      device, VkExtent2D{640, 360}, swapChain->getImageFormat(),
       swapChain->getDepthFormat(), swapChain->imageCount());
 
   createPipelineLayout(descriptorSetLayout);
@@ -31,6 +31,9 @@ Renderer::~Renderer() {
   vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
   vkFreeCommandBuffers(device.device(), device.getCommandPool(), 1,
                        &imageAcquireCommandBuffer);
+
+  for (auto texture : offscreenTextures)
+    ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)texture);
 }
 
 // --- Public ---

@@ -14,6 +14,7 @@ class Window;
 class RenderPipeline {
 public:
   RenderPipeline(Window &window);
+  ~RenderPipeline();
 
   // Getters
   ImGui_ImplVulkan_InitInfo getImGuiInitInfo();

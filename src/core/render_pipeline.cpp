@@ -54,6 +54,15 @@ RenderPipeline::RenderPipeline(Window &window) {
                                    globalSetLayout->getDescriptorSetLayout());
 }
 
+// Destructor
+
+RenderPipeline::~RenderPipeline() {
+  vkDeviceWaitIdle(device->device());
+  ImGui_ImplVulkan_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext();
+}
+
 // Getters
 
 ImGui_ImplVulkan_InitInfo RenderPipeline::getImGuiInitInfo() {
@@ -143,6 +152,7 @@ void RenderPipeline::createDescriptorPool() {
                                     SwapChain::MAX_FRAMES_IN_FLIGHT)
                        .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                                     100 * SwapChain::MAX_FRAMES_IN_FLIGHT)
+                        .setPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT)
                        .build();
 }
 

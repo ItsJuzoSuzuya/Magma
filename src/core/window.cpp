@@ -1,5 +1,6 @@
 #include "window.hpp"
 #include "../engine/specifications.hpp"
+#include "imgui_internal.h"
 #include <GLFW/glfw3.h>
 #include <stdexcept>
 

@@ -9,8 +9,8 @@
 int main(int, char **) {
   Magma::EngineSpecifications spec{};
   spec.name = "Magma";
-  spec.windowWidth = 1920;
-  spec.windowHeight = 1080;
+  spec.windowWidth = 1280;
+  spec.windowHeight = 720;
 
   try {
     Magma::Engine engine{spec};
