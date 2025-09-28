@@ -31,6 +31,11 @@ public:
   }
   VkImageLayout &getImageLayout(int index) { return depthImageLayouts[index]; }
   VkFence &getInFlightFence(int index) { return inFlightFences[index]; }
+  VkFormat getImageFormat() const { return swapChainImageFormat; }
+  VkFormat getDepthFormat() const { return swapChainDepthFormat; }
+  uint32_t imageCount() const {
+    return static_cast<uint32_t>(swapChainImages.size());
+  }
 
   // Rendering
   VkResult acquireNextImage(uint32_t *imageIndex);

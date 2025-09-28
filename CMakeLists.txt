@@ -41,6 +41,7 @@ set(SOURCES
     src/core/pipeline.cpp
     src/core/renderer.cpp
     src/core/buffer.cpp
+    src/core/render_target.cpp
     src/engine/engine.cpp
 )
 

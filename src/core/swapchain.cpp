@@ -225,54 +225,36 @@ void SwapChain::createRenderPass() {
   depthAttachmentRef.attachment = 1;
   depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-  // --- Subpass 0: Main scene ---
-  VkSubpassDescription sceneSubpass = {};
-  sceneSubpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  sceneSubpass.colorAttachmentCount = 1;
-  sceneSubpass.pColorAttachments = &colorAttachmentRef;
-  sceneSubpass.pDepthStencilAttachment = &depthAttachmentRef;
 
-  // --- Subpass 1: ImGui (no depth) ---
-  VkSubpassDescription imguiSubpass = {};
-  imguiSubpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  imguiSubpass.colorAttachmentCount = 1;
-  imguiSubpass.pColorAttachments = &colorAttachmentRef;
-  imguiSubpass.pDepthStencilAttachment = nullptr;
+  VkSubpassDescription subpass = {};
+  subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  subpass.colorAttachmentCount = 1;
+  subpass.pColorAttachments = &colorAttachmentRef;
+  subpass.pDepthStencilAttachment = nullptr;
 
-  VkSubpassDependency externalToScene = {};
-  externalToScene.srcSubpass = VK_SUBPASS_EXTERNAL;
-  externalToScene.dstSubpass = 0;
-  externalToScene.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+  VkSubpassDependency dependency = {};
+  dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+  dependency.dstSubpass = 0;
+  dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
                                  VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-  externalToScene.srcAccessMask = 0;
-  externalToScene.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+  dependency.srcAccessMask = 0;
+  dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
                                  VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-  externalToScene.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
                                   VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-  VkSubpassDependency sceneToImGui = {};
-  sceneToImGui.srcSubpass = 0;
-  sceneToImGui.dstSubpass = 1;
-  sceneToImGui.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  sceneToImGui.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  sceneToImGui.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-  sceneToImGui.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-  sceneToImGui.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
   std::array<VkAttachmentDescription, 2> attachments = {colorAttachment,
                                                         depthAttachment};
-  std::array<VkSubpassDescription, 2> subpasses = {sceneSubpass, imguiSubpass};
-  std::array<VkSubpassDependency, 2> dependencies = {externalToScene,
-                                                     sceneToImGui};
 
   VkRenderPassCreateInfo renderPassInfo = {};
   renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
   renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
   renderPassInfo.pAttachments = attachments.data();
-  renderPassInfo.subpassCount = static_cast<uint32_t>(subpasses.size());
-  renderPassInfo.pSubpasses = subpasses.data();
-  renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
-  renderPassInfo.pDependencies = dependencies.data();
+  renderPassInfo.subpassCount = 1;
+  renderPassInfo.pSubpasses = &subpass;
+  renderPassInfo.dependencyCount = 1;
+  renderPassInfo.pDependencies = &dependency;
 
   if (vkCreateRenderPass(device.device(), &renderPassInfo, nullptr,
                          &renderPass) != VK_SUCCESS)

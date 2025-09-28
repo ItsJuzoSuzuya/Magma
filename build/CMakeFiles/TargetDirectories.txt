@@ -1,3 +1,0 @@
-/home/nick/Vulkan_ImGui/build/CMakeFiles/Magma.dir
-/home/nick/Vulkan_ImGui/build/CMakeFiles/edit_cache.dir
-/home/nick/Vulkan_ImGui/build/CMakeFiles/rebuild_cache.dir

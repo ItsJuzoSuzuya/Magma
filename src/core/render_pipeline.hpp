@@ -37,5 +37,6 @@ private:
 
   // Renderer
   std::unique_ptr<Renderer> renderer = nullptr;
+  bool firstFrame = true;
 };
 } // namespace Magma

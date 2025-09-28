@@ -42,7 +42,8 @@ void Engine::initImGui() {
   ImGui_ImplVulkan_InitInfo init_info = renderPipeline->getImGuiInitInfo();
   bool ok = ImGui_ImplVulkan_Init(&init_info);
   if (!ok)
-    throw std::runtime_error("Failed to initialize ImGui Vulkan implementation!");
+    throw std::runtime_error(
+        "Failed to initialize ImGui Vulkan implementation!");
 }
 
 // Destructor
