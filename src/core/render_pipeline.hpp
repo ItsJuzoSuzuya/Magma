@@ -39,5 +39,8 @@ private:
   // Renderer
   std::unique_ptr<Renderer> renderer = nullptr;
   bool firstFrame = true;
+
+  // ImGui Dockspace
+  void createDockspace(ImGuiID &dockspace_id);
 };
 } // namespace Magma

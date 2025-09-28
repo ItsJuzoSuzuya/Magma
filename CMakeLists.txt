@@ -43,6 +43,7 @@ set(SOURCES
     src/core/buffer.cpp
     src/core/render_target.cpp
     src/engine/engine.cpp
+    src/engine/widgets/dock_layout.cpp
 )
 
 # Build executable

@@ -1,15 +1,16 @@
 #include "render_pipeline.hpp"
 #include "../core/window.hpp"
+#include "../engine/widgets/dock_layout.hpp"
 #include "buffer.hpp"
 #include "descriptors.hpp"
 #include "device.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include "imgui_internal.h"
 #include "renderer.hpp"
 #include <GLFW/glfw3.h>
 #include <cassert>
-#include <cstdint>
 #include <cstdio>
 #include <glm/mat4x4.hpp>
 #include <memory>
@@ -85,10 +86,8 @@ ImGui_ImplVulkan_InitInfo RenderPipeline::getImGuiInitInfo() {
 // Render
 
 void RenderPipeline::renderFrame() {
-  if (firstFrame) {
+  if (firstFrame)
     renderer->createOffscreenTextures();
-    firstFrame = false;
-  }
 
   if (auto commandBuffer = renderer->beginFrame()) {
     int frameIndex = renderer->getFrameIndex();
@@ -125,6 +124,13 @@ void RenderPipeline::renderFrame() {
     renderer->beginImGui(commandBuffer);
     renderer->recordImGui(commandBuffer);
 
+    ImGuiViewport *viewport = ImGui::GetMainViewport();
+    ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
+    ImGui::DockSpaceOverViewport(dockspace_id, viewport);
+
+    if (firstFrame)
+      createDockspace(dockspace_id);
+
     ImGui::Begin("Offscreen View");
     ImVec2 offscreenTargetSize{
         static_cast<float>(renderer->getSceneExtent().width),
@@ -133,8 +139,12 @@ void RenderPipeline::renderFrame() {
     ImGui::Image(renderer->getSceneTexture(), offscreenTargetSize);
     ImGui::End();
 
-    ImGui::Begin("Scene");
+    ImGui::Begin("Scene Tree");
     ImGui::TreeNode("Settings");
+    ImGui::End();
+
+    ImGui::Begin("Inspector");
+    ImGui::Text("Hello from the inspector!");
     ImGui::End();
 
     renderer->endImGui(commandBuffer);
@@ -142,18 +152,40 @@ void RenderPipeline::renderFrame() {
   }
 
   vkDeviceWaitIdle(device->device());
+  if (firstFrame)
+    firstFrame = false;
 }
 
 // Descriptor Pool
 void RenderPipeline::createDescriptorPool() {
-  descriptorPool = DescriptorPool::Builder(device->device())
-                       .setMaxSets(100 * SwapChain::MAX_FRAMES_IN_FLIGHT)
-                       .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                    SwapChain::MAX_FRAMES_IN_FLIGHT)
-                       .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                    100 * SwapChain::MAX_FRAMES_IN_FLIGHT)
-                        .setPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT)
-                       .build();
+  descriptorPool =
+      DescriptorPool::Builder(device->device())
+          .setMaxSets(100 * SwapChain::MAX_FRAMES_IN_FLIGHT)
+          .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                       SwapChain::MAX_FRAMES_IN_FLIGHT)
+          .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                       100 * SwapChain::MAX_FRAMES_IN_FLIGHT)
+          .setPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT)
+          .build();
+}
+
+// ImGui Dockspace
+void RenderPipeline::createDockspace(ImGuiID &dockspace_id) {
+  ImVec2 size = ImGui::GetMainViewport()->Size;
+
+  DockLayout dockLayout(dockspace_id, size);
+
+  ImGuiID dock_id_left = dockLayout.splitLeft(0.25f);
+  ImGuiID dock_id_right = dockLayout.splitRight(0.25f);
+  ImGuiID dock_id_center = dockLayout.centerNode();
+
+  dockLayout.makeCentral();
+
+  dockLayout.dockWindow("Scene Tree", dock_id_left);
+  dockLayout.dockWindow("Offscreen View", dock_id_center);
+  dockLayout.dockWindow("Inspector", dock_id_right);
+
+  dockLayout.finish();
 }
 
 } // namespace Magma
