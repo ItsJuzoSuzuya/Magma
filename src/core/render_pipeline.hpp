@@ -41,6 +41,6 @@ private:
   bool firstFrame = true;
 
   // ImGui Dockspace
-  void createDockspace(ImGuiID &dockspace_id);
+  void createDockspace(ImGuiID &dockspace_id, const ImVec2 &size);
 };
 } // namespace Magma

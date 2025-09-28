@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <glm/mat4x4.hpp>
 #include <memory>
+#include <ranges>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -129,7 +130,7 @@ void RenderPipeline::renderFrame() {
     ImGui::DockSpaceOverViewport(dockspace_id, viewport);
 
     if (firstFrame)
-      createDockspace(dockspace_id);
+      createDockspace(dockspace_id, viewport->Size);
 
     ImGui::Begin("Offscreen View");
     ImVec2 offscreenTargetSize{
@@ -170,9 +171,8 @@ void RenderPipeline::createDescriptorPool() {
 }
 
 // ImGui Dockspace
-void RenderPipeline::createDockspace(ImGuiID &dockspace_id) {
-  ImVec2 size = ImGui::GetMainViewport()->Size;
-
+void RenderPipeline::createDockspace(ImGuiID &dockspace_id,
+                                     const ImVec2 &size) {
   DockLayout dockLayout(dockspace_id, size);
 
   ImGuiID dock_id_left = dockLayout.splitLeft(0.25f);
