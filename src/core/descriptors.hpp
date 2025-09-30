@@ -6,8 +6,6 @@
 #include <vulkan/vulkan_core.h>
 namespace Magma {
 
-class RenderPipeline;
-
 class DescriptorSetLayout {
 public:
   class Builder {

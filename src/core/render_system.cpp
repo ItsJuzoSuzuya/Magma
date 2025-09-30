@@ -1,4 +1,4 @@
-#include "render_pipeline.hpp"
+#include "render_system.hpp"
 #include "../core/window.hpp"
 #include "../engine/widgets/dock_layout.hpp"
 #include "buffer.hpp"
@@ -7,14 +7,12 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
-#include "imgui_internal.h"
 #include "renderer.hpp"
 #include <GLFW/glfw3.h>
 #include <cassert>
 #include <cstdio>
 #include <glm/mat4x4.hpp>
 #include <memory>
-#include <ranges>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -29,7 +27,7 @@ struct GlobalUbo {
 
 // Constructor
 
-RenderPipeline::RenderPipeline(Window &window) {
+RenderSystem::RenderSystem(Window &window) {
   device = make_unique<Device>(window);
 
   createDescriptorPool();
@@ -52,13 +50,14 @@ RenderPipeline::RenderPipeline(Window &window) {
         .writeBuffer(0, &bufferInfo)
         .build(globalDescriptorSets[i]);
   }
+
   renderer = make_unique<Renderer>(*device, window,
                                    globalSetLayout->getDescriptorSetLayout());
 }
 
 // Destructor
 
-RenderPipeline::~RenderPipeline() {
+RenderSystem::~RenderSystem() {
   vkDeviceWaitIdle(device->device());
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
@@ -67,7 +66,7 @@ RenderPipeline::~RenderPipeline() {
 
 // Getters
 
-ImGui_ImplVulkan_InitInfo RenderPipeline::getImGuiInitInfo() {
+ImGui_ImplVulkan_InitInfo RenderSystem::getImGuiInitInfo() {
   ImGui_ImplVulkan_InitInfo init_info = {};
   device->populateImGuiInitInfo(&init_info);
   init_info.ApiVersion = VK_API_VERSION_1_3;
@@ -86,7 +85,7 @@ ImGui_ImplVulkan_InitInfo RenderPipeline::getImGuiInitInfo() {
 
 // Render
 
-void RenderPipeline::renderFrame() {
+void RenderSystem::renderFrame() {
   if (firstFrame)
     renderer->createOffscreenTextures();
 
@@ -158,7 +157,7 @@ void RenderPipeline::renderFrame() {
 }
 
 // Descriptor Pool
-void RenderPipeline::createDescriptorPool() {
+void RenderSystem::createDescriptorPool() {
   descriptorPool =
       DescriptorPool::Builder(device->device())
           .setMaxSets(100 * SwapChain::MAX_FRAMES_IN_FLIGHT)
@@ -171,8 +170,7 @@ void RenderPipeline::createDescriptorPool() {
 }
 
 // ImGui Dockspace
-void RenderPipeline::createDockspace(ImGuiID &dockspace_id,
-                                     const ImVec2 &size) {
+void RenderSystem::createDockspace(ImGuiID &dockspace_id, const ImVec2 &size) {
   DockLayout dockLayout(dockspace_id, size);
 
   ImGuiID dock_id_left = dockLayout.splitLeft(0.25f);

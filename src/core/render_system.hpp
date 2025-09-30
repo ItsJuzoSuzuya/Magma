@@ -7,14 +7,15 @@
 #include "swapchain.hpp"
 #include <memory>
 #include <vulkan/vulkan_core.h>
+
 namespace Magma {
 
 class Window;
 
-class RenderPipeline {
+class RenderSystem {
 public:
-  RenderPipeline(Window &window);
-  ~RenderPipeline();
+  RenderSystem(Window &window);
+  ~RenderSystem();
 
   // Getters
   ImGui_ImplVulkan_InitInfo getImGuiInitInfo();

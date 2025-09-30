@@ -32,7 +32,7 @@ set(IMGUI_SOURCES
 # Your main program
 set(SOURCES
     main.cpp
-    src/core/render_pipeline.cpp
+    src/core/render_system.cpp
     src/core/window.cpp
     src/core/device.cpp
     src/core/descriptors.cpp

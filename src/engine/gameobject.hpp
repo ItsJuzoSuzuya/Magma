@@ -1,0 +1,56 @@
+#pragma once
+#include "components/component.hpp"
+#include <memory>
+#include <typeindex>
+#include <unordered_map>
+#include <vector>
+namespace Magma {
+
+class GameObject {
+public:
+  using id_t = uint64_t;
+
+  static GameObject &create();
+  static GameObject &create(std::string name);
+  static GameObject &create(GameObject &parent);
+  static GameObject &create(GameObject &parent, std::string name);
+
+  // Getters
+  static id_t getNextId();
+  std::vector<GameObject *> getChildren();
+
+  // Component
+  template <typename T, typename... Args>
+  GameObject &addComponent(Args &&...args) {
+    static_assert(std::is_base_of<Component, T>::value,
+                  "T must be a Component");
+    auto component = std::make_unique<T>(std::forward<Args>(args)...);
+    components[typeid(T)] = std::move(component);
+    return *this;
+  }
+
+  // Parent
+  GameObject *parent = nullptr;
+
+  // Children
+  void addChild();
+  void addChild(std::unique_ptr<GameObject> child);
+
+  id_t id;
+  std::string name;
+
+private:
+  static id_t nextId;
+
+  GameObject(id_t id) : id{id}, name("GameObject " + std::to_string(id)) {};
+  GameObject(id_t id, std::string name) : id{id}, name{name} {};
+  GameObject(id_t id, GameObject *parent)
+      : id{id}, parent{parent}, name("GameObject " + std::to_string(id)) {};
+  GameObject(id_t id, GameObject *parent, std::string name)
+      : id{id}, parent{parent}, name{name} {};
+
+  std::unordered_map<std::type_index, std::unique_ptr<Component>> components;
+  std::vector<std::unique_ptr<GameObject>> children;
+};
+
+} // namespace Magma

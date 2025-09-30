@@ -2,12 +2,9 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
-#include "imgui_internal.h"
 #include "specifications.hpp"
 #include <GLFW/glfw3.h>
 #include <X11/X.h>
-#include <cstdio>
-#include <iterator>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -17,14 +14,14 @@ namespace Magma {
 
 Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
   initGlfw();
-  initRenderPipeline();
+  initRenderSystem();
   initImGui();
 }
 
 void Engine::initGlfw() { window = make_unique<Window>(specifications); }
 
-void Engine::initRenderPipeline() {
-  renderPipeline = make_unique<RenderPipeline>(*window);
+void Engine::initRenderSystem() {
+  renderSystem = make_unique<RenderSystem>(*window);
 }
 
 void Engine::initImGui() {
@@ -40,7 +37,7 @@ void Engine::initImGui() {
   ImGui::StyleColorsDark();
 
   ImGui_ImplGlfw_InitForVulkan(window->getGLFWwindow(), true);
-  ImGui_ImplVulkan_InitInfo init_info = renderPipeline->getImGuiInitInfo();
+  ImGui_ImplVulkan_InitInfo init_info = renderSystem->getImGuiInitInfo();
   bool ok = ImGui_ImplVulkan_Init(&init_info);
   if (!ok)
     throw std::runtime_error(
@@ -55,7 +52,7 @@ void Engine::run() {
     if (glfwGetKey(window->getGLFWwindow(), GLFW_KEY_ESCAPE))
       window->close();
 
-    renderPipeline->renderFrame();
+    renderSystem->renderFrame();
   }
 }
 
