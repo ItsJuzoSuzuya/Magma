@@ -56,13 +56,11 @@ void RenderTarget::cleanup() {
         vkDestroyImageView(device.device(), v, nullptr);
     }
     destroyColorResources();
-    printf("Destroyed Color Resources\n");
   }
 
   if (colorSampler != VK_NULL_HANDLE) {
     vkDestroySampler(device.device(), colorSampler, nullptr);
     colorSampler = VK_NULL_HANDLE;
-    printf("Destroyed Color Sampler\n");
   }
 }
 

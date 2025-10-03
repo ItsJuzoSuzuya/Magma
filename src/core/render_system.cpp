@@ -125,7 +125,6 @@ VkCommandBuffer RenderSystem::beginFrame() {
   auto result = swapChain->acquireNextImage(&currentImageIndex);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-    printf("Swap chain out of date, recreating...\n");
     recreateSwapChain();
     imguiRenderer->target().resize(window.getExtent(),
                                    swapChain->getSwapChain());
