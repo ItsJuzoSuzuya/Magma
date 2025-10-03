@@ -43,20 +43,26 @@ RenderTarget::RenderTarget(Device &device, SwapChain &swapChain)
 }
 
 // Destructor
-RenderTarget::~RenderTarget() {
+RenderTarget::~RenderTarget() { cleanup(); }
+
+void RenderTarget::cleanup() {
   destroyFramebuffers();
   destroyDepthResources();
   destroyRenderPass();
 
-  for (auto v : imageViews) {
-    if (v != VK_NULL_HANDLE)
-      vkDestroyImageView(device.device(), v, nullptr);
+  if (type == RenderType::Offscreen) {
+    for (auto v : imageViews) {
+      if (v != VK_NULL_HANDLE)
+        vkDestroyImageView(device.device(), v, nullptr);
+    }
+    destroyColorResources();
+    printf("Destroyed Color Resources\n");
   }
-  destroyColorResources();
 
   if (colorSampler != VK_NULL_HANDLE) {
     vkDestroySampler(device.device(), colorSampler, nullptr);
     colorSampler = VK_NULL_HANDLE;
+    printf("Destroyed Color Sampler\n");
   }
 }
 
@@ -74,16 +80,7 @@ void RenderTarget::resize(VkExtent2D newExtent) {
     return;
 
   vkDeviceWaitIdle(device.device());
-
-  destroyFramebuffers();
-  destroyDepthResources();
-  destroyRenderPass();
-
-  for (auto v : imageViews) {
-    if (v != VK_NULL_HANDLE)
-      vkDestroyImageView(device.device(), v, nullptr);
-  }
-  destroyColorResources();
+  cleanup();
 
   targetExtent = newExtent;
 
@@ -108,16 +105,7 @@ void RenderTarget::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
     return;
 
   vkDeviceWaitIdle(device.device());
-
-  destroyFramebuffers();
-  destroyDepthResources();
-  destroyRenderPass();
-
-  for (auto v : imageViews) {
-    if (v != VK_NULL_HANDLE)
-      vkDestroyImageView(device.device(), v, nullptr);
-  }
-  destroyColorResources();
+  cleanup();
 
   targetExtent = newExtent;
 

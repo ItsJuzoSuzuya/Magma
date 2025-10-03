@@ -155,6 +155,8 @@ void RenderSystem::endFrame() {
       window.wasWindowResized()) {
     window.resetWindowResizedFlag();
     recreateSwapChain();
+    imguiRenderer->target().resize(window.getExtent(),
+                                   swapChain->getSwapChain());
     currentFrameIndex = 0;
     return;
   } else if (result != VK_SUCCESS)
@@ -168,7 +170,7 @@ void RenderSystem::renderFrame() {
     offscreenRenderer->createOffscreenTextures();
 
   if (auto commandBuffer = beginFrame()) {
-    offscreenRenderer->begin(commandBuffer, currentFrameIndex);
+    offscreenRenderer->begin(commandBuffer, currentImageIndex);
     offscreenRenderer->record(commandBuffer);
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
     offscreenRenderer->end(commandBuffer);
@@ -194,7 +196,7 @@ void RenderSystem::renderFrame() {
                            0, nullptr, 1, &barrier);
     }
 
-    imguiRenderer->begin(commandBuffer, currentFrameIndex);
+    imguiRenderer->begin(commandBuffer, currentImageIndex);
     imguiRenderer->record(commandBuffer);
 
     ImGuiViewport *viewport = ImGui::GetMainViewport();

@@ -8,7 +8,6 @@ class ImGuiRenderer : public Renderer {
 public:
   ImGuiRenderer(Device &device, SwapChain &swapChain,
                 VkDescriptorSetLayout descriptorSetLayout);
-  ~ImGuiRenderer();
 
   void getSceneSize();
 

@@ -13,9 +13,11 @@ enum class RenderType { Offscreen, Swapchain };
 
 class RenderTarget {
 public:
+  // Constructors / Destructor
   RenderTarget(Device &device, RenderTargetInfo info);
   RenderTarget(Device &device, SwapChain &swapChain);
   ~RenderTarget();
+  void cleanup();
 
   RenderTarget(const RenderTarget &) = delete;
   RenderTarget &operator=(const RenderTarget &) = delete;

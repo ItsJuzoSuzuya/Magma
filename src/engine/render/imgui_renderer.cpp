@@ -13,13 +13,6 @@ ImGuiRenderer::ImGuiRenderer(Device &device, SwapChain &swapChain,
   createPipeline();
 }
 
-// Destructor
-ImGuiRenderer::~ImGuiRenderer() {
-  ImGui_ImplVulkan_Shutdown();
-  ImGui_ImplGlfw_Shutdown();
-  ImGui::DestroyContext();
-}
-
 // Rendering
 void ImGuiRenderer::begin(VkCommandBuffer commandBuffer, uint32_t frameIndex) {
   std::array<VkClearValue, 2> clearValues{};
