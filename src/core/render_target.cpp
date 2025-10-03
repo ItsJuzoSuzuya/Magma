@@ -1,27 +1,49 @@
 #include "render_target.hpp"
 #include "device.hpp"
+#include "render_target_info.hpp"
+#include "swapchain.hpp"
 #include <array>
+#include <cassert>
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
 namespace Magma {
 
-OffscreenRenderTarget::OffscreenRenderTarget(Device &device, VkExtent2D extent,
-                                             VkFormat colorFormat,
-                                             VkFormat depthFormat,
-                                             uint32_t imageCount)
-    : device{device}, targetExtent{extent}, imageFormat{colorFormat},
-      depthImageFormat{depthFormat}, imageCount_{imageCount} {
+// Offscreen Render Target
+RenderTarget::RenderTarget(Device &device, RenderTargetInfo info)
+    : device{device}, targetExtent{info.extent}, imageFormat{info.colorFormat},
+      depthImageFormat{info.depthFormat}, imageCount_{info.imageCount} {
+  type = RenderType::Offscreen;
+
   createImages();
   createImageViews();
-  createRenderPass();
+  createRenderPass(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   createDepthResources();
   createFramebuffers();
   createColorSampler();
 }
 
-OffscreenRenderTarget::~OffscreenRenderTarget() {
+// Swapchain Render Target
+RenderTarget::RenderTarget(Device &device, SwapChain &swapChain)
+    : device{device} {
+  type = RenderType::Swapchain;
+
+  auto info = swapChain.getRenderInfo();
+  targetExtent = info.extent;
+  imageFormat = info.colorFormat;
+  depthImageFormat = info.depthFormat;
+  imageCount_ = info.imageCount;
+
+  createImages(swapChain.getSwapChain());
+  createImageViews();
+  createRenderPass(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+  createDepthResources();
+  createFramebuffers();
+}
+
+// Destructor
+RenderTarget::~RenderTarget() {
   destroyFramebuffers();
   destroyDepthResources();
   destroyRenderPass();
@@ -38,43 +60,13 @@ OffscreenRenderTarget::~OffscreenRenderTarget() {
   }
 }
 
-// Rendering helpers
-void OffscreenRenderTarget::begin(VkCommandBuffer commandBuffer,
-                                  uint32_t frameIndex) {
-  std::array<VkClearValue, 2> clearValues{};
-  clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
-  clearValues[1].depthStencil = {1.0f, 0};
+//--- Public ---
+// Resize (Offscreen)
+void RenderTarget::resize(VkExtent2D newExtent) {
+  assert(
+      type == RenderType::Offscreen &&
+      "RenderTarget::resize(extent) can only be called on Offscreen targets");
 
-  VkRenderPassBeginInfo beginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-  beginInfo.renderPass = renderPass;
-  beginInfo.framebuffer = framebuffers[frameIndex];
-  beginInfo.renderArea.offset = {0, 0};
-  beginInfo.renderArea.extent = targetExtent;
-  beginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-  beginInfo.pClearValues = clearValues.data();
-
-  vkCmdBeginRenderPass(commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-  VkViewport viewport = {};
-  viewport.x = 0;
-  viewport.y = static_cast<float>(targetExtent.height);
-  viewport.width = static_cast<float>(targetExtent.width);
-  viewport.height = -static_cast<float>(targetExtent.height);
-  viewport.minDepth = 0.0f;
-  viewport.maxDepth = 1.0f;
-  vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-  VkRect2D scissor = {};
-  scissor.offset = {0, 0};
-  scissor.extent = targetExtent;
-  vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-}
-
-void OffscreenRenderTarget::end(VkCommandBuffer cmd) {
-  vkCmdEndRenderPass(cmd);
-}
-
-void OffscreenRenderTarget::resize(VkExtent2D newExtent) {
   if (newExtent.width == 0 || newExtent.height == 0)
     return;
   if (newExtent.width == targetExtent.width &&
@@ -97,15 +89,54 @@ void OffscreenRenderTarget::resize(VkExtent2D newExtent) {
 
   createImages();
   createImageViews();
-  createRenderPass();
+  createRenderPass(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   createDepthResources();
   createFramebuffers();
   createColorSampler();
 }
 
-// Private
+// Resize (Swapchain)
+void RenderTarget::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
+  assert(type == RenderType::Swapchain &&
+         "RenderTarget::resize(extent, swapChain) can only be called on "
+         "Swapchain ");
 
-void OffscreenRenderTarget::createImages() {
+  if (newExtent.width == 0 || newExtent.height == 0)
+    return;
+  if (newExtent.width == targetExtent.width &&
+      newExtent.height == targetExtent.height)
+    return;
+
+  vkDeviceWaitIdle(device.device());
+
+  destroyFramebuffers();
+  destroyDepthResources();
+  destroyRenderPass();
+
+  for (auto v : imageViews) {
+    if (v != VK_NULL_HANDLE)
+      vkDestroyImageView(device.device(), v, nullptr);
+  }
+  destroyColorResources();
+
+  targetExtent = newExtent;
+
+  createImages(swapChain);
+  createImageViews();
+  createRenderPass(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+  createDepthResources();
+  createFramebuffers();
+  createColorSampler();
+}
+
+//--- Private ---
+
+// Images (color)
+//  -> Offscreen
+void RenderTarget::createImages() {
+  assert(
+      type == RenderType::Offscreen &&
+      "RenderTarget::createImages() can only be called on Offscreen targets");
   images.resize(imageCount_);
   imageMemories.resize(imageCount_);
 
@@ -116,7 +147,7 @@ void OffscreenRenderTarget::createImages() {
   imageInfo.extent.depth = 1;
   imageInfo.mipLevels = 1;
   imageInfo.arrayLayers = 1;
-  imageInfo.format = imageFormat; // mirror swapchain color format
+  imageInfo.format = imageFormat;
   imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
   imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
@@ -133,7 +164,19 @@ void OffscreenRenderTarget::createImages() {
   }
 }
 
-void OffscreenRenderTarget::createImageViews() {
+//  -> Swapchain
+void RenderTarget::createImages(VkSwapchainKHR swapChain) {
+  assert(type == RenderType::Swapchain &&
+         "RenderTarget::createImages(swapChain) can only be called on "
+         "Swapchain targets");
+  vkGetSwapchainImagesKHR(device.device(), swapChain, &imageCount_, nullptr);
+  images.resize(imageCount_);
+  vkGetSwapchainImagesKHR(device.device(), swapChain, &imageCount_,
+                          images.data());
+}
+
+// Image Views (color)
+void RenderTarget::createImageViews() {
   imageViews.resize(images.size());
   for (size_t i = 0; i < images.size(); ++i) {
     VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
@@ -149,12 +192,22 @@ void OffscreenRenderTarget::createImageViews() {
     if (vkCreateImageView(device.device(), &viewInfo, nullptr,
                           &imageViews[i]) != VK_SUCCESS) {
       throw std::runtime_error(
-          "OffscreenRenderTarget: failed to create color image view");
+          "RenderTarget: failed to create color image view");
     }
   }
 }
 
-void OffscreenRenderTarget::createRenderPass() {
+// Render Pass
+void RenderTarget::createRenderPass(VkImageLayout finalLayout) {
+  assert(
+      (type == RenderType::Offscreen &&
+       finalLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) ||
+      (type == RenderType::Swapchain &&
+       finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) &&
+          "RenderTarget::createRenderPass(finalLayout) - finalLayout must be "
+          "VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL for Offscreen targets "
+          "and VK_IMAGE_LAYOUT_PRESENT_SRC_KHR for Swapchain targets");
+
   VkAttachmentDescription colorAttachment{};
   colorAttachment.format = imageFormat;
   colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -163,8 +216,7 @@ void OffscreenRenderTarget::createRenderPass() {
   colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
   colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
   colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  // We will sample this in ImGui
-  colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  colorAttachment.finalLayout = finalLayout;
 
   VkAttachmentReference colorRef{};
   colorRef.attachment = 0;
@@ -215,17 +267,15 @@ void OffscreenRenderTarget::createRenderPass() {
 
   if (vkCreateRenderPass(device.device(), &rpInfo, nullptr, &renderPass) !=
       VK_SUCCESS) {
-    throw std::runtime_error(
-        "OffscreenRenderTarget: failed to create render pass");
+    throw std::runtime_error("RenderTarget: failed to create render pass");
   }
 }
 
-void OffscreenRenderTarget::createDepthResources() {
+// Depth Resources
+void RenderTarget::createDepthResources() {
   depthImages.resize(images.size());
   depthImageMemories.resize(images.size());
   depthImageViews.resize(images.size());
-  depthImageLayouts.resize(images.size(),
-                           VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
   for (size_t i = 0; i < images.size(); ++i) {
     VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
@@ -258,34 +308,35 @@ void OffscreenRenderTarget::createDepthResources() {
 
     if (vkCreateImageView(device.device(), &viewInfo, nullptr,
                           &depthImageViews[i]) != VK_SUCCESS) {
-      throw std::runtime_error(
-          "OffscreenRenderTarget: failed to create depth view");
+      throw std::runtime_error("RenderTarget: failed to create depth view");
     }
   }
 }
 
-void OffscreenRenderTarget::createFramebuffers() {
+// Framebuffers
+void RenderTarget::createFramebuffers() {
   framebuffers.resize(images.size());
   for (size_t i = 0; i < images.size(); ++i) {
-    std::array<VkImageView, 2> atts{imageViews[i], depthImageViews[i]};
+    std::array<VkImageView, 2> attachments{imageViews[i], depthImageViews[i]};
 
-    VkFramebufferCreateInfo fbInfo{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-    fbInfo.renderPass = renderPass;
-    fbInfo.attachmentCount = static_cast<uint32_t>(atts.size());
-    fbInfo.pAttachments = atts.data();
-    fbInfo.width = targetExtent.width;
-    fbInfo.height = targetExtent.height;
-    fbInfo.layers = 1;
+    VkFramebufferCreateInfo framebufferInfo{
+        VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+    framebufferInfo.renderPass = renderPass;
+    framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+    framebufferInfo.pAttachments = attachments.data();
+    framebufferInfo.width = targetExtent.width;
+    framebufferInfo.height = targetExtent.height;
+    framebufferInfo.layers = 1;
 
-    if (vkCreateFramebuffer(device.device(), &fbInfo, nullptr,
+    if (vkCreateFramebuffer(device.device(), &framebufferInfo, nullptr,
                             &framebuffers[i]) != VK_SUCCESS) {
-      throw std::runtime_error(
-          "OffscreenRenderTarget: failed to create framebuffer");
+      throw std::runtime_error("RenderTarget: failed to create framebuffer");
     }
   }
 }
 
-void OffscreenRenderTarget::createColorSampler() {
+// Sampler (for using color image as a texture)
+void RenderTarget::createColorSampler() {
   if (colorSampler != VK_NULL_HANDLE)
     return;
 
@@ -306,11 +357,12 @@ void OffscreenRenderTarget::createColorSampler() {
 
   if (vkCreateSampler(device.device(), &info, nullptr, &colorSampler) !=
       VK_SUCCESS) {
-    throw std::runtime_error("OffscreenRenderTarget: failed to create sampler");
+    throw std::runtime_error("RenderTarget: failed to create sampler");
   }
 }
 
-void OffscreenRenderTarget::destroyColorResources() {
+// Destruction helpers
+void RenderTarget::destroyColorResources() {
   for (size_t i = 0; i < images.size(); ++i) {
     if (images[i] != VK_NULL_HANDLE) {
       vkDestroyImage(device.device(), images[i], nullptr);
@@ -324,7 +376,7 @@ void OffscreenRenderTarget::destroyColorResources() {
   imageViews.clear();
 }
 
-void OffscreenRenderTarget::destroyDepthResources() {
+void RenderTarget::destroyDepthResources() {
   for (size_t i = 0; i < depthImages.size(); ++i) {
     if (depthImageViews[i] != VK_NULL_HANDLE) {
       vkDestroyImageView(device.device(), depthImageViews[i], nullptr);
@@ -339,10 +391,9 @@ void OffscreenRenderTarget::destroyDepthResources() {
   depthImages.clear();
   depthImageViews.clear();
   depthImageMemories.clear();
-  depthImageLayouts.clear();
 }
 
-void OffscreenRenderTarget::destroyFramebuffers() {
+void RenderTarget::destroyFramebuffers() {
   for (auto fb : framebuffers) {
     if (fb != VK_NULL_HANDLE) {
       vkDestroyFramebuffer(device.device(), fb, nullptr);
@@ -351,18 +402,11 @@ void OffscreenRenderTarget::destroyFramebuffers() {
   framebuffers.clear();
 }
 
-void OffscreenRenderTarget::destroyRenderPass() {
+void RenderTarget::destroyRenderPass() {
   if (renderPass != VK_NULL_HANDLE) {
     vkDestroyRenderPass(device.device(), renderPass, nullptr);
     renderPass = VK_NULL_HANDLE;
   }
-}
-
-VkFormat OffscreenRenderTarget::findDepthFormat() {
-  return device.findSupportedFormat(
-      {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT,
-       VK_FORMAT_D24_UNORM_S8_UINT},
-      VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
 } // namespace Magma

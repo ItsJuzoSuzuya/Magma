@@ -8,6 +8,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 #include "renderer.hpp"
+#include "swapchain.hpp"
 #include <GLFW/glfw3.h>
 #include <cassert>
 #include <cstdio>
@@ -26,11 +27,13 @@ struct GlobalUbo {
 };
 
 // Constructor
-
-RenderSystem::RenderSystem(Window &window) {
+RenderSystem::RenderSystem(Window &window) : window{window} {
   device = make_unique<Device>(window);
+  swapChain = make_unique<SwapChain>(*device, window.getExtent());
 
+  createCommandBuffers();
   createDescriptorPool();
+
   uboBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
   for (int i = 0; i < static_cast<int>(uboBuffers.size()); i++) {
     uboBuffers[i] = make_unique<Buffer>(*device, sizeof(GlobalUbo), 1,
@@ -51,12 +54,18 @@ RenderSystem::RenderSystem(Window &window) {
         .build(globalDescriptorSets[i]);
   }
 
-  renderer = make_unique<Renderer>(*device, window,
-                                   globalSetLayout->getDescriptorSetLayout());
+  RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
+  offscreenInfo.extent.width /= 2;
+  offscreenInfo.extent.height /= 2;
+
+  offscreenRenderer = make_unique<OffscreenRenderer>(
+      *device, offscreenInfo, globalSetLayout->getDescriptorSetLayout());
+
+  imguiRenderer = make_unique<ImGuiRenderer>(
+      *device, *swapChain, globalSetLayout->getDescriptorSetLayout());
 }
 
 // Destructor
-
 RenderSystem::~RenderSystem() {
   vkDeviceWaitIdle(device->device());
   ImGui_ImplVulkan_Shutdown();
@@ -65,7 +74,6 @@ RenderSystem::~RenderSystem() {
 }
 
 // Getters
-
 ImGui_ImplVulkan_InitInfo RenderSystem::getImGuiInitInfo() {
   ImGui_ImplVulkan_InitInfo init_info = {};
   device->populateImGuiInitInfo(&init_info);
@@ -73,7 +81,7 @@ ImGui_ImplVulkan_InitInfo RenderSystem::getImGuiInitInfo() {
   init_info.DescriptorPool = descriptorPool->getDescriptorPool();
   init_info.DescriptorPoolSize = 0;
   init_info.Subpass = 0;
-  init_info.RenderPass = renderer->getSwapChain().getRenderPass();
+  init_info.RenderPass = imguiRenderer->getRenderPass();
   init_info.MinImageCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
   init_info.ImageCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
   init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
@@ -83,22 +91,87 @@ ImGui_ImplVulkan_InitInfo RenderSystem::getImGuiInitInfo() {
   return init_info;
 }
 
-// Render
+// Command Buffers
+void RenderSystem::createCommandBuffers() {
+  commandBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+
+  VkCommandBufferAllocateInfo allocInfo = {};
+  allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  allocInfo.commandPool = device->getCommandPool();
+  allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+
+  if (vkAllocateCommandBuffers(device->device(), &allocInfo,
+                               commandBuffers.data()) != VK_SUCCESS)
+    throw runtime_error("Failed to allocate command buffers!");
+}
+
+// Swap chain
+void RenderSystem::recreateSwapChain() {
+  auto extent = window.getExtent();
+  while (extent.width == 0 || extent.height == 0) {
+    extent = window.getExtent();
+    glfwWaitEvents();
+  }
+
+  vkDeviceWaitIdle(device->device());
+
+  shared_ptr<SwapChain> oldSwapChain = std::move(swapChain);
+  swapChain = make_unique<SwapChain>(*device, extent, oldSwapChain);
+}
+
+// Rendering
+VkCommandBuffer RenderSystem::beginFrame() {
+  auto result = swapChain->acquireNextImage(&currentImageIndex);
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    printf("Swap chain out of date, recreating...\n");
+    recreateSwapChain();
+    imguiRenderer->target().resize(window.getExtent(),
+                                   swapChain->getSwapChain());
+    return nullptr;
+  } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+    throw runtime_error("Failed to acquire next swap chain image!");
+
+  VkCommandBuffer commandBuffer = getCurrentCommandBuffer();
+  VkCommandBufferBeginInfo beginInfo = {};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+  if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
+    throw runtime_error("Failed to begin recording command buffer!");
+
+  return commandBuffer;
+}
+
+void RenderSystem::endFrame() {
+  VkCommandBuffer commandBuffer = getCurrentCommandBuffer();
+  if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
+    throw runtime_error("Failed to record command buffer!");
+
+  auto result =
+      swapChain->submitCommandBuffer(&commandBuffer, &currentImageIndex);
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
+      window.wasWindowResized()) {
+    window.resetWindowResizedFlag();
+    recreateSwapChain();
+    currentFrameIndex = 0;
+    return;
+  } else if (result != VK_SUCCESS)
+    throw runtime_error("Failed to present swap chain image!");
+
+  currentFrameIndex = (currentFrameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
+}
 
 void RenderSystem::renderFrame() {
   if (firstFrame)
-    renderer->createOffscreenTextures();
+    offscreenRenderer->createOffscreenTextures();
 
-  if (auto commandBuffer = renderer->beginFrame()) {
-    int frameIndex = renderer->getFrameIndex();
-
-    FrameInfo frameInfo{frameIndex, commandBuffer,
-                        globalDescriptorSets[frameIndex]};
-
-    renderer->beginScene(commandBuffer);
-    renderer->recordScene(commandBuffer);
+  if (auto commandBuffer = beginFrame()) {
+    offscreenRenderer->begin(commandBuffer, currentFrameIndex);
+    offscreenRenderer->record(commandBuffer);
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-    renderer->endScene(commandBuffer);
+    offscreenRenderer->end(commandBuffer);
 
     {
       VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -108,7 +181,7 @@ void RenderSystem::renderFrame() {
       barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
       barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
       barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-      barrier.image = renderer->getSceneImage();
+      barrier.image = offscreenRenderer->getSceneImage(currentFrameIndex);
       barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
       barrier.subresourceRange.baseMipLevel = 0;
       barrier.subresourceRange.levelCount = 1;
@@ -121,8 +194,8 @@ void RenderSystem::renderFrame() {
                            0, nullptr, 1, &barrier);
     }
 
-    renderer->beginImGui(commandBuffer);
-    renderer->recordImGui(commandBuffer);
+    imguiRenderer->begin(commandBuffer, currentFrameIndex);
+    imguiRenderer->record(commandBuffer);
 
     ImGuiViewport *viewport = ImGui::GetMainViewport();
     ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
@@ -132,11 +205,8 @@ void RenderSystem::renderFrame() {
       createDockspace(dockspace_id, viewport->Size);
 
     ImGui::Begin("Offscreen View");
-    ImVec2 offscreenTargetSize{
-        static_cast<float>(renderer->getSceneExtent().width),
-        static_cast<float>(renderer->getSceneExtent().height)};
-
-    ImGui::Image(renderer->getSceneTexture(), offscreenTargetSize);
+    ImGui::Image(offscreenRenderer->getSceneTexture(currentFrameIndex),
+                 offscreenRenderer->getSceneSize());
     ImGui::End();
 
     ImGui::Begin("Scene Tree");
@@ -147,8 +217,8 @@ void RenderSystem::renderFrame() {
     ImGui::Text("Hello from the inspector!");
     ImGui::End();
 
-    renderer->endImGui(commandBuffer);
-    renderer->endFrame();
+    imguiRenderer->end(commandBuffer);
+    endFrame();
   }
 
   vkDeviceWaitIdle(device->device());

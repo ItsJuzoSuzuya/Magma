@@ -1,21 +1,24 @@
 #pragma once
-#include <cwchar>
-#include <memory>
+#include "device.hpp"
+#include "render_target_info.hpp"
+#include <utility>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
 namespace Magma {
 
-class Device;
+class SwapChain;
 
-class OffscreenRenderTarget {
+enum class RenderType { Offscreen, Swapchain };
+
+class RenderTarget {
 public:
-  OffscreenRenderTarget(Device &device, VkExtent2D extent, VkFormat colorFormat,
-                        VkFormat depthFormat, uint32_t imageCount);
-  ~OffscreenRenderTarget();
+  RenderTarget(Device &device, RenderTargetInfo info);
+  RenderTarget(Device &device, SwapChain &swapChain);
+  ~RenderTarget();
 
-  OffscreenRenderTarget(const OffscreenRenderTarget &) = delete;
-  OffscreenRenderTarget &operator=(const OffscreenRenderTarget &) = delete;
+  RenderTarget(const RenderTarget &) = delete;
+  RenderTarget &operator=(const RenderTarget &) = delete;
 
   // Getters
   VkRenderPass getRenderPass() { return renderPass; }
@@ -26,7 +29,6 @@ public:
     return static_cast<float>(targetExtent.width) /
            static_cast<float>(targetExtent.height);
   }
-  VkImageLayout &getImageLayout(int index) { return depthImageLayouts[index]; }
 
   // Added minimal getters to use this as a texture (e.g., for ImGui)
   VkImage &getColorImage(int index) { return images[index]; }
@@ -41,8 +43,12 @@ public:
 
   // Resize (recreates everything but keeps formats and imageCount)
   void resize(VkExtent2D newExtent);
+  void resize(VkExtent2D newExtent, VkSwapchainKHR swapChain);
 
 private:
+  // Type of render target
+  RenderType type;
+
   Device &device;
   VkExtent2D targetExtent{};
 
@@ -59,20 +65,19 @@ private:
   std::vector<VkDeviceMemory> imageMemories;
   VkFormat imageFormat;
   void createImages();
+  void createImages(VkSwapchainKHR swapChain);
   void createImageViews();
 
   // Render Pass
-  VkRenderPass renderPass{VK_NULL_HANDLE};
-  void createRenderPass();
+  VkRenderPass renderPass = VK_NULL_HANDLE;
+  void createRenderPass(VkImageLayout finalLayout);
 
   // Depth
   std::vector<VkImage> depthImages;
   std::vector<VkDeviceMemory> depthImageMemories;
   std::vector<VkImageView> depthImageViews;
-  std::vector<VkImageLayout> depthImageLayouts;
   VkFormat depthImageFormat;
   void createDepthResources();
-  VkFormat findDepthFormat();
 
   // Framebuffers
   std::vector<VkFramebuffer> framebuffers;

@@ -1,4 +1,6 @@
 #pragma once
+#include "../engine/render/imgui_renderer.hpp"
+#include "../engine/render/offscreen_renderer.hpp"
 #include "buffer.hpp"
 #include "descriptors.hpp"
 #include "device.hpp"
@@ -20,6 +22,11 @@ public:
   // Getters
   ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
   Device &getDevice() { return *device; }
+  int getFrameIndex() const { return currentFrameIndex; }
+  SwapChain &getSwapChain() { return *swapChain; }
+  VkCommandBuffer getCurrentCommandBuffer() const {
+    return commandBuffers[currentFrameIndex];
+  }
 
   // Render
   void renderFrame();
@@ -27,6 +34,11 @@ public:
 private:
   // Device
   std::unique_ptr<Device> device = nullptr;
+  Window &window;
+
+  // SwapChain
+  std::unique_ptr<SwapChain> swapChain = nullptr;
+  void recreateSwapChain();
 
   // UBOs
   std::vector<std::unique_ptr<Buffer>> uboBuffers;
@@ -37,11 +49,23 @@ private:
   std::vector<VkDescriptorSet> globalDescriptorSets;
   void createDescriptorPool();
 
-  // Renderer
-  std::unique_ptr<Renderer> renderer = nullptr;
-  bool firstFrame = true;
+  // Renderering
+  std::unique_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
+  std::unique_ptr<ImGuiRenderer> imguiRenderer = nullptr;
+  VkCommandBuffer beginFrame();
+  void endFrame();
+
+  // Command buffers
+  std::vector<VkCommandBuffer> commandBuffers;
+  VkCommandBuffer imageAcquireCommandBuffer = VK_NULL_HANDLE;
+  void createCommandBuffers();
 
   // ImGui Dockspace
   void createDockspace(ImGuiID &dockspace_id, const ImVec2 &size);
+
+  // Frame info
+  uint32_t currentImageIndex;
+  int currentFrameIndex = 0;
+  bool firstFrame = true;
 };
 } // namespace Magma

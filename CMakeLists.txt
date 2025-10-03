@@ -44,6 +44,8 @@ set(SOURCES
     src/core/render_target.cpp
     src/engine/engine.cpp
     src/engine/widgets/dock_layout.cpp
+    src/engine/render/imgui_renderer.cpp
+    src/engine/render/offscreen_renderer.cpp
 )
 
 # Build executable

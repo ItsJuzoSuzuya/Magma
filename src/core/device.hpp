@@ -78,6 +78,9 @@ public:
   void submitCommands(VkCommandBuffer &commandBuffer);
   void endSingleTimeCommands(VkCommandBuffer &commandBuffer);
 
+  // Depth Format
+  VkFormat findDepthFormat();
+
 private:
   // Validation Layers
 #ifdef NDEBUG

@@ -1,4 +1,6 @@
 #pragma once
+#include "render_target_info.hpp"
+#include <cstdint>
 #include <cwchar>
 #include <memory>
 #include <vector>
@@ -7,6 +9,7 @@
 namespace Magma {
 
 class Device;
+struct RenderTargetInfo;
 
 class SwapChain {
 public:
@@ -21,21 +24,9 @@ public:
   SwapChain &operator=(const SwapChain &) = delete;
 
   // Getters
-  VkRenderPass getRenderPass() { return renderPass; }
-  VkFramebuffer getFrameBuffer(int index) { return framebuffers[index]; }
-  VkImage &getDepthImage(int index) { return depthImages[index]; }
-  VkExtent2D &extent() { return swapChainExtent; }
-  float extentAspectRatio() {
-    return static_cast<float>(swapChainExtent.width) /
-           static_cast<float>(swapChainExtent.height);
-  }
-  VkImageLayout &getImageLayout(int index) { return depthImageLayouts[index]; }
+  VkSwapchainKHR getSwapChain() const { return swapChain; }
   VkFence &getInFlightFence(int index) { return inFlightFences[index]; }
-  VkFormat getImageFormat() const { return swapChainImageFormat; }
-  VkFormat getDepthFormat() const { return swapChainDepthFormat; }
-  uint32_t imageCount() const {
-    return static_cast<uint32_t>(swapChainImages.size());
-  }
+  RenderTargetInfo getRenderInfo() const { return renderInfo; }
 
   // Rendering
   VkResult acquireNextImage(uint32_t *imageIndex);
@@ -43,46 +34,21 @@ public:
                                uint32_t *imageIndex);
 
   // Comparison
-  bool compareSwapFormats(const SwapChain &swapChain) {
+  /*bool compareSwapFormats(const SwapChain &swapChain) {
     return swapChain.swapChainImageFormat == swapChainImageFormat &&
            swapChain.swapChainDepthFormat == swapChainDepthFormat;
-  }
+  }*/
 
 private:
   Device &device;
-  VkExtent2D windowExtent;
+  RenderTargetInfo renderInfo;
 
   // Swap Chain
   VkSwapchainKHR swapChain;
-  std::shared_ptr<SwapChain> oldSwapChain;
-  VkExtent2D swapChainExtent;
-  void createSwapChain();
-
-  // Swap Chain Images
-  std::vector<VkImage> swapChainImages;
-  std::vector<VkImageView> swapChainImageViews;
-  VkFormat swapChainImageFormat;
-  void createImages(uint32_t imagecount);
-  void createImageViews();
-
-  // Render Pass
-  VkRenderPass renderPass;
-  void createRenderPass();
-
-  // Depth Resources
-  std::vector<VkImage> depthImages;
-  std::vector<VkDeviceMemory> depthImageMemories;
-  std::vector<VkImageView> depthImageViews;
-  std::vector<VkImageLayout> depthImageLayouts;
-  VkFormat swapChainDepthFormat;
-  void createDepthResources();
-
-  // Framebuffers
-  std::vector<VkFramebuffer> framebuffers;
-  void createFramebuffers();
+  std::shared_ptr<SwapChain> oldSwapChain = nullptr;
+  void createSwapChain(VkExtent2D &extent);
 
   // Synchronization
-
   std::vector<VkSemaphore> imageAvailableSemaphores;
   std::vector<VkSemaphore> renderFinishedSemaphores;
   std::vector<VkFence> inFlightFences;
@@ -94,7 +60,7 @@ private:
       const std::vector<VkSurfaceFormatKHR> &availableFormats);
   VkPresentModeKHR chooseSwapPresentMode(
       const std::vector<VkPresentModeKHR> &availablePresentModes);
-  VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
-  VkFormat findDepthFormat();
+  VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities,
+                              VkExtent2D extent);
 };
 } // namespace Magma

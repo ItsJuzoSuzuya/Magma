@@ -1,86 +1,57 @@
 
 #pragma once
 #include "device.hpp"
-#include "frame_info.hpp"
 #include "pipeline.hpp"
 #include "render_target.hpp"
 #include "swapchain.hpp"
 #include <cstdint>
 #include <memory>
-#include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 namespace Magma {
 
 class Window;
 
+struct RendererType {
+  enum Onscreen { SwapChain, ImGui };
+  enum OffScreen {};
+};
+
 class Renderer {
 public:
   // Constructor and destructor
-  Renderer(Device &device, Window &window,
-           VkDescriptorSetLayout descriptorSetLayout);
-  ~Renderer();
+  Renderer(Device &device, VkDescriptorSetLayout descriptorSetLayout);
+  virtual ~Renderer();
 
   // Delete copy constructor and assignment operator
   Renderer(const Renderer &) = delete;
   Renderer &operator=(const Renderer &) = delete;
 
-  // Getter
-  int getFrameIndex() const { return currentFrameIndex; }
-  SwapChain &getSwapChain() { return *swapChain; }
-  VkCommandBuffer getCurrentCommandBuffer() const {
-    return commandBuffers[currentFrameIndex];
-  }
-  float getAspectRatio() const { return swapChain->extentAspectRatio(); }
-  VkImage &getSceneImage() {
-    return offscreenRenderTarget->getColorImage(currentFrameIndex);
-  }
-  ImTextureID getSceneTexture() { return offscreenTextures[currentFrameIndex]; }
-  VkExtent2D getSceneExtent() { return offscreenRenderTarget->extent(); }
+  // Getters
+  RenderTarget &target() { return *renderTarget; }
+  VkRenderPass getRenderPass() { return renderTarget->getRenderPass(); }
 
-  VkCommandBuffer beginFrame();
-
-  // Scene rendering
-  void createOffscreenTextures();
-  void beginScene(VkCommandBuffer commandBuffer);
-  void recordScene(VkCommandBuffer commandBuffer);
-  void endScene(VkCommandBuffer commandBuffer);
-
-  // ImGui rendering
-  void beginImGui(VkCommandBuffer commandBuffer);
-  void recordImGui(VkCommandBuffer commandBuffer);
-  void endImGui(VkCommandBuffer commandBuffer);
+  // Rendering
+  virtual void begin(VkCommandBuffer commandBuffer, uint32_t frameIndex) = 0;
+  virtual void record(VkCommandBuffer commandBuffer) = 0;
+  virtual void end(VkCommandBuffer commandBuffer) = 0;
 
   // Final rendering
   void endFrame();
 
-private:
-  Device &device;
-  Window &window;
+protected:
+  // Render Target
+  std::unique_ptr<RenderTarget> renderTarget;
 
   // Pipeline
-  std::unique_ptr<Pipeline> swapChainPipeline;
-  std::unique_ptr<Pipeline> scenePipeline;
+  std::unique_ptr<Pipeline> pipeline;
+  void createPipeline();
+
+private:
+  Device &device;
+
+  // Pipeline Layout
   VkPipelineLayout pipelineLayout;
   void createPipelineLayout(VkDescriptorSetLayout descriptorSetLayout);
-  void createPipeline(VkRenderPass renderPass);
-
-  // Command buffers
-  std::vector<VkCommandBuffer> commandBuffers;
-  void createCommandBuffers();
-  VkCommandBuffer imageAcquireCommandBuffer =
-      device.allocateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-
-  // SwapChain
-  std::unique_ptr<SwapChain> swapChain;
-  void recreateSwapChain();
-
-  // Scene Rendering
-  std::unique_ptr<OffscreenRenderTarget> offscreenRenderTarget;
-  std::vector<ImTextureID> offscreenTextures;
-
-  // Frame info
-  uint32_t currentImageIndex;
-  int currentFrameIndex = 0;
 };
 } // namespace Magma
