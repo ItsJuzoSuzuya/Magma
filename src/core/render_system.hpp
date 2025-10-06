@@ -4,6 +4,7 @@
 #include "buffer.hpp"
 #include "descriptors.hpp"
 #include "device.hpp"
+#include "frame_info.hpp"
 #include "imgui_impl_vulkan.h"
 #include "renderer.hpp"
 #include "swapchain.hpp"
@@ -22,11 +23,7 @@ public:
   // Getters
   ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
   Device &getDevice() { return *device; }
-  int getFrameIndex() const { return currentFrameIndex; }
   SwapChain &getSwapChain() { return *swapChain; }
-  VkCommandBuffer getCurrentCommandBuffer() const {
-    return commandBuffers[currentFrameIndex];
-  }
 
   // Render
   void renderFrame();
@@ -52,8 +49,12 @@ private:
   // Renderering
   std::unique_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
   std::unique_ptr<ImGuiRenderer> imguiRenderer = nullptr;
-  VkCommandBuffer beginFrame();
+  bool beginFrame();
   void endFrame();
+
+  // Resize
+  void onWindowResized();
+  void onSceneResize();
 
   // Command buffers
   std::vector<VkCommandBuffer> commandBuffers;
@@ -64,8 +65,7 @@ private:
   void createDockspace(ImGuiID &dockspace_id, const ImVec2 &size);
 
   // Frame info
-  uint32_t currentImageIndex;
-  int currentFrameIndex = 0;
+  FrameInfo frameInfo;
   bool firstFrame = true;
 };
 } // namespace Magma

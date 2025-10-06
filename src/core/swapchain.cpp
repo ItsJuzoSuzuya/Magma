@@ -1,15 +1,18 @@
 #include "swapchain.hpp"
 #include "device.hpp"
+#include "frame_info.hpp"
 #include "queue_family_indices.hpp"
 #include "render_target_info.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <print>
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
+using namespace std;
 namespace Magma {
 
 // Constructor
@@ -40,17 +43,16 @@ SwapChain::~SwapChain() {
 
 // --- Public ---
 // Rendering
-VkResult SwapChain::acquireNextImage(uint32_t *imageIndex) {
+VkResult SwapChain::acquireNextImage() {
   vkWaitForFences(device.device(), 1, &inFlightFences[currentFrame], VK_TRUE,
                   UINT64_MAX);
 
   return vkAcquireNextImageKHR(device.device(), swapChain, UINT64_MAX,
                                imageAvailableSemaphores[currentFrame],
-                               VK_NULL_HANDLE, imageIndex);
+                               VK_NULL_HANDLE, &FrameInfo::imageIndex);
 }
 
-VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer,
-                                        uint32_t *imageIndex) {
+VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
   VkSubmitInfo submitInfo = {};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
@@ -80,7 +82,7 @@ VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer,
   presentInfo.swapchainCount = 1;
   presentInfo.pSwapchains = swapChains;
 
-  presentInfo.pImageIndices = imageIndex;
+  presentInfo.pImageIndices = &FrameInfo::imageIndex;
 
   return vkQueuePresentKHR(device.presentQueue(), &presentInfo);
 }

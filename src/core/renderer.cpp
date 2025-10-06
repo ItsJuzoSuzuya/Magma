@@ -17,6 +17,7 @@ Renderer::Renderer(Device &device, VkDescriptorSetLayout descriptorSetLayout)
 
 Renderer::~Renderer() {
   vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
+  pipeline = nullptr;
 }
 
 // --- Private ---

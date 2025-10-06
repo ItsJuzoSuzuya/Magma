@@ -4,10 +4,12 @@
 #include "swapchain.hpp"
 #include <array>
 #include <cassert>
+#include <print>
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
+using namespace std;
 namespace Magma {
 
 // Offscreen Render Target
@@ -27,6 +29,7 @@ RenderTarget::RenderTarget(Device &device, RenderTargetInfo info)
 // Swapchain Render Target
 RenderTarget::RenderTarget(Device &device, SwapChain &swapChain)
     : device{device} {
+  println("Creating Swapchain Render Target!");
   type = RenderType::Swapchain;
 
   auto info = swapChain.getRenderInfo();
@@ -46,22 +49,24 @@ RenderTarget::RenderTarget(Device &device, SwapChain &swapChain)
 RenderTarget::~RenderTarget() { cleanup(); }
 
 void RenderTarget::cleanup() {
-  destroyFramebuffers();
-  destroyDepthResources();
-  destroyRenderPass();
-
-  if (type == RenderType::Offscreen) {
-    for (auto v : imageViews) {
-      if (v != VK_NULL_HANDLE)
-        vkDestroyImageView(device.device(), v, nullptr);
-    }
-    destroyColorResources();
-  }
-
+  println("Cleaning up Render Target resources");
   if (colorSampler != VK_NULL_HANDLE) {
     vkDestroySampler(device.device(), colorSampler, nullptr);
     colorSampler = VK_NULL_HANDLE;
   }
+
+  destroyFramebuffers();
+  destroyDepthResources();
+  destroyRenderPass();
+
+  for (auto v : imageViews) {
+    if (v != VK_NULL_HANDLE)
+      vkDestroyImageView(device.device(), v, nullptr);
+  }
+  imageViews.clear();
+
+  if (type == RenderType::Offscreen)
+    destroyColorResources();
 }
 
 //--- Public ---
@@ -112,7 +117,6 @@ void RenderTarget::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
   createRenderPass(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
   createDepthResources();
   createFramebuffers();
-  createColorSampler();
 }
 
 //--- Private ---
@@ -142,12 +146,9 @@ void RenderTarget::createImages() {
   imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
   imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  for (uint32_t i = 0; i < imageCount_; ++i) {
-    // Keep this flag consistent with your Device::createImageWithInfo
-    // expectations
+  for (uint32_t i = 0; i < imageCount_; ++i)
     device.createImageWithInfo(imageInfo, VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
                                images[i], imageMemories[i]);
-  }
 }
 
 //  -> Swapchain
@@ -176,10 +177,9 @@ void RenderTarget::createImageViews() {
     viewInfo.subresourceRange.layerCount = 1;
 
     if (vkCreateImageView(device.device(), &viewInfo, nullptr,
-                          &imageViews[i]) != VK_SUCCESS) {
+                          &imageViews[i]) != VK_SUCCESS)
       throw std::runtime_error(
           "RenderTarget: failed to create color image view");
-    }
   }
 }
 
@@ -252,9 +252,8 @@ void RenderTarget::createRenderPass(VkImageLayout finalLayout) {
   rpInfo.pDependencies = &dependency;
 
   if (vkCreateRenderPass(device.device(), &rpInfo, nullptr, &renderPass) !=
-      VK_SUCCESS) {
+      VK_SUCCESS)
     throw std::runtime_error("RenderTarget: failed to create render pass");
-  }
 }
 
 // Depth Resources
@@ -315,9 +314,8 @@ void RenderTarget::createFramebuffers() {
     framebufferInfo.layers = 1;
 
     if (vkCreateFramebuffer(device.device(), &framebufferInfo, nullptr,
-                            &framebuffers[i]) != VK_SUCCESS) {
+                            &framebuffers[i]) != VK_SUCCESS)
       throw std::runtime_error("RenderTarget: failed to create framebuffer");
-    }
   }
 }
 
@@ -342,37 +340,30 @@ void RenderTarget::createColorSampler() {
   info.unnormalizedCoordinates = VK_FALSE;
 
   if (vkCreateSampler(device.device(), &info, nullptr, &colorSampler) !=
-      VK_SUCCESS) {
+      VK_SUCCESS)
     throw std::runtime_error("RenderTarget: failed to create sampler");
-  }
 }
 
 // Destruction helpers
 void RenderTarget::destroyColorResources() {
   for (size_t i = 0; i < images.size(); ++i) {
-    if (images[i] != VK_NULL_HANDLE) {
+    if (images[i] != VK_NULL_HANDLE)
       vkDestroyImage(device.device(), images[i], nullptr);
-    }
-    if (imageMemories[i] != VK_NULL_HANDLE) {
+    if (imageMemories[i] != VK_NULL_HANDLE)
       vkFreeMemory(device.device(), imageMemories[i], nullptr);
-    }
   }
   images.clear();
   imageMemories.clear();
-  imageViews.clear();
 }
 
 void RenderTarget::destroyDepthResources() {
   for (size_t i = 0; i < depthImages.size(); ++i) {
-    if (depthImageViews[i] != VK_NULL_HANDLE) {
+    if (depthImageViews[i] != VK_NULL_HANDLE)
       vkDestroyImageView(device.device(), depthImageViews[i], nullptr);
-    }
-    if (depthImages[i] != VK_NULL_HANDLE) {
+    if (depthImages[i] != VK_NULL_HANDLE)
       vkDestroyImage(device.device(), depthImages[i], nullptr);
-    }
-    if (depthImageMemories[i] != VK_NULL_HANDLE) {
+    if (depthImageMemories[i] != VK_NULL_HANDLE)
       vkFreeMemory(device.device(), depthImageMemories[i], nullptr);
-    }
   }
   depthImages.clear();
   depthImageViews.clear();
@@ -381,9 +372,8 @@ void RenderTarget::destroyDepthResources() {
 
 void RenderTarget::destroyFramebuffers() {
   for (auto fb : framebuffers) {
-    if (fb != VK_NULL_HANDLE) {
+    if (fb != VK_NULL_HANDLE)
       vkDestroyFramebuffer(device.device(), fb, nullptr);
-    }
   }
   framebuffers.clear();
 }

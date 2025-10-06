@@ -29,9 +29,8 @@ public:
   RenderTargetInfo getRenderInfo() const { return renderInfo; }
 
   // Rendering
-  VkResult acquireNextImage(uint32_t *imageIndex);
-  VkResult submitCommandBuffer(const VkCommandBuffer *commandBuffer,
-                               uint32_t *imageIndex);
+  VkResult acquireNextImage();
+  VkResult submitCommandBuffer(const VkCommandBuffer *commandBuffer);
 
   // Comparison
   /*bool compareSwapFormats(const SwapChain &swapChain) {

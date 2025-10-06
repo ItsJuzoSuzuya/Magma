@@ -11,9 +11,16 @@ public:
 
   void getSceneSize();
 
-  void begin(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;
-  void record(VkCommandBuffer commandBuffer) override;
-  void end(VkCommandBuffer commandBuffer) override;
+  // Call at the beginning of each frame
+  void newFrame();
+
+  // Rendering
+  void begin() override;
+  void record() override;
+  void end() override;
+
+  // Resize
+  void resize(VkExtent2D extent, VkSwapchainKHR swapChain);
 };
 
 } // namespace Magma

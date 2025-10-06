@@ -1,4 +1,5 @@
 #pragma once
+#include "../../core/frame_info.hpp"
 #include "../../core/renderer.hpp"
 #include <cstdint>
 
@@ -15,19 +16,22 @@ public:
   ~OffscreenRenderer();
 
   // Getters
-  VkImage &getSceneImage(uint32_t frameIndex) const;
+  VkImage &getSceneImage() const;
   ImVec2 getSceneSize() const;
-  ImTextureID getSceneTexture(uint32_t frameIndex) const {
-    return textures[frameIndex];
+  ImTextureID getSceneTexture() const {
+    return textures[FrameInfo::frameIndex];
   }
 
   // Textures
   void createOffscreenTextures();
 
   // Rendering
-  void begin(VkCommandBuffer commandBuffer, uint32_t frameIndex) override;
-  void record(VkCommandBuffer commandBuffer) override;
-  void end(VkCommandBuffer commandBuffer) override;
+  void begin() override;
+  void record() override;
+  void end() override;
+
+  // Resize
+  void resize(VkExtent2D newExtent);
 
 private:
   // Textures for ImGui

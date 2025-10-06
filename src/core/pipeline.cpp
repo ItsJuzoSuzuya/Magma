@@ -22,6 +22,7 @@ Pipeline::Pipeline(Device &device, const std::string &vertFilepath,
 }
 
 Pipeline::~Pipeline() {
+  std::cout << "Destroying Pipeline..." << std::endl;
   vkDestroyShaderModule(device.device(), vertShaderModule, nullptr);
   vkDestroyShaderModule(device.device(), fragShaderModule, nullptr);
   vkDestroyPipeline(device.device(), graphicsPipeline, nullptr);

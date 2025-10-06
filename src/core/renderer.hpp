@@ -1,19 +1,17 @@
-
 #pragma once
 #include "device.hpp"
 #include "pipeline.hpp"
 #include "render_target.hpp"
 #include "swapchain.hpp"
-#include <cstdint>
 #include <memory>
-#include <vector>
 #include <vulkan/vulkan_core.h>
+
 namespace Magma {
 
 class Window;
 
 struct RendererType {
-  enum Onscreen { SwapChain, ImGui };
+  enum Onscreen { SwapChain };
   enum OffScreen {};
 };
 
@@ -32,9 +30,9 @@ public:
   VkRenderPass getRenderPass() { return renderTarget->getRenderPass(); }
 
   // Rendering
-  virtual void begin(VkCommandBuffer commandBuffer, uint32_t frameIndex) = 0;
-  virtual void record(VkCommandBuffer commandBuffer) = 0;
-  virtual void end(VkCommandBuffer commandBuffer) = 0;
+  virtual void begin() = 0;
+  virtual void record() = 0;
+  virtual void end() = 0;
 
   // Final rendering
   void endFrame();
