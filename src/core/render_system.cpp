@@ -195,7 +195,6 @@ bool RenderSystem::beginFrame() {
       };
 
       offscreenRenderer->resize(newExtent);
-      offscreenRenderer->createOffscreenTextures();
 
       ImGui::End();
       ImGui::EndFrame();

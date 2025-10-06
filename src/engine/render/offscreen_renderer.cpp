@@ -2,7 +2,6 @@
 #include "../../core/frame_info.hpp"
 #include "../../core/render_target_info.hpp"
 #include <array>
-#include <print>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;

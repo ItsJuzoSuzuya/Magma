@@ -29,7 +29,6 @@ RenderTarget::RenderTarget(Device &device, RenderTargetInfo info)
 // Swapchain Render Target
 RenderTarget::RenderTarget(Device &device, SwapChain &swapChain)
     : device{device} {
-  println("Creating Swapchain Render Target!");
   type = RenderType::Swapchain;
 
   auto info = swapChain.getRenderInfo();
@@ -49,7 +48,6 @@ RenderTarget::RenderTarget(Device &device, SwapChain &swapChain)
 RenderTarget::~RenderTarget() { cleanup(); }
 
 void RenderTarget::cleanup() {
-  println("Cleaning up Render Target resources");
   if (colorSampler != VK_NULL_HANDLE) {
     vkDestroySampler(device.device(), colorSampler, nullptr);
     colorSampler = VK_NULL_HANDLE;

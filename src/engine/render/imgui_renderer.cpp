@@ -2,7 +2,6 @@
 #include "../../core/frame_info.hpp"
 #include "imgui_impl_glfw.h"
 #include <array>
-#include <print>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -12,7 +11,6 @@ namespace Magma {
 ImGuiRenderer::ImGuiRenderer(Device &device, SwapChain &swapChain,
                              VkDescriptorSetLayout descriptorSetLayout)
     : Renderer(device, descriptorSetLayout) {
-  println("Initializing ImGuiRenderer");
   renderTarget = make_unique<RenderTarget>(device, swapChain);
   createPipeline();
 }
@@ -67,7 +65,6 @@ void ImGuiRenderer::end() {
 
 // Resize
 void ImGuiRenderer::resize(VkExtent2D extent, VkSwapchainKHR swapChain) {
-  println("Resizing ImGuiRenderer");
   renderTarget->resize(extent, swapChain);
   createPipeline();
 }
