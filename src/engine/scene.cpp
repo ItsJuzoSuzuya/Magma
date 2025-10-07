@@ -30,11 +30,23 @@ void Scene::draw() {
     return;
 
   for (auto &gameObject : activeScene->gameObjects) {
-    if (gameObject != nullptr) {
-      if (ImGui::TreeNodeEx(gameObject->name.c_str())) {
-        gameObject->drawChildren();
-        ImGui::TreePop();
-      }
+    if (gameObject == nullptr)
+      continue;
+
+    ImGuiTreeNodeFlags flags =
+        ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanFullWidth;
+
+    // If no children, display as leaf node
+    if (!gameObject->hasChildren()) {
+      flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+      ImGui::TreeNodeEx(gameObject->name.c_str(), flags);
+      continue;
+    }
+
+    // Else display as tree node
+    if (ImGui::TreeNodeEx(gameObject->name.c_str(), flags)) {
+      gameObject->drawChildren();
+      ImGui::TreePop();
     }
   }
 }

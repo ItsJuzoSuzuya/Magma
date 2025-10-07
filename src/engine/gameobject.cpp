@@ -67,7 +67,18 @@ vector<GameObject *> GameObject::getChildren() {
 void GameObject::drawChildren() {
   for (const auto &child : children) {
     if (child) {
-      if (ImGui::TreeNodeEx(child->name.c_str())) {
+
+      ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanFullWidth;
+
+      // If no sub-children, display as leaf node
+      if (!child->hasChildren()) {
+        flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+        ImGui::TreeNodeEx(child->name.c_str(), flags);
+        continue;
+      }
+
+      // Node with children
+      if (ImGui::TreeNodeEx(child->name.c_str()), flags) {
         child->drawChildren();
         ImGui::TreePop();
       }

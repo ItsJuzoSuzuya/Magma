@@ -21,6 +21,10 @@ Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
 
   auto &obj = GameObject::create();
   obj.addChild();
+  obj.addChild();
+
+  auto &camera = GameObject::create("Camera");
+  camera.addChild();
 }
 
 // --- Public ---

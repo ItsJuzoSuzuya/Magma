@@ -42,6 +42,7 @@ public:
   void addChild();
   void addChild(std::unique_ptr<GameObject> child);
   void drawChildren();
+  bool hasChildren() const { return !children.empty(); }
 
   id_t id;
   std::string name;
