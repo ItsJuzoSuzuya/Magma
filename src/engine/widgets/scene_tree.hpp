@@ -17,6 +17,12 @@ public:
     contextTarget = gameObject;
   }
 
+  // Queue opening the context menu at window-root scope this frame
+  static void queueContextMenuFor(GameObject *gameObject) {
+    contextTarget = gameObject;
+    openPopupRequested = true;
+  }
+
   // Lifecycle
   bool preFrame() override;
   void draw() override;
@@ -28,6 +34,7 @@ public:
 
 private:
   inline static GameObject *contextTarget = nullptr;
+  inline static bool openPopupRequested = false;
 };
 
 } // namespace Magma

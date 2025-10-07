@@ -17,6 +17,12 @@ void SceneTree::draw() {
   ImGui::Begin(name());
   Scene::draw();
 
+  // Open queued popup at window-root scope (avoids ID-stack mismatch)
+  if (openPopupRequested) {
+    ImGui::OpenPopup("SceneMenu");
+    openPopupRequested = false;
+  }
+
   // Centralized popup for any GameObject (called once per frame)
   if (ImGui::BeginPopup("SceneMenu")) {
     if (auto *target = getContextTarget()) {

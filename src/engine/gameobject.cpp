@@ -78,10 +78,8 @@ void GameObject::drawChildren() {
         flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
         ImGui::TreeNodeEx(child->name.c_str(), flags);
 
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
-          SceneTree::setContextTarget(child.get());
-          ImGui::OpenPopup("SceneMenu");
-        }
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+          SceneTree::queueContextMenuFor(child.get());
 
         continue;
       }
@@ -89,10 +87,8 @@ void GameObject::drawChildren() {
       // Node with children
       bool open = ImGui::TreeNodeEx(child->name.c_str(), flags);
 
-      if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
-        SceneTree::setContextTarget(child.get());
-        ImGui::OpenPopup("SceneMenu");
-      }
+      if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+        SceneTree::queueContextMenuFor(child.get());
 
       if (open) {
         child->drawChildren();
