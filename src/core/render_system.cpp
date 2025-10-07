@@ -1,6 +1,9 @@
 #include "render_system.hpp"
 #include "../core/window.hpp"
 #include "../engine/widgets/dock_layout.hpp"
+#include "../engine/widgets/inspector.hpp"
+#include "../engine/widgets/offscreen_view.hpp"
+#include "../engine/widgets/scene_tree.hpp"
 #include "buffer.hpp"
 #include "descriptors.hpp"
 #include "device.hpp"
@@ -14,7 +17,6 @@
 #include <cstdio>
 #include <glm/mat4x4.hpp>
 #include <memory>
-#include <print>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -64,6 +66,11 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
 
   offscreenRenderer = make_unique<OffscreenRenderer>(
       *device, offscreenInfo, globalSetLayout->getDescriptorSetLayout());
+
+  imguiRenderer->addWidget(make_unique<SceneTree>());
+  imguiRenderer->addWidget(make_unique<Inspector>());
+  imguiRenderer->addWidget(
+      make_unique<OffscreenView>(*offscreenRenderer.get()));
 }
 
 // Destructor
@@ -105,21 +112,8 @@ void RenderSystem::renderFrame() {
 
     imguiRenderer->begin();
     imguiRenderer->record();
-
-    ImGui::Begin("Offscreen View");
-    ImGui::Image(offscreenRenderer->getSceneTexture(),
-                 offscreenRenderer->getSceneSize());
-    ImGui::End();
-
-    ImGui::Begin("Scene Tree");
-    ImGui::TreeNode("Settings");
-    ImGui::End();
-
-    ImGui::Begin("Inspector");
-    ImGui::Text("Hello from the inspector!");
-    ImGui::End();
-
     imguiRenderer->end();
+
     endFrame();
   }
 
@@ -163,6 +157,7 @@ bool RenderSystem::beginFrame() {
   // Start ImGui frame
   imguiRenderer->newFrame();
 
+  /*
   ImGuiViewport *viewport = ImGui::GetMainViewport();
   ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
   ImGui::DockSpaceOverViewport(dockspace_id, viewport);
@@ -175,6 +170,7 @@ bool RenderSystem::beginFrame() {
 
   ImGui::Begin("Inspector");
   ImGui::End();
+}
 
   bool offscreen_open = ImGui::Begin("Offscreen View");
   if (offscreen_open) {
@@ -202,6 +198,10 @@ bool RenderSystem::beginFrame() {
     }
   }
   ImGui::End();
+  */
+
+  if (!imguiRenderer->preFrame())
+    return false;
 
   // Check if the swap chain needs to be recreated
   auto result = swapChain->acquireNextImage();

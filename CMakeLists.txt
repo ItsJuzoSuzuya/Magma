@@ -32,6 +32,7 @@ set(IMGUI_SOURCES
 # Your main program
 set(SOURCES
     main.cpp
+    #core
     src/core/render_system.cpp
     src/core/window.cpp
     src/core/device.cpp
@@ -42,8 +43,14 @@ set(SOURCES
     src/core/renderer.cpp
     src/core/buffer.cpp
     src/core/render_target.cpp
+    #engine
     src/engine/engine.cpp
+    # widgets
     src/engine/widgets/dock_layout.cpp
+    src/engine/widgets/inspector.cpp
+    src/engine/widgets/scene_tree.cpp
+    src/engine/widgets/offscreen_view.cpp
+    # renderers
     src/engine/render/imgui_renderer.cpp
     src/engine/render/offscreen_renderer.cpp
 )

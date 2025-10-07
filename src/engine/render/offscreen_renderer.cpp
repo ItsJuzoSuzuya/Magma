@@ -23,7 +23,7 @@ OffscreenRenderer::~OffscreenRenderer() {
 
 // Getters
 VkImage &OffscreenRenderer::getSceneImage() const {
-  return renderTarget->getColorImage(FrameInfo::imageIndex);
+  return renderTarget->getColorImage(FrameInfo::frameIndex);
 }
 ImVec2 OffscreenRenderer::getSceneSize() const {
   return ImVec2(static_cast<float>(renderTarget->extent().width),
@@ -47,8 +47,6 @@ void OffscreenRenderer::begin() {
   if (FrameInfo::frameIndex < 0 ||
       FrameInfo::frameIndex >= SwapChain::MAX_FRAMES_IN_FLIGHT)
     throw runtime_error("Invalid frame index in FrameInfo!");
-  if (FrameInfo::imageIndex < 0)
-    throw runtime_error("Invalid image index in FrameInfo!");
 
   array<VkClearValue, 2> clearValues{};
   clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
@@ -56,7 +54,7 @@ void OffscreenRenderer::begin() {
 
   VkRenderPassBeginInfo beginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
   beginInfo.renderPass = renderTarget->getRenderPass();
-  beginInfo.framebuffer = renderTarget->getFrameBuffer(FrameInfo::imageIndex);
+  beginInfo.framebuffer = renderTarget->getFrameBuffer(FrameInfo::frameIndex);
   beginInfo.renderArea.offset = {0, 0};
   beginInfo.renderArea.extent = renderTarget->extent();
   beginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
