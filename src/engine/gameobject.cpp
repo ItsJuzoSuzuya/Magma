@@ -1,7 +1,9 @@
 #include "gameobject.hpp"
 #include "imgui.h"
 #include "scene.hpp"
+#include "widgets/scene_tree.hpp"
 #include <memory>
+#include <print>
 #include <string>
 
 using namespace std;
@@ -68,17 +70,31 @@ void GameObject::drawChildren() {
   for (const auto &child : children) {
     if (child) {
 
-      ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanFullWidth;
+      ImGuiTreeNodeFlags flags =
+          ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanFullWidth;
 
       // If no sub-children, display as leaf node
       if (!child->hasChildren()) {
         flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
         ImGui::TreeNodeEx(child->name.c_str(), flags);
+
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+          SceneTree::setContextTarget(child.get());
+          ImGui::OpenPopup("SceneMenu");
+        }
+
         continue;
       }
 
       // Node with children
-      if (ImGui::TreeNodeEx(child->name.c_str()), flags) {
+      bool open = ImGui::TreeNodeEx(child->name.c_str(), flags);
+
+      if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+        SceneTree::setContextTarget(child.get());
+        ImGui::OpenPopup("SceneMenu");
+      }
+
+      if (open) {
         child->drawChildren();
         ImGui::TreePop();
       }

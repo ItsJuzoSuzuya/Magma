@@ -1,5 +1,6 @@
 #include "scene.hpp"
 #include "imgui.h"
+#include "widgets/scene_tree.hpp"
 #include <memory>
 
 using namespace std;
@@ -38,13 +39,26 @@ void Scene::draw() {
 
     // If no children, display as leaf node
     if (!gameObject->hasChildren()) {
-      flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+      flags |= ImGuiTreeNodeFlags_Leaf;
       ImGui::TreeNodeEx(gameObject->name.c_str(), flags);
+
+      if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+        SceneTree::setContextTarget(gameObject.get());
+        ImGui::OpenPopup("SceneMenu");
+      }
+
       continue;
     }
 
     // Else display as tree node
-    if (ImGui::TreeNodeEx(gameObject->name.c_str(), flags)) {
+    bool open = ImGui::TreeNodeEx(gameObject->name.c_str(), flags);
+
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+      SceneTree::setContextTarget(gameObject.get());
+      ImGui::OpenPopup("SceneMenu");
+    }
+
+    if (open) {
       gameObject->drawChildren();
       ImGui::TreePop();
     }
