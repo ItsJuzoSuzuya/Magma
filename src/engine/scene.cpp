@@ -1,5 +1,6 @@
 #include "scene.hpp"
 #include "imgui.h"
+#include "widgets/scene_menu.hpp"
 #include "widgets/scene_tree.hpp"
 #include <memory>
 
@@ -43,7 +44,7 @@ void Scene::draw() {
       ImGui::TreeNodeEx(gameObject->name.c_str(), flags);
 
       if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-        SceneTree::queueContextMenuFor(gameObject.get());
+        SceneMenu::queueContextMenuFor(gameObject.get());
 
       continue;
     }
@@ -52,7 +53,7 @@ void Scene::draw() {
     bool open = ImGui::TreeNodeEx(gameObject->name.c_str(), flags);
 
     if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-      SceneTree::queueContextMenuFor(gameObject.get());
+      SceneMenu::queueContextMenuFor(gameObject.get());
 
     if (open) {
       gameObject->drawChildren();

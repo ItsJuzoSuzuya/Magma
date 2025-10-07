@@ -51,6 +51,7 @@ set(SOURCES
     src/engine/widgets/dock_layout.cpp
     src/engine/widgets/inspector.cpp
     src/engine/widgets/scene_tree.cpp
+    src/engine/widgets/scene_menu.cpp
     src/engine/widgets/offscreen_view.cpp
     # renderers
     src/engine/render/imgui_renderer.cpp

@@ -15,28 +15,12 @@ bool SceneTree::preFrame() {
 // Draw: Simple tree node
 void SceneTree::draw() {
   ImGui::Begin(name());
+
+  if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) 
+    SceneMenu::queueContextMenuFor(nullptr);
+
   Scene::draw();
-
-  // Open queued popup at window-root scope (avoids ID-stack mismatch)
-  if (openPopupRequested) {
-    ImGui::OpenPopup("SceneMenu");
-    openPopupRequested = false;
-  }
-
-  // Centralized popup for any GameObject (called once per frame)
-  if (ImGui::BeginPopup("SceneMenu")) {
-    if (auto *target = getContextTarget()) {
-      ImGui::TextUnformatted(target->name.c_str());
-      ImGui::Separator();
-      if (ImGui::MenuItem("Add Child")) {
-        target->addChild();
-      }
-      // if (ImGui::MenuItem("Rename...")) { /* start rename */ }
-      // if (ImGui::MenuItem("Delete")) { /* delete target */ }
-    }
-
-    ImGui::EndPopup();
-  }
+  sceneMenu.draw();
 
   ImGui::End();
 }

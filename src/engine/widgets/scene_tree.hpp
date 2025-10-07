@@ -1,5 +1,5 @@
 #pragma once
-#include "../gameobject.hpp"
+#include "scene_menu.hpp"
 #include "widget.hpp"
 
 namespace Magma {
@@ -8,20 +8,6 @@ class SceneTree : public Widget {
 public:
   // Name of the widget
   const char *name() const override { return "Scene Tree"; }
-
-  // Getters
-  static GameObject *getContextTarget() { return contextTarget; }
-
-  // Setters
-  static void setContextTarget(GameObject *gameObject) {
-    contextTarget = gameObject;
-  }
-
-  // Queue opening the context menu at window-root scope this frame
-  static void queueContextMenuFor(GameObject *gameObject) {
-    contextTarget = gameObject;
-    openPopupRequested = true;
-  }
 
   // Lifecycle
   bool preFrame() override;
@@ -33,8 +19,8 @@ public:
   }
 
 private:
-  inline static GameObject *contextTarget = nullptr;
-  inline static bool openPopupRequested = false;
+  // Scene Menu
+  SceneMenu sceneMenu = {};
 };
 
 } // namespace Magma
