@@ -1,4 +1,5 @@
 #include "scene_tree.hpp"
+#include "../scene.hpp"
 #include "imgui.h"
 
 namespace Magma {
@@ -13,7 +14,7 @@ bool SceneTree::preFrame() {
 // Draw: Simple tree node
 void SceneTree::draw() {
   ImGui::Begin(name());
-  ImGui::TreeNode("Triangle");
+  Scene::draw();
   ImGui::End();
 }
 

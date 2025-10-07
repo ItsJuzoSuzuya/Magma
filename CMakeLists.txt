@@ -45,6 +45,8 @@ set(SOURCES
     src/core/render_target.cpp
     #engine
     src/engine/engine.cpp
+    src/engine/scene.cpp
+    src/engine/gameobject.cpp
     # widgets
     src/engine/widgets/dock_layout.cpp
     src/engine/widgets/inspector.cpp

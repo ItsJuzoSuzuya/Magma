@@ -10,10 +10,16 @@ class GameObject {
 public:
   using id_t = uint64_t;
 
+  // Factory methods
   static GameObject &create();
   static GameObject &create(std::string name);
   static GameObject &create(GameObject &parent);
   static GameObject &create(GameObject &parent, std::string name);
+
+  GameObject(const GameObject &) = delete;
+  GameObject &operator=(const GameObject &) = delete;
+  GameObject(GameObject &&) = default;
+  GameObject &operator=(GameObject &&) = default;
 
   // Getters
   static id_t getNextId();
@@ -35,6 +41,7 @@ public:
   // Children
   void addChild();
   void addChild(std::unique_ptr<GameObject> child);
+  void drawChildren();
 
   id_t id;
   std::string name;

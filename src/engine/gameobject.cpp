@@ -1,14 +1,18 @@
 #include "gameobject.hpp"
+#include "imgui.h"
 #include "scene.hpp"
+#include <memory>
 #include <string>
 
 using namespace std;
 namespace Magma {
 
+// Static member initialization
 GameObject::id_t GameObject::nextId = 0;
 
 GameObject::id_t GameObject::getNextId() { return nextId++; }
 
+// Factory methods
 GameObject &GameObject::create() {
   auto obj = unique_ptr<GameObject>(new GameObject(getNextId()));
   GameObject &ref = *obj;
@@ -37,7 +41,13 @@ GameObject &GameObject::create(GameObject &parent, string name) {
   return ref;
 }
 
-void GameObject::addChild(std::unique_ptr<GameObject> child) {
+// Children
+void GameObject::addChild() {
+  unique_ptr<GameObject> child(new GameObject(getNextId(), this));
+  children.push_back(std::move(child));
+}
+
+void GameObject::addChild(unique_ptr<GameObject> child) {
   if (child == nullptr)
     return;
 
@@ -45,13 +55,24 @@ void GameObject::addChild(std::unique_ptr<GameObject> child) {
   children.push_back(std::move(child));
 }
 
-std::vector<GameObject *> GameObject::getChildren() {
-  std::vector<GameObject *> result;
+vector<GameObject *> GameObject::getChildren() {
+  vector<GameObject *> result;
   for (const auto &child : children) {
     if (child)
       result.push_back(child.get());
   }
   return result;
+}
+
+void GameObject::drawChildren() {
+  for (const auto &child : children) {
+    if (child) {
+      if (ImGui::TreeNodeEx(child->name.c_str())) {
+        child->drawChildren();
+        ImGui::TreePop();
+      }
+    }
+  }
 }
 
 } // namespace Magma

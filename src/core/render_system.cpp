@@ -67,8 +67,12 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   offscreenRenderer = make_unique<OffscreenRenderer>(
       *device, offscreenInfo, globalSetLayout->getDescriptorSetLayout());
 
+  // Add widgets
   imguiRenderer->addWidget(make_unique<SceneTree>());
   imguiRenderer->addWidget(make_unique<Inspector>());
+
+  // Important: Offscreen view must be added last so that its content size is
+  // calculated according to the other widgets
   imguiRenderer->addWidget(
       make_unique<OffscreenView>(*offscreenRenderer.get()));
 }

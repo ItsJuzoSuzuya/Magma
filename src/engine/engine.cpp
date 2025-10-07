@@ -1,4 +1,5 @@
 #include "engine.hpp"
+#include "gameobject.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
@@ -13,17 +14,29 @@ namespace Magma {
 // Constructor
 
 Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
-  initGlfw();
-  initRenderSystem();
-  initImGui();
-}
-
-void Engine::initGlfw() { window = make_unique<Window>(specifications); }
-
-void Engine::initRenderSystem() {
+  window = make_unique<Window>(specifications);
   renderSystem = make_unique<RenderSystem>(*window);
+  initImGui();
+  scene = make_unique<Scene>();
+
+  auto &obj = GameObject::create();
+  obj.addChild();
 }
 
+// --- Public ---
+// Main loop
+void Engine::run() {
+  while (!window->shouldClose()) {
+    glfwPollEvents();
+    if (glfwGetKey(window->getGLFWwindow(), GLFW_KEY_ESCAPE))
+      window->close();
+
+    renderSystem->renderFrame();
+  }
+}
+
+// --- Private ---
+// Initialize ImGui
 void Engine::initImGui() {
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
@@ -42,18 +55,6 @@ void Engine::initImGui() {
   if (!ok)
     throw std::runtime_error(
         "Failed to initialize ImGui Vulkan implementation!");
-}
-
-// Main loop
-
-void Engine::run() {
-  while (!window->shouldClose()) {
-    glfwPollEvents();
-    if (glfwGetKey(window->getGLFWwindow(), GLFW_KEY_ESCAPE))
-      window->close();
-
-    renderSystem->renderFrame();
-  }
 }
 
 } // namespace Magma
