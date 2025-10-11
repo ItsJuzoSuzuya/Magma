@@ -1,13 +1,17 @@
 #pragma once
+#include "../../core/descriptors.hpp"
 #include "../../core/renderer.hpp"
 #include "../widgets/widget.hpp"
+#include <memory>
 
 namespace Magma {
 
 class ImGuiRenderer : public Renderer {
 public:
-  ImGuiRenderer(Device &device, SwapChain &swapChain,
-                VkDescriptorSetLayout descriptorSetLayout);
+  ImGuiRenderer(Device &device, SwapChain &swapChain);
+
+  // Getters
+  VkDescriptorPool getDescriptorPool() const;
 
   // Widget management
   void addWidget(std::unique_ptr<Widget> widget);
@@ -28,6 +32,13 @@ public:
   void resize(VkExtent2D extent, VkSwapchainKHR swapChain);
 
 private:
+  // Descriptor Pool
+  std::unique_ptr<DescriptorPool> descriptorPool;
+  std::unique_ptr<DescriptorSetLayout> descriptorSetLayout;
+  void createDescriptorPool();
+  void createDescriptorSetLayout();
+
+  // Widgets
   std::vector<std::unique_ptr<Widget>> widgets;
   bool dockBuilt = false;
 };

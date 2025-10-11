@@ -6,6 +6,8 @@
 #include <vector>
 namespace Magma {
 
+class Renderer;
+
 class GameObject {
 public:
   using id_t = uint64_t;
@@ -34,6 +36,14 @@ public:
     components[typeid(T)] = std::move(component);
     return *this;
   }
+  template <typename T> T *getComponent() {
+    static_assert(std::is_base_of<Component, T>::value,
+                  "T must be a Component");
+    auto it = components.find(typeid(T));
+    if (it != components.end())
+      return static_cast<T *>(it->second.get());
+    return nullptr;
+  }
 
   // Parent
   GameObject *parent = nullptr;
@@ -43,6 +53,10 @@ public:
   void addChild(std::unique_ptr<GameObject> child);
   void drawChildren();
   bool hasChildren() const { return !children.empty(); }
+
+  // Render
+  void onRender(Renderer &renderer);
+  void draw();
 
   id_t id;
   std::string name;

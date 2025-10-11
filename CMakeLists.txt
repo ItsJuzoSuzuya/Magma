@@ -32,21 +32,24 @@ set(IMGUI_SOURCES
 # Your main program
 set(SOURCES
     main.cpp
-    #core
+    # core
     src/core/render_system.cpp
     src/core/window.cpp
     src/core/device.cpp
     src/core/descriptors.cpp
     src/core/swapchain.cpp
-    src/core/mesh.cpp
+    src/core/mesh_data.cpp
     src/core/pipeline.cpp
     src/core/renderer.cpp
     src/core/buffer.cpp
     src/core/render_target.cpp
-    #engine
+    # engine
     src/engine/engine.cpp
     src/engine/scene.cpp
     src/engine/gameobject.cpp
+    # components
+    src/engine/components/transform.cpp
+    src/engine/components/mesh.cpp
     # widgets
     src/engine/widgets/dock_layout.cpp
     src/engine/widgets/inspector.cpp

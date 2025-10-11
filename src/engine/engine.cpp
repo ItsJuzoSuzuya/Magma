@@ -1,4 +1,6 @@
 #include "engine.hpp"
+#include "components/mesh.hpp"
+#include "components/transform.hpp"
 #include "gameobject.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -6,6 +8,7 @@
 #include "specifications.hpp"
 #include <GLFW/glfw3.h>
 #include <X11/X.h>
+#include <print>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -20,11 +23,14 @@ Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
   scene = make_unique<Scene>();
 
   auto &obj = GameObject::create();
-  obj.addChild();
-  obj.addChild();
+  obj.name = "Test Object";
+  obj.addComponent<Transform>();
+  auto transform = obj.getComponent<Transform>();
+  transform->position = {0.f, 0.f, 5.f};
 
-  auto &camera = GameObject::create("Camera");
-  camera.addChild();
+  obj.addComponent<Mesh>(renderSystem->getDevice());
+  auto mesh = obj.getComponent<Mesh>();
+  mesh->load("models/barrel/Barrel.gltf");
 }
 
 // --- Public ---
@@ -35,6 +41,7 @@ void Engine::run() {
     if (glfwGetKey(window->getGLFWwindow(), GLFW_KEY_ESCAPE))
       window->close();
 
+    println("Frame Start");
     renderSystem->renderFrame();
   }
 }

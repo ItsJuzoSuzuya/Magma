@@ -5,6 +5,8 @@
 
 namespace Magma {
 
+class Renderer;
+
 class Scene {
 public:
   Scene();
@@ -25,8 +27,12 @@ public:
   void addGameObject();
   void addGameObject(std::unique_ptr<GameObject> gameObject);
 
-  // Draw
-  static void draw();
+  // Draw scene tree
+  static void drawTree();
+
+  // Render GameObjects
+  static void onRender(Renderer &renderer);
+  static void draw(Renderer &renderer);
 
 private:
   // Active scene for static access

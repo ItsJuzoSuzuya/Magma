@@ -10,7 +10,9 @@ namespace Magma {
 // Constructor
 OffscreenRenderer::OffscreenRenderer(Device &device, RenderTargetInfo &info,
                                      VkDescriptorSetLayout descriptorSetLayout)
-    : Renderer(device, descriptorSetLayout) {
+    : Renderer(device) {
+  Renderer::init(descriptorSetLayout);
+
   renderTarget = make_unique<RenderTarget>(device, info);
   createPipeline();
 }

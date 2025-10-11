@@ -11,11 +11,21 @@ using namespace std;
 namespace Magma {
 
 // Constructor
-ImGuiRenderer::ImGuiRenderer(Device &device, SwapChain &swapChain,
-                             VkDescriptorSetLayout descriptorSetLayout)
-    : Renderer(device, descriptorSetLayout) {
+ImGuiRenderer::ImGuiRenderer(Device &device, SwapChain &swapChain)
+    : Renderer(device) {
+  createDescriptorPool();
+  createDescriptorSetLayout();
+  Renderer::init(descriptorSetLayout->getDescriptorSetLayout());
+
   renderTarget = make_unique<RenderTarget>(device, swapChain);
   createPipeline();
+  println("Descriptor pool {}", (void *)descriptorPool->getDescriptorPool());
+}
+
+// --- Public ---
+// Getters
+VkDescriptorPool ImGuiRenderer::getDescriptorPool() const {
+  return descriptorPool->getDescriptorPool();
 }
 
 // Widget management
@@ -145,6 +155,22 @@ void ImGuiRenderer::end() {
 void ImGuiRenderer::resize(VkExtent2D extent, VkSwapchainKHR swapChain) {
   renderTarget->resize(extent, swapChain);
   createPipeline();
+}
+
+// --- Private ---
+// Descriptors
+void ImGuiRenderer::createDescriptorPool() {
+  descriptorPool =
+      DescriptorPool::Builder(device.device())
+          .setMaxSets(100 * SwapChain::MAX_FRAMES_IN_FLIGHT)
+          .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                       100 * SwapChain::MAX_FRAMES_IN_FLIGHT)
+          .setPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT)
+          .build();
+}
+
+void ImGuiRenderer::createDescriptorSetLayout() {
+  descriptorSetLayout = DescriptorSetLayout::Builder(device.device()).build();
 }
 
 } // namespace Magma

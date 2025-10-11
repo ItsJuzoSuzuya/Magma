@@ -1,7 +1,6 @@
 #include "scene.hpp"
 #include "imgui.h"
 #include "widgets/scene_menu.hpp"
-#include "widgets/scene_tree.hpp"
 #include <memory>
 
 using namespace std;
@@ -27,7 +26,7 @@ void Scene::addGameObject(unique_ptr<GameObject> gameObject) {
 }
 
 // Draw all GameObjects recursively
-void Scene::draw() {
+void Scene::drawTree() {
   if (activeScene == nullptr)
     return;
 
@@ -59,6 +58,17 @@ void Scene::draw() {
       gameObject->drawChildren();
       ImGui::TreePop();
     }
+  }
+}
+
+// Render all GameObjects
+void Scene::onRender(Renderer &renderer) {
+  if (activeScene == nullptr)
+    return;
+
+  for (auto &gameObject : activeScene->gameObjects) {
+    if (gameObject)
+      gameObject->onRender(renderer);
   }
 }
 

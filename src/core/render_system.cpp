@@ -1,5 +1,6 @@
 #include "render_system.hpp"
 #include "../core/window.hpp"
+#include "../engine/scene.hpp"
 #include "../engine/widgets/dock_layout.hpp"
 #include "../engine/widgets/inspector.hpp"
 #include "../engine/widgets/offscreen_view.hpp"
@@ -22,13 +23,6 @@
 using namespace std;
 namespace Magma {
 
-struct GlobalUbo {
-  glm::mat4 projectionView{1.f};
-  glm::vec4 ambientLightColor{1.f, 1.f, 1.f, .02f};
-  glm::vec3 lightPosition{0.f, 20.f, 0.f};
-  alignas(16) glm::vec4 lightColor{1.f};
-};
-
 // Constructor
 RenderSystem::RenderSystem(Window &window) : window{window} {
   device = make_unique<Device>(window);
@@ -37,23 +31,11 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   createCommandBuffers();
   createDescriptorPool();
 
-  uboBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-  for (int i = 0; i < static_cast<int>(uboBuffers.size()); i++) {
-    uboBuffers[i] = make_unique<Buffer>(*device, sizeof(GlobalUbo), 1,
-                                        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-    uboBuffers[i]->map();
-  }
-  globalSetLayout = DescriptorSetLayout::Builder(device->device())
-                        .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                    VK_SHADER_STAGE_ALL_GRAPHICS)
-                        .build();
+  globalSetLayout = DescriptorSetLayout::Builder(device->device()).build();
 
   globalDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
   for (size_t i = 0; i < globalDescriptorSets.size(); i++) {
-    auto bufferInfo = uboBuffers[i]->descriptorInfo();
     DescriptorWriter(*globalSetLayout, *descriptorPool)
-        .writeBuffer(0, &bufferInfo)
         .build(globalDescriptorSets[i]);
   }
 
@@ -61,8 +43,7 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   offscreenInfo.extent.width /= 2;
   offscreenInfo.extent.height /= 2;
 
-  imguiRenderer = make_unique<ImGuiRenderer>(
-      *device, *swapChain, globalSetLayout->getDescriptorSetLayout());
+  imguiRenderer = make_unique<ImGuiRenderer>(*device, *swapChain);
 
   offscreenRenderer = make_unique<OffscreenRenderer>(
       *device, offscreenInfo, globalSetLayout->getDescriptorSetLayout());
@@ -91,7 +72,7 @@ ImGui_ImplVulkan_InitInfo RenderSystem::getImGuiInitInfo() {
   ImGui_ImplVulkan_InitInfo init_info = {};
   device->populateImGuiInitInfo(&init_info);
   init_info.ApiVersion = VK_API_VERSION_1_3;
-  init_info.DescriptorPool = descriptorPool->getDescriptorPool();
+  init_info.DescriptorPool = imguiRenderer->getDescriptorPool();
   init_info.DescriptorPoolSize = 0;
   init_info.Subpass = 0;
   init_info.RenderPass = imguiRenderer->getRenderPass();
@@ -111,7 +92,7 @@ void RenderSystem::renderFrame() {
   if (beginFrame()) {
     offscreenRenderer->begin();
     offscreenRenderer->record();
-    vkCmdDraw(FrameInfo::commandBuffer, 3, 1, 0, 0);
+    Scene::onRender(*offscreenRenderer);
     offscreenRenderer->end();
 
     imguiRenderer->begin();
@@ -160,49 +141,6 @@ void RenderSystem::recreateSwapChain() {
 bool RenderSystem::beginFrame() {
   // Start ImGui frame
   imguiRenderer->newFrame();
-
-  /*
-  ImGuiViewport *viewport = ImGui::GetMainViewport();
-  ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
-  ImGui::DockSpaceOverViewport(dockspace_id, viewport);
-  if (firstFrame)
-    createDockspace(dockspace_id, viewport->Size);
-
-  // Check if offscreen view needs to be resized
-  ImGui::Begin("Scene Tree");
-  ImGui::End();
-
-  ImGui::Begin("Inspector");
-  ImGui::End();
-}
-
-  bool offscreen_open = ImGui::Begin("Offscreen View");
-  if (offscreen_open) {
-    ImVec2 avail = ImGui::GetContentRegionAvail();
-    ImVec2 desired{
-        (float)ImMax(1, (int)avail.x),
-        (float)ImMax(1, (int)avail.y),
-    };
-
-    ImVec2 current = offscreenRenderer->getSceneSize();
-    bool needsResize = ((int)desired.x != (int)current.x) ||
-                       ((int)desired.y != (int)current.y);
-
-    if (needsResize && !firstFrame) {
-      VkExtent2D newExtent{
-          (uint32_t)desired.x,
-          (uint32_t)desired.y,
-      };
-
-      offscreenRenderer->resize(newExtent);
-
-      ImGui::End();
-      ImGui::EndFrame();
-      return false;
-    }
-  }
-  ImGui::End();
-  */
 
   if (!imguiRenderer->preFrame())
     return false;
@@ -253,15 +191,11 @@ void RenderSystem::onWindowResized() {
 
 // Descriptor Pool
 void RenderSystem::createDescriptorPool() {
-  descriptorPool =
-      DescriptorPool::Builder(device->device())
-          .setMaxSets(100 * SwapChain::MAX_FRAMES_IN_FLIGHT)
-          .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                       SwapChain::MAX_FRAMES_IN_FLIGHT)
-          .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                       100 * SwapChain::MAX_FRAMES_IN_FLIGHT)
-          .setPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT)
-          .build();
+  descriptorPool = DescriptorPool::Builder(device->device())
+                       .setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT)
+                       .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                    SwapChain::MAX_FRAMES_IN_FLIGHT)
+                       .build();
 }
 
 // ImGui Dockspace

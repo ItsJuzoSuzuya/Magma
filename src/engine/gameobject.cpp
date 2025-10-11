@@ -1,4 +1,5 @@
 #include "gameobject.hpp"
+#include "components/mesh.hpp"
 #include "imgui.h"
 #include "scene.hpp"
 #include "widgets/scene_menu.hpp"
@@ -97,6 +98,27 @@ void GameObject::drawChildren() {
       }
     }
   }
+}
+
+// Rendering
+void GameObject::onRender(Renderer &renderer) {
+  for (const auto &component : components) {
+    if (component.second)
+      component.second->onRender(renderer);
+  }
+
+  draw();
+
+  for (const auto &child : children) {
+    if (child)
+      child->onRender(renderer);
+  }
+}
+
+void GameObject::draw() {
+  auto mesh = getComponent<Mesh>();
+  if (mesh)
+    mesh->draw();
 }
 
 } // namespace Magma

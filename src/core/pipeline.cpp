@@ -1,6 +1,6 @@
 #include "pipeline.hpp"
 #include "device.hpp"
-#include "mesh.hpp"
+#include "mesh_data.hpp"
 #include <cassert>
 #include <cstdint>
 #include <fstream>

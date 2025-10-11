@@ -1,5 +1,6 @@
 #include "renderer.hpp"
-#include "mesh.hpp"
+#include "mesh_data.hpp"
+#include "push_constant_data.hpp"
 #include "swapchain.hpp"
 #include <cassert>
 #include <glm/ext/scalar_constants.hpp>
@@ -10,8 +11,9 @@ using namespace std;
 namespace Magma {
 
 // Constructor and destructor
-Renderer::Renderer(Device &device, VkDescriptorSetLayout descriptorSetLayout)
-    : device{device} {
+Renderer::Renderer(Device &device) : device{device} {}
+
+void Renderer::init(VkDescriptorSetLayout descriptorSetLayout) {
   createPipelineLayout(descriptorSetLayout);
 }
 
@@ -20,17 +22,22 @@ Renderer::~Renderer() {
   pipeline = nullptr;
 }
 
-// --- Private ---
-// Pipeline
-
+// --- Private --- //
+// Pipeline Layout
 void Renderer::createPipelineLayout(VkDescriptorSetLayout descriptorSetLayout) {
-
   vector<VkDescriptorSetLayout> layouts{descriptorSetLayout};
+
+  VkPushConstantRange pushConstantRange = {};
+  pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  pushConstantRange.offset = 0;
+  pushConstantRange.size = sizeof(PushConstantData);
 
   VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
   pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
   pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
   pipelineLayoutInfo.pSetLayouts = layouts.data();
+  pipelineLayoutInfo.pushConstantRangeCount = 1;
+  pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
   if (vkCreatePipelineLayout(device.device(), &pipelineLayoutInfo, nullptr,
                              &pipelineLayout) != VK_SUCCESS)

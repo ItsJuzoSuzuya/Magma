@@ -19,7 +19,7 @@ void SceneTree::draw() {
   if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) 
     SceneMenu::queueContextMenuFor(nullptr);
 
-  Scene::draw();
+  Scene::drawTree();
   sceneMenu.draw();
 
   ImGui::End();

@@ -18,7 +18,8 @@ struct RendererType {
 class Renderer {
 public:
   // Constructor and destructor
-  Renderer(Device &device, VkDescriptorSetLayout descriptorSetLayout);
+  Renderer(Device &device);
+  void init(VkDescriptorSetLayout descriptorSetLayout);
   virtual ~Renderer();
 
   // Delete copy constructor and assignment operator
@@ -28,6 +29,7 @@ public:
   // Getters
   RenderTarget &target() { return *renderTarget; }
   VkRenderPass getRenderPass() { return renderTarget->getRenderPass(); }
+  VkPipelineLayout getPipelineLayout() { return pipelineLayout; }
 
   // Rendering
   virtual void begin() = 0;
@@ -38,6 +40,8 @@ public:
   void endFrame();
 
 protected:
+  Device &device;
+
   // Render Target
   std::unique_ptr<RenderTarget> renderTarget;
 
@@ -46,8 +50,6 @@ protected:
   void createPipeline();
 
 private:
-  Device &device;
-
   // Pipeline Layout
   VkPipelineLayout pipelineLayout;
   void createPipelineLayout(VkDescriptorSetLayout descriptorSetLayout);
