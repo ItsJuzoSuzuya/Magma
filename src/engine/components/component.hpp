@@ -13,6 +13,9 @@ public:
   virtual void onRender(Renderer &renderer) = 0;
   virtual void onAwake() = 0;
   virtual void onUpdate() = 0;
+
+  // Inspector
+  virtual void onInspector() = 0;
 };
 
 } // namespace Magma

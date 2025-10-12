@@ -1,0 +1,11 @@
+Model Information:
+* title:	Epic Simple Cube
+* source:	https://sketchfab.com/3d-models/epic-simple-cube-3a180582490b4395bc6384ea2bb740aa
+* author:	@German_Martian (https://sketchfab.com/german_martian)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Epic Simple Cube" (https://sketchfab.com/3d-models/epic-simple-cube-3a180582490b4395bc6384ea2bb740aa) by @German_Martian (https://sketchfab.com/german_martian) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

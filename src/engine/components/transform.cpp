@@ -13,14 +13,20 @@ namespace Magma {
 // --- Public --- //
 // Render
 void Transform::onRender(Renderer &renderer) {
-  println("Transform::onRender -> PushConstants");
-  println("Position: {}, {}, {}", position.x, position.y, position.z);
   PushConstantData push{};
   push.modelMatrix = mat4();
 
   vkCmdPushConstants(FrameInfo::commandBuffer, renderer.getPipelineLayout(),
                      VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData),
                      &push);
+}
+
+// Inspector
+void Transform::onInspector() {
+  ImGui::Text("Transform");
+  ImGui::DragFloat3("Position", &position.x, 0.1f);
+  ImGui::DragFloat3("Rotation", &rotation.x, 0.1f);
+  ImGui::DragFloat3("Scale", &scale.x, 0.1f);
 }
 
 // --- Private --- //

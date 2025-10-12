@@ -30,7 +30,6 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
 
   createCommandBuffers();
   createDescriptorPool();
-
   globalSetLayout = DescriptorSetLayout::Builder(device->device()).build();
 
   globalDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -86,8 +85,16 @@ ImGui_ImplVulkan_InitInfo RenderSystem::getImGuiInitInfo() {
 }
 
 void RenderSystem::renderFrame() {
+  // Create textures that will be displayed in an ImGui Image
+  // Scene will be rendered to these textures in the offscreen pass
   if (firstFrame)
     offscreenRenderer->createOffscreenTextures();
+
+  // Important: Any behavior that changes the state (e.g. Delete GameObject)
+  // must be done before beginFrame(), because it may invalidate the current
+  // frame. For example, deleting a GameObject destroys its Mesh, which is bound
+  // to the current frames command buffer. -> This creates a use-after-free
+  // bug, since the command buffer bounds the Mesh's buffers.
 
   if (beginFrame()) {
     offscreenRenderer->begin();

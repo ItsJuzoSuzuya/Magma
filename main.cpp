@@ -1,6 +1,6 @@
 #include "src/engine/engine.hpp"
 #include "src/engine/specifications.hpp"
-#include <stdlib.h> // abort
+#include <stdlib.h>
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>

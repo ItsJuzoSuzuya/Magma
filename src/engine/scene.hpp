@@ -1,5 +1,6 @@
 #pragma once
 #include "gameobject.hpp"
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -10,7 +11,10 @@ class Renderer;
 class Scene {
 public:
   Scene();
+
+  // Destructor
   ~Scene();
+  static void removeGameObject(GameObject *gameObject);
 
   Scene(const Scene &) = delete;
   Scene &operator=(const Scene &) = delete;
@@ -30,9 +34,9 @@ public:
   // Draw scene tree
   static void drawTree();
 
-  // Render GameObjects
+  // Render GameObjects recursively
+  // @param renderer Renderer to use for rendering
   static void onRender(Renderer &renderer);
-  static void draw(Renderer &renderer);
 
 private:
   // Active scene for static access
@@ -40,6 +44,9 @@ private:
 
   // Root GameObjects
   std::vector<std::unique_ptr<GameObject>> gameObjects;
+
+  // Update Queue
+  // std::map<GameObject *, SceneAction> updateQueue;
 };
 
 } // namespace Magma

@@ -1,7 +1,10 @@
 #include "scene.hpp"
 #include "imgui.h"
+#include "widgets/inspector.hpp"
 #include "widgets/scene_menu.hpp"
+#include <algorithm>
 #include <memory>
+#include <print>
 
 using namespace std;
 namespace Magma {
@@ -11,9 +14,27 @@ Scene::Scene() {
     setActive();
 }
 
+// Destructor
 Scene::~Scene() {
   if (activeScene == this)
     activeScene = nullptr;
+}
+
+void Scene::removeGameObject(GameObject *gameObject) {
+  if (gameObject == nullptr)
+    return;
+
+  auto &gameObjects = activeScene->gameObjects;
+  auto it = find_if(gameObjects.begin(), gameObjects.end(),
+                    [gameObject](const unique_ptr<GameObject> &obj) {
+                      return obj.get() == gameObject;
+                    });
+  if (it != gameObjects.end()) {
+    println("Removing GameObject: {}", gameObject->name);
+    gameObjects.erase(it);
+    Inspector::setContext(nullptr);
+    println("GameObject removed successfully.");
+  }
 }
 
 // --- Public ---
@@ -44,6 +65,8 @@ void Scene::drawTree() {
 
       if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
         SceneMenu::queueContextMenuFor(gameObject.get());
+      if (ImGui::IsItemClicked())
+        Inspector::setContext(gameObject.get());
 
       continue;
     }
@@ -53,6 +76,8 @@ void Scene::drawTree() {
 
     if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
       SceneMenu::queueContextMenuFor(gameObject.get());
+    if (ImGui::IsItemClicked())
+      Inspector::setContext(gameObject.get());
 
     if (open) {
       gameObject->drawChildren();

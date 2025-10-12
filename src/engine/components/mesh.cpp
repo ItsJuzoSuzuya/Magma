@@ -20,6 +20,8 @@ Mesh::~Mesh() {
   if (meshData) {
     delete meshData;
     meshData = nullptr;
+    vertexBuffer = nullptr;
+    indexBuffer = nullptr;
   }
 }
 
@@ -36,8 +38,10 @@ bool Mesh::load(const string &filepath) {
   if (!warn.empty())
     println("Warning: {}", warn);
 
-  if (!err.empty())
+  if (!err.empty()) {
+    println("Error: {}", err);
     return false;
+  }
 
   if (!result) {
     println("Failed to load glTF model: {}", filepath);
@@ -107,13 +111,6 @@ bool Mesh::load(const string &filepath) {
 
 // Render
 void Mesh::onRender(Renderer &renderer) {
-  println("Mesh::onRender -> Binding Buffers");
-  println("Has Index Buffer: {}", hasIndexBuffer);
-  println("Vertex Count: {}", meshData->vertices.size());
-  println("Index Count: {}", meshData->indices.size());
-  println("Vertex Buffer: {}", (void *)vertexBuffer->getBuffer());
-  println("Index Buffer: {}",
-          hasIndexBuffer ? (void *)indexBuffer->getBuffer() : 0);
   VkBuffer vertexBuffers[] = {vertexBuffer->getBuffer()};
   VkDeviceSize offsets[] = {0};
   vkCmdBindVertexBuffers(FrameInfo::commandBuffer, 0, 1, vertexBuffers,
@@ -125,7 +122,6 @@ void Mesh::onRender(Renderer &renderer) {
 }
 
 void Mesh::draw() {
-  println("Mesh::draw -> Drawing Mesh");
   if (hasIndexBuffer)
     vkCmdDrawIndexed(FrameInfo::commandBuffer,
                      static_cast<uint32_t>(meshData->indices.size()), 1, 0, 0,

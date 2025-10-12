@@ -19,8 +19,8 @@ void SceneMenu::draw() {
       ImGui::Separator();
       if (ImGui::MenuItem("Add Child"))
         target->addChild();
-      // if (ImGui::MenuItem("Rename...")) { /* start rename */ }
-      // if (ImGui::MenuItem("Delete")) { /* delete target */ }
+      if (ImGui::MenuItem("Delete"))
+        target->destroy();
     } else {
       ImGui::TextUnformatted("Scene");
       ImGui::Separator();

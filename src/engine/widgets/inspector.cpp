@@ -1,4 +1,5 @@
 #include "inspector.hpp"
+#include "../gameobject.hpp"
 #include "imgui.h"
 
 namespace Magma {
@@ -13,7 +14,10 @@ bool Inspector::preFrame() {
 // Draw: Simple text
 void Inspector::draw() {
   ImGui::Begin(name());
-  ImGui::TextUnformatted("Hello from the inspector!");
+  if (context) {
+    for (auto *component : context->getComponents())
+      component->onInspector();
+  }
   ImGui::End();
 }
 

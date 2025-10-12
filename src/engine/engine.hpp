@@ -9,11 +9,18 @@ namespace Magma {
 
 class EngineSpecifications;
 
+/** 
+ *The main engine class that initializes and runs the application.
+ */
 class Engine {
 public:
+  /** Constructs the engine with the given specifications */
   Engine(EngineSpecifications &spec);
 
-  // Main loop
+  /**
+   * Runs the main loop
+   * @note This function will block until window is closed
+   */
   void run();
 
 private:

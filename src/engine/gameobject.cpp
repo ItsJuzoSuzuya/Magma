@@ -2,6 +2,7 @@
 #include "components/mesh.hpp"
 #include "imgui.h"
 #include "scene.hpp"
+#include "widgets/inspector.hpp"
 #include "widgets/scene_menu.hpp"
 #include "widgets/scene_tree.hpp"
 #include <memory>
@@ -15,6 +16,28 @@ namespace Magma {
 GameObject::id_t GameObject::nextId = 0;
 
 GameObject::id_t GameObject::getNextId() { return nextId++; }
+
+// Destructor
+GameObject::~GameObject() {
+  components.clear();
+  children.clear();
+}
+
+void GameObject::destroy() {
+  // Remove from parent's children if applicable
+  println("Destroying GameObject {}", name);
+  if (parent) {
+    auto &siblings = parent->children;
+    siblings.erase(remove_if(siblings.begin(), siblings.end(),
+                             [this](const unique_ptr<GameObject> &child) {
+                               return child.get() == this;
+                             }),
+                   siblings.end());
+  } else
+    Scene::removeGameObject(this);
+
+  Inspector::setContext(nullptr);
+}
 
 // Factory methods
 GameObject &GameObject::create() {

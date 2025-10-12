@@ -8,7 +8,6 @@
 #include "specifications.hpp"
 #include <GLFW/glfw3.h>
 #include <X11/X.h>
-#include <print>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -26,11 +25,14 @@ Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
   obj.name = "Test Object";
   obj.addComponent<Transform>();
   auto transform = obj.getComponent<Transform>();
-  transform->position = {0.f, 0.f, 5.f};
+  transform->position = {0.f, 0.f, 1.f};
+  transform->scale = {0.1f, 0.1f, 0.1f};
 
   obj.addComponent<Mesh>(renderSystem->getDevice());
   auto mesh = obj.getComponent<Mesh>();
-  mesh->load("models/barrel/Barrel.gltf");
+  if (!mesh->load("models/cube/scene.gltf")) {
+    throw std::runtime_error("Failed to load model!");
+  }
 }
 
 // --- Public ---
@@ -41,7 +43,6 @@ void Engine::run() {
     if (glfwGetKey(window->getGLFWwindow(), GLFW_KEY_ESCAPE))
       window->close();
 
-    println("Frame Start");
     renderSystem->renderFrame();
   }
 }

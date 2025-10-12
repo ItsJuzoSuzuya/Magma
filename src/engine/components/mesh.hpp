@@ -23,12 +23,14 @@ public:
   void onAwake() override {};
   void onUpdate() override {};
 
+  // Inspector
+  void onInspector() override {};
+
 private:
   Device &device;
   MeshData *meshData;
 
   // Buffers
-  std::unique_ptr<Buffer> stagingBuffer;
   std::unique_ptr<Buffer> vertexBuffer;
   std::unique_ptr<Buffer> indexBuffer;
   bool hasIndexBuffer = false;

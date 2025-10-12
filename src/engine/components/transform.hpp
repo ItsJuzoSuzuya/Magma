@@ -3,7 +3,6 @@
 #include "component.hpp"
 #include <glm/fwd.hpp>
 #include <glm/vec3.hpp>
-#include <istream>
 namespace Magma {
 
 class Transform : public Component {
@@ -19,6 +18,9 @@ public:
   void onRender(Renderer &renderer) override;
   void onAwake() override {};
   void onUpdate() override {};
+
+  // Inspector
+  void onInspector() override;
 
 private:
   glm::mat4x4 mat4() const;

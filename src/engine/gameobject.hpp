@@ -12,6 +12,10 @@ class GameObject {
 public:
   using id_t = uint64_t;
 
+  // Destructor
+  ~GameObject();
+  void destroy();
+
   // Factory methods
   static GameObject &create();
   static GameObject &create(std::string name);
@@ -36,13 +40,19 @@ public:
     components[typeid(T)] = std::move(component);
     return *this;
   }
-  template <typename T> T *getComponent() {
+  template <typename T> T *getComponent() const {
     static_assert(std::is_base_of<Component, T>::value,
                   "T must be a Component");
     auto it = components.find(typeid(T));
     if (it != components.end())
       return static_cast<T *>(it->second.get());
     return nullptr;
+  }
+  std::vector<Component *> getComponents() const {
+    std::vector<Component *> vec = {};
+    for (auto &[type, comp] : components)
+      vec.push_back(comp.get());
+    return vec;
   }
 
   // Parent
