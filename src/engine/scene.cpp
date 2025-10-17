@@ -1,10 +1,10 @@
 #include "scene.hpp"
+#include "gameobject.hpp"
 #include "imgui.h"
+#include "scene_action.hpp"
 #include "widgets/inspector.hpp"
 #include "widgets/scene_menu.hpp"
-#include <algorithm>
 #include <memory>
-#include <print>
 
 using namespace std;
 namespace Magma {
@@ -20,33 +20,22 @@ Scene::~Scene() {
     activeScene = nullptr;
 }
 
-void Scene::removeGameObject(GameObject *gameObject) {
-  if (gameObject == nullptr)
-    return;
+// --- Public --- //
+// --- GameObject management ---
+GameObject &Scene::addGameObject(unique_ptr<GameObject> gameObject) {
+  assert(gameObject != nullptr &&
+         "GameObject cannot be null when adding to scene");
 
-  auto &gameObjects = activeScene->gameObjects;
-  auto it = find_if(gameObjects.begin(), gameObjects.end(),
-                    [gameObject](const unique_ptr<GameObject> &obj) {
-                      return obj.get() == gameObject;
-                    });
-  if (it != gameObjects.end()) {
-    println("Removing GameObject: {}", gameObject->name);
-    gameObjects.erase(it);
-    Inspector::setContext(nullptr);
-    println("GameObject removed successfully.");
-  }
-}
-
-// --- Public ---
-// Add empty GameObject
-void Scene::addGameObject(unique_ptr<GameObject> gameObject) {
-  if (gameObject == nullptr)
-    return;
-
+  GameObject &ref = *gameObject;
   gameObjects.push_back(std::move(gameObject));
+  return ref;
 }
 
-// Draw all GameObjects recursively
+void Scene::removeGameObject(GameObject *gameObject) {
+  defer(SceneAction::remove(gameObject));
+}
+
+// --- Scene operations ---
 void Scene::drawTree() {
   if (activeScene == nullptr)
     return;
@@ -86,7 +75,6 @@ void Scene::drawTree() {
   }
 }
 
-// Render all GameObjects
 void Scene::onRender(Renderer &renderer) {
   if (activeScene == nullptr)
     return;
@@ -97,4 +85,13 @@ void Scene::onRender(Renderer &renderer) {
   }
 }
 
+void Scene::processDeferredActions() {
+  if (activeScene == nullptr)
+    return;
+
+  for (auto &action : deferredActions)
+    action();
+
+  deferredActions.clear();
+}
 } // namespace Magma

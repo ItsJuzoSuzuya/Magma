@@ -25,12 +25,16 @@ public:
     return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
   }
   GLFWwindow *getGLFWwindow() { return window; }
+  static std::string getDroppedText() { return droppedText; }
 
   bool wasWindowResized() { return framebufferResized; }
   void resetWindowResizedFlag() { framebufferResized = false; }
+  static void resetDrop() { hasDroppedText = false; }
 
   bool shouldClose() { return glfwWindowShouldClose(window); }
   void close();
+
+  inline static bool hasDroppedText = false;
 
 private:
   int width;
@@ -44,5 +48,7 @@ private:
 
   static void framebufferResizeCallback(GLFWwindow *window, int width,
                                         int height);
+  static void dropCallback(GLFWwindow *window, int count, const char **paths);
+  inline static std::string droppedText = "";
 };
 } // namespace Magma

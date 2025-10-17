@@ -4,7 +4,6 @@
 #include "scene.hpp"
 #include "widgets/inspector.hpp"
 #include "widgets/scene_menu.hpp"
-#include "widgets/scene_tree.hpp"
 #include <memory>
 #include <print>
 #include <string>
@@ -24,17 +23,7 @@ GameObject::~GameObject() {
 }
 
 void GameObject::destroy() {
-  // Remove from parent's children if applicable
-  println("Destroying GameObject {}", name);
-  if (parent) {
-    auto &siblings = parent->children;
-    siblings.erase(remove_if(siblings.begin(), siblings.end(),
-                             [this](const unique_ptr<GameObject> &child) {
-                               return child.get() == this;
-                             }),
-                   siblings.end());
-  } else
-    Scene::removeGameObject(this);
+  Scene::current()->removeGameObject(this);
 
   Inspector::setContext(nullptr);
 }

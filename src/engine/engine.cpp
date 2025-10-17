@@ -30,14 +30,16 @@ Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
 
   obj.addComponent<Mesh>(renderSystem->getDevice());
   auto mesh = obj.getComponent<Mesh>();
-  if (!mesh->load("models/cube/scene.gltf")) {
+  if (!mesh->load("assets/cube/scene.gltf")) 
     throw std::runtime_error("Failed to load model!");
-  }
+
+  println("Engine initialized successfully.");
 }
 
 // --- Public ---
 // Main loop
 void Engine::run() {
+  println("Starting main loop...");
   while (!window->shouldClose()) {
     glfwPollEvents();
     if (glfwGetKey(window->getGLFWwindow(), GLFW_KEY_ESCAPE))

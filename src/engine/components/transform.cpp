@@ -4,7 +4,6 @@
 #include "../../core/renderer.hpp"
 #include <glm/fwd.hpp>
 #include <glm/trigonometric.hpp>
-#include <print>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;

@@ -1,7 +1,7 @@
 #include "window.hpp"
 #include "../engine/specifications.hpp"
-#include "imgui_internal.h"
 #include <GLFW/glfw3.h>
+#include <cstring>
 #include <stdexcept>
 
 using namespace std;
@@ -29,6 +29,8 @@ void Window::initWindow() {
 
   if (glfwRawMouseMotionSupported())
     glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+
+  glfwSetDropCallback(window, dropCallback);
 }
 
 void Window::createSurface(VkInstance instance, VkSurfaceKHR *surface) {
@@ -42,6 +44,17 @@ void Window::framebufferResizeCallback(GLFWwindow *window, int width,
   app->framebufferResized = true;
   app->width = width;
   app->height = height;
+}
+
+void Window::dropCallback(GLFWwindow *window, int count, const char **paths) {
+  if (count > 0) {
+    const char *needle = "Magma/";
+    const char *last = strstr(paths[0], needle);
+    last += strlen(needle);
+
+    droppedText = string(last);
+    hasDroppedText = true;
+  }
 }
 
 void Window::close() { glfwSetWindowShouldClose(window, GLFW_TRUE); }

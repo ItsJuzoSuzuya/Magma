@@ -1,6 +1,7 @@
 #pragma once
 #include "components/component.hpp"
 #include <memory>
+#include <print>
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
@@ -8,6 +9,12 @@ namespace Magma {
 
 class Renderer;
 
+/**
+ * Entity in the scene that can have multiple components
+ * (e.g., Transform, Mesh, Light) and can be part of a hierarchy (
+ * parent-child relationship).
+ * @note GameObjects are managed by the Scene or its parents.
+ */
 class GameObject {
 public:
   using id_t = uint64_t;
@@ -36,7 +43,8 @@ public:
   GameObject &addComponent(Args &&...args) {
     static_assert(std::is_base_of<Component, T>::value,
                   "T must be a Component");
-    auto component = std::make_unique<T>(std::forward<Args>(args)...);
+    auto component = std::make_unique<T>(this, std::forward<Args>(args)...);
+    std::println("Added component of type {}", typeid(T).name());
     components[typeid(T)] = std::move(component);
     return *this;
   }
@@ -64,7 +72,12 @@ public:
   void drawChildren();
   bool hasChildren() const { return !children.empty(); }
 
-  // Render
+  /**
+   * Render (recursive)
+   * @param renderer Renderer to use for rendering
+   * @note This function is called by Scene::onRender() or by the parent
+   * GameObject.
+   */
   void onRender(Renderer &renderer);
   void draw();
 
@@ -81,6 +94,7 @@ private:
   GameObject(id_t id, GameObject *parent, std::string name)
       : id{id}, parent{parent}, name{name} {};
 
+  // Hierarchy
   std::unordered_map<std::type_index, std::unique_ptr<Component>> components;
   std::vector<std::unique_ptr<GameObject>> children;
 };

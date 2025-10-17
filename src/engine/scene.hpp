@@ -1,6 +1,6 @@
 #pragma once
 #include "gameobject.hpp"
-#include <map>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -8,45 +8,62 @@ namespace Magma {
 
 class Renderer;
 
+/**
+ * Represents a scene containing multiple
+ * GameObjects and manages their lifecycle and rendering.
+ * @note Only one scene can be active at a time.
+ */
 class Scene {
 public:
   Scene();
-
-  // Destructor
   ~Scene();
-  static void removeGameObject(GameObject *gameObject);
 
   Scene(const Scene &) = delete;
   Scene &operator=(const Scene &) = delete;
   Scene(Scene &&) = default;
   Scene &operator=(Scene &&) = default;
 
-  // Getters
+  // --- Global access ---
   static Scene *current() { return activeScene; }
-
-  // Setters
   void setActive() { activeScene = this; }
+  std::vector<std::unique_ptr<GameObject>> &getGameObjects() {
+    return gameObjects;
+  }
 
-  // GameObjects
-  void addGameObject();
-  void addGameObject(std::unique_ptr<GameObject> gameObject);
+  // --- GameObject management ---
+  GameObject &addGameObject(std::unique_ptr<GameObject> gameObject);
+  void removeGameObject(GameObject *gameObject);
 
-  // Draw scene tree
+  // --- Scene operations ---
+  /**
+   * Draw the scene hierarchy in a tree structure
+   * */
   static void drawTree();
 
-  // Render GameObjects recursively
-  // @param renderer Renderer to use for rendering
+  /**
+   * Render GameObjects recursively
+   * @param renderer Renderer to use for rendering
+   */
   static void onRender(Renderer &renderer);
 
+  /**
+   * Defers an action to be executed after the current frame
+   * @param func The function to be executed
+   * @note This is useful for actions that modify the scene
+   */
+  void defer(std::function<void()> func) { deferredActions.push_back(func); }
+
+  /**
+   * Process deferred actions queued during the frame
+   * @note This should be called at the end of each frame
+   */
+  void processDeferredActions();
+
 private:
-  // Active scene for static access
   inline static Scene *activeScene = nullptr;
 
-  // Root GameObjects
   std::vector<std::unique_ptr<GameObject>> gameObjects;
-
-  // Update Queue
-  // std::map<GameObject *, SceneAction> updateQueue;
+  std::vector<std::function<void()>> deferredActions;
 };
 
 } // namespace Magma

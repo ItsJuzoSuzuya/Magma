@@ -1,8 +1,9 @@
 #include "src/engine/engine.hpp"
 #include "src/engine/specifications.hpp"
+#include <cstdio>
 #include <stdlib.h>
 #define GLFW_INCLUDE_NONE
-#define GLFW_INCLUDE_VULKAN
+#define GLFW_INCLUDE_VULKAM
 #include <GLFW/glfw3.h>
 
 // Main code

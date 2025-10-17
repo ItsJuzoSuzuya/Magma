@@ -90,12 +90,6 @@ void RenderSystem::renderFrame() {
   if (firstFrame)
     offscreenRenderer->createOffscreenTextures();
 
-  // Important: Any behavior that changes the state (e.g. Delete GameObject)
-  // must be done before beginFrame(), because it may invalidate the current
-  // frame. For example, deleting a GameObject destroys its Mesh, which is bound
-  // to the current frames command buffer. -> This creates a use-after-free
-  // bug, since the command buffer bounds the Mesh's buffers.
-
   if (beginFrame()) {
     offscreenRenderer->begin();
     offscreenRenderer->record();
@@ -187,6 +181,7 @@ void RenderSystem::endFrame() {
     throw runtime_error("Failed to present swap chain image!");
 
   FrameInfo::advanceFrame();
+  Scene::current()->processDeferredActions();
 }
 
 // Resize

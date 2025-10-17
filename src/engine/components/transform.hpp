@@ -7,7 +7,7 @@ namespace Magma {
 
 class Transform : public Component {
 public:
-  Transform() = default;
+  Transform(GameObject *obj) : Component(obj) {}
   ~Transform() = default;
 
   glm::vec3 position{0.0f, 0.0f, 0.0f};

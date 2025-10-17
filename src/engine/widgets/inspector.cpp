@@ -4,14 +4,14 @@
 
 namespace Magma {
 
-// Pre-frame: Just attach Inspector
+// --- Public --- //
+// --- Rendering & Drawing ---
 bool Inspector::preFrame() {
   ImGui::Begin(name());
   ImGui::End();
   return true;
 }
 
-// Draw: Simple text
 void Inspector::draw() {
   ImGui::Begin(name());
   if (context) {

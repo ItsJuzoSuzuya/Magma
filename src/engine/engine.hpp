@@ -9,8 +9,8 @@ namespace Magma {
 
 class EngineSpecifications;
 
-/** 
- *The main engine class that initializes and runs the application.
+/**
+ * The main engine class that initializes and runs the application.
  */
 class Engine {
 public:
@@ -24,7 +24,7 @@ public:
   void run();
 
 private:
-  // Engine
+  // --- Engine ---
   EngineSpecifications &specifications;
   std::unique_ptr<Window> window = nullptr;
   std::unique_ptr<RenderSystem> renderSystem = nullptr;
