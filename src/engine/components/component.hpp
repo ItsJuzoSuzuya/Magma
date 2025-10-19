@@ -22,6 +22,7 @@ public:
   virtual void onRender(Renderer &renderer) = 0;
 
   // Inspector
+  virtual const char *inspectorName() const = 0;
   virtual void onInspector() = 0;
 
 protected:

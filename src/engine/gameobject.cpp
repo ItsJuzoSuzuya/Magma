@@ -83,7 +83,6 @@ vector<GameObject *> GameObject::getChildren() {
 void GameObject::drawChildren() {
   for (const auto &child : children) {
     if (child) {
-
       ImGuiTreeNodeFlags flags =
           ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanFullWidth;
 
@@ -94,6 +93,8 @@ void GameObject::drawChildren() {
 
         if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
           SceneMenu::queueContextMenuFor(child.get());
+        if (ImGui::IsItemClicked())
+          Inspector::setContext(child.get());
 
         continue;
       }
@@ -103,6 +104,8 @@ void GameObject::drawChildren() {
 
       if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
         SceneMenu::queueContextMenuFor(child.get());
+      if (ImGui::IsItemClicked())
+        Inspector::setContext(child.get());
 
       if (open) {
         child->drawChildren();

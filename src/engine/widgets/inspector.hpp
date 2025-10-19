@@ -45,11 +45,6 @@ private:
 
   inline static GameObject *contextTarget = nullptr;
   Device *device = nullptr;
-
-  // --- Assets Cache ---
-  inline static std::vector<std::string> assets;
-  inline static bool assetsScanned = false;
-  static void scanAssetsOnce();
 };
 
 } // namespace Magma

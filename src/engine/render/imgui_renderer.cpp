@@ -1,6 +1,7 @@
 #include "imgui_renderer.hpp"
 #include "../../core/frame_info.hpp"
 #include "../widgets/dock_layout.hpp"
+#include "../widgets/ui_context.hpp"
 #include "imgui_impl_glfw.h"
 #include <array>
 #include <print>
@@ -43,6 +44,8 @@ void ImGuiRenderer::newFrame() {
 // Pre-frame: set up dockspace and let widgets run their pre-frame hooks
 // Build dockspace and run widget pre-frame hooks (e.g., offscreen resize)
 bool ImGuiRenderer::preFrame() {
+  UIContext::ensureInit();
+
   ImGuiViewport *viewport = ImGui::GetMainViewport();
   ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
   ImGui::DockSpaceOverViewport(dockspace_id, viewport);

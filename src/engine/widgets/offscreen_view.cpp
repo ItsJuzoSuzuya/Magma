@@ -2,11 +2,14 @@
 #include "../render/offscreen_renderer.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "ui_context.hpp"
 
 namespace Magma {
 
 // Perform resize decision before starting frame.
 bool OffscreenView::preFrame() {
+  UIContext::ensureInit();
+  ImGui::SetNextWindowClass(&UIContext::AppDockClass);
   bool open = ImGui::Begin(name());
   if (open) {
     ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -32,6 +35,8 @@ bool OffscreenView::preFrame() {
 
 // Draw the widget
 void OffscreenView::draw() {
+  UIContext::ensureInit();
+  ImGui::SetNextWindowClass(&UIContext::AppDockClass);
   ImGui::Begin("Offscreen View");
   ImGui::Image(offscreenRenderer.getSceneTexture(),
                offscreenRenderer.getSceneSize());

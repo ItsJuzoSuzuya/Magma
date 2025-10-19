@@ -42,6 +42,7 @@ public:
 
   // Inspector
   void onInspector() override;
+  const char *inspectorName() const override { return "Mesh Renderer"; }
 
 private:
   Device &device;
