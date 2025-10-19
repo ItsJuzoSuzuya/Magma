@@ -1,8 +1,12 @@
 #pragma once
 #include "../gameobject.hpp"
+#include "inspector_menu.hpp"
+#include "scene_menu.hpp"
 #include "widget.hpp"
 
 namespace Magma {
+
+class Device;
 
 /**
  * Inspector widget for viewing and editing a selected GameObject.
@@ -11,13 +15,14 @@ namespace Magma {
  */
 class Inspector : public Widget {
 public:
+  Inspector(Device *device): device{device} {}
   const char *name() const override { return "Inspector"; }
 
   /**
    * Set the context GameObject to inspect
    * @note Passing nullptr clears the inspector
    */
-  static void setContext(GameObject *obj) { context = obj; }
+  static void setContext(GameObject *obj) { contextTarget = obj; }
 
   // --- Rendering & Drawing ---
   /**
@@ -36,7 +41,15 @@ public:
   }
 
 private:
-  inline static GameObject *context;
+  InspectorMenu inspectorMenu = {};
+
+  inline static GameObject *contextTarget = nullptr;
+  Device *device = nullptr;
+
+  // --- Assets Cache ---
+  inline static std::vector<std::string> assets;
+  inline static bool assetsScanned = false;
+  static void scanAssetsOnce();
 };
 
 } // namespace Magma

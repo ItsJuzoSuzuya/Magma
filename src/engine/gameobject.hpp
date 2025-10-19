@@ -1,5 +1,6 @@
 #pragma once
 #include "components/component.hpp"
+#include <cassert>
 #include <memory>
 #include <print>
 #include <typeindex>
@@ -44,6 +45,10 @@ public:
     static_assert(std::is_base_of<Component, T>::value,
                   "T must be a Component");
     auto component = std::make_unique<T>(this, std::forward<Args>(args)...);
+
+    assert(component &&
+           "Failed to create component. Make sure the constructor is valid.");
+
     std::println("Added component of type {}", typeid(T).name());
     components[typeid(T)] = std::move(component);
     return *this;

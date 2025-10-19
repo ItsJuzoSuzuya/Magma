@@ -159,17 +159,26 @@ bool Mesh::load(const string &filepath) {
 
 // --- Lifecycle ---
 void Mesh::onRender(Renderer &renderer) {
+  if (!meshData)
+    return;
+
   VkBuffer vertexBuffers[] = {vertexBuffer->getBuffer()};
   VkDeviceSize offsets[] = {0};
   vkCmdBindVertexBuffers(FrameInfo::commandBuffer, 0, 1, vertexBuffers,
                          offsets);
 
-  if (hasIndexBuffer)
+  if (hasIndexBuffer){
+    assert(indexBuffer != nullptr &&
+           "Index buffer must be created before rendering indexed mesh!");
     vkCmdBindIndexBuffer(FrameInfo::commandBuffer, indexBuffer->getBuffer(), 0,
                          VK_INDEX_TYPE_UINT32);
+  }
 }
 
 void Mesh::draw() {
+  if(!meshData)
+    return;
+
   if (hasIndexBuffer)
     vkCmdDrawIndexed(FrameInfo::commandBuffer,
                      static_cast<uint32_t>(meshData->indices.size()), 1, 0, 0,

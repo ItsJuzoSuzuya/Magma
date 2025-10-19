@@ -53,6 +53,7 @@ set(SOURCES
     # widgets
     src/engine/widgets/dock_layout.cpp
     src/engine/widgets/inspector.cpp
+    src/engine/widgets/inspector_menu.cpp
     src/engine/widgets/scene_tree.cpp
     src/engine/widgets/scene_menu.cpp
     src/engine/widgets/offscreen_view.cpp

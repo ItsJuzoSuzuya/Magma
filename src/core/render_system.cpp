@@ -49,7 +49,7 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
 
   // Add widgets
   imguiRenderer->addWidget(make_unique<SceneTree>());
-  imguiRenderer->addWidget(make_unique<Inspector>());
+  imguiRenderer->addWidget(make_unique<Inspector>(device.get()));
 
   // Important: Offscreen view must be added last so that its content size is
   // calculated according to the other widgets
