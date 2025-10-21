@@ -65,6 +65,11 @@ public:
     std::vector<Component *> vec = {};
     for (auto &[type, comp] : components)
       vec.push_back(comp.get());
+    std::sort(vec.begin(), vec.end(),
+              [](Component *a, Component *b) {
+                return std::string(a->inspectorName()) <
+                       std::string(b->inspectorName());
+              });
     return vec;
   }
 

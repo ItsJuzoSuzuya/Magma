@@ -216,7 +216,7 @@ void Mesh::onInspector() {
 
   bool pressedEnter = ImGui::InputText(
       "##mesh_path", pathBuffer, IM_ARRAYSIZE(pathBuffer),
-      ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+      ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll );
 
   if (ImGui::IsItemHovered() && Window::hasDroppedText) {
     string dropped = Window::getDroppedText();

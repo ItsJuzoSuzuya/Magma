@@ -22,6 +22,7 @@ public:
   // Inspector
   void onInspector() override;
   const char *inspectorName() const override { return "Transform"; }
+  const float inspectorHeight() const override { return 150.0f; }
 
 private:
   glm::mat4x4 mat4() const;

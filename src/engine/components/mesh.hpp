@@ -43,6 +43,7 @@ public:
   // Inspector
   void onInspector() override;
   const char *inspectorName() const override { return "Mesh Renderer"; }
+  const float inspectorHeight() const override { return 240.0f; }
 
 private:
   Device &device;
