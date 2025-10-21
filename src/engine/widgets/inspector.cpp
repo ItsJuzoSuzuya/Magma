@@ -125,7 +125,7 @@ void Inspector::draw() {
       ImGui::SetNextWindowClass(&UIContext::InspectorDockClass);
 
       // If we have a node id for this component, dock into that node specifically.
-      if (i < lastDockedWindows.size()) 
+      if (i < lastDockedWindows.size() - 1) 
         ImGui::SetNextWindowDockID(lastDockedWindows[i], ImGuiCond_Appearing);
       else 
         // Fallback: dock into the main dockspace (will group with others)

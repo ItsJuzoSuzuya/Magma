@@ -22,7 +22,6 @@ void Transform::onRender(Renderer &renderer) {
 
 // Inspector
 void Transform::onInspector() {
-  ImGui::Text("Transform");
   ImGui::DragFloat3("Position", &position.x, 0.1f);
   ImGui::DragFloat3("Rotation", &rotation.x, 0.1f);
   ImGui::DragFloat3("Scale", &scale.x, 0.1f);

@@ -190,9 +190,6 @@ void Mesh::draw() {
 
 // --- Inspector ---
 void Mesh::onInspector() {
-  ImGui::TextUnformatted("Mesh");
-  ImGui::Separator();
-
   if (meshData) {
     ImGui::Text("Vertices: %zu", meshData->vertices.size());
     ImGui::Text("Indices: %zu", meshData->indices.size());
