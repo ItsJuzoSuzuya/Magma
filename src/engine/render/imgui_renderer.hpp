@@ -33,10 +33,8 @@ public:
 
 private:
   // Descriptor Pool
-  std::unique_ptr<DescriptorPool> descriptorPool;
-  std::unique_ptr<DescriptorSetLayout> descriptorSetLayout;
-  void createDescriptorPool();
-  void createDescriptorSetLayout();
+  void createDescriptorPool() override;
+  void createDescriptorSetLayout() override;
 
   // Widgets
   std::vector<std::unique_ptr<Widget>> widgets;

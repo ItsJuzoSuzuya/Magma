@@ -1,6 +1,7 @@
 #include "offscreen_renderer.hpp"
 #include "../../core/frame_info.hpp"
 #include "../../core/render_target_info.hpp"
+#include "../scene.hpp"
 #include <array>
 #include <vulkan/vulkan_core.h>
 
@@ -8,10 +9,22 @@ using namespace std;
 namespace Magma {
 
 // Constructor
-OffscreenRenderer::OffscreenRenderer(Device &device, RenderTargetInfo &info,
-                                     VkDescriptorSetLayout descriptorSetLayout)
+OffscreenRenderer::OffscreenRenderer(Device &device, RenderTargetInfo &info)
     : Renderer(device) {
-  Renderer::init(descriptorSetLayout);
+
+  cameraBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+  for (uint32_t i = 0; i < cameraBuffers.size(); ++i){
+    cameraBuffers[i] = make_unique<Buffer>(
+        device, sizeof(CameraUBO), 1,
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT );
+    cameraBuffers[i]->map();
+  }
+
+  createDescriptorPool();
+  createDescriptorSetLayout();
+  Renderer::init(descriptorSetLayout->getDescriptorSetLayout());
+  createDescriptorSets();
 
   renderTarget = make_unique<RenderTarget>(device, info);
   createPipeline();
@@ -80,7 +93,13 @@ void OffscreenRenderer::begin() {
   vkCmdSetScissor(FrameInfo::commandBuffer, 0, 1, &scissor);
 }
 
-void OffscreenRenderer::record() { pipeline->bind(FrameInfo::commandBuffer); }
+void OffscreenRenderer::record() { 
+  pipeline->bind(FrameInfo::commandBuffer); 
+  vkCmdBindDescriptorSets(FrameInfo::commandBuffer,
+                          VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          getPipelineLayout(), 0, 1,
+                          &descriptorSets[FrameInfo::frameIndex], 0, nullptr);
+}
 
 void OffscreenRenderer::end() {
   if (FrameInfo::commandBuffer == VK_NULL_HANDLE)
@@ -111,7 +130,7 @@ void OffscreenRenderer::end() {
                        nullptr, 1, &barrier);
 }
 
-// Resize
+// --- Resize ---
 void OffscreenRenderer::resize(VkExtent2D newExtent) {
   for (auto texture : textures)
     ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)texture);
@@ -119,6 +138,35 @@ void OffscreenRenderer::resize(VkExtent2D newExtent) {
   renderTarget->resize(newExtent);
   createPipeline();
   createOffscreenTextures();
+}
+
+// --- Private --- //
+// --- Desciptors ---
+void OffscreenRenderer::createDescriptorPool() {
+  descriptorPool =
+      DescriptorPool::Builder(device.device())
+          .setMaxSets(2 * SwapChain::MAX_FRAMES_IN_FLIGHT)
+          .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                       2 * SwapChain::MAX_FRAMES_IN_FLIGHT)
+          .build();
+}
+
+void OffscreenRenderer::createDescriptorSetLayout() {
+  descriptorSetLayout = DescriptorSetLayout::Builder(device.device())
+    .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                VK_SHADER_STAGE_VERTEX_BIT)
+    .build();
+}
+
+void OffscreenRenderer::createDescriptorSets() {
+  descriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+  for (size_t i = 0; i < static_cast<uint32_t>(descriptorSets.size()); i++) {
+    VkDescriptorBufferInfo cameraBufferInfo =
+        getCameraBuffer(i)->descriptorInfo();
+    DescriptorWriter(*descriptorSetLayout, *descriptorPool)
+        .writeBuffer(0, &cameraBufferInfo)
+        .build(descriptorSets[i]);
+  }
 }
 
 } // namespace Magma

@@ -1,4 +1,5 @@
 #pragma once
+#include "descriptors.hpp"
 #include "device.hpp"
 #include "pipeline.hpp"
 #include "render_target.hpp"
@@ -9,6 +10,7 @@
 namespace Magma {
 
 class Window;
+class Buffer;
 
 struct RendererType {
   enum Onscreen { SwapChain };
@@ -30,6 +32,7 @@ public:
   RenderTarget &target() { return *renderTarget; }
   VkRenderPass getRenderPass() { return renderTarget->getRenderPass(); }
   VkPipelineLayout getPipelineLayout() { return pipelineLayout; }
+  virtual Buffer *getCameraBuffer(uint32_t i) { return nullptr; }
 
   // Rendering
   virtual void begin() = 0;
@@ -48,6 +51,12 @@ protected:
   // Pipeline
   std::unique_ptr<Pipeline> pipeline;
   void createPipeline();
+
+  // Descriptor Pool
+  std::unique_ptr<DescriptorPool> descriptorPool;
+  std::unique_ptr<DescriptorSetLayout> descriptorSetLayout;
+  virtual void createDescriptorPool() = 0;
+  virtual void createDescriptorSetLayout() = 0;
 
 private:
   // Pipeline Layout

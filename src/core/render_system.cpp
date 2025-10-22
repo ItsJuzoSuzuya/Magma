@@ -28,24 +28,12 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   device = make_unique<Device>(window);
   swapChain = make_unique<SwapChain>(*device, window.getExtent());
 
-  createCommandBuffers();
-  createDescriptorPool();
-  globalSetLayout = DescriptorSetLayout::Builder(device->device()).build();
-
-  globalDescriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-  for (size_t i = 0; i < globalDescriptorSets.size(); i++) {
-    DescriptorWriter(*globalSetLayout, *descriptorPool)
-        .build(globalDescriptorSets[i]);
-  }
-
   RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
   offscreenInfo.extent.width /= 2;
   offscreenInfo.extent.height /= 2;
-
-  imguiRenderer = make_unique<ImGuiRenderer>(*device, *swapChain);
-
   offscreenRenderer = make_unique<OffscreenRenderer>(
-      *device, offscreenInfo, globalSetLayout->getDescriptorSetLayout());
+      *device, offscreenInfo);
+  imguiRenderer = make_unique<ImGuiRenderer>(*device, *swapChain);
 
   // Add widgets
   imguiRenderer->addWidget(make_unique<SceneTree>());
@@ -55,6 +43,8 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   // calculated according to the other widgets
   imguiRenderer->addWidget(
       make_unique<OffscreenView>(*offscreenRenderer.get()));
+
+  createCommandBuffers();
 }
 
 // Destructor
@@ -189,15 +179,6 @@ void RenderSystem::onWindowResized() {
   window.resetWindowResizedFlag();
   recreateSwapChain();
   imguiRenderer->resize(window.getExtent(), swapChain->getSwapChain());
-}
-
-// Descriptor Pool
-void RenderSystem::createDescriptorPool() {
-  descriptorPool = DescriptorPool::Builder(device->device())
-                       .setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT)
-                       .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                    SwapChain::MAX_FRAMES_IN_FLIGHT)
-                       .build();
 }
 
 // ImGui Dockspace

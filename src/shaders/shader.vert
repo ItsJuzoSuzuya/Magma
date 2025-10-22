@@ -6,6 +6,10 @@ layout(push_constant) uniform PushConstants {
     mat4 model;
 } push;
 
+layout(binding = 0, std140) uniform CameraUBO {
+    mat4 projView;
+} ubo;
+
 void main() {
-    gl_Position = push.model * vec4(inPosition, 1.0);
+  gl_Position = ubo.projView * push.model * vec4(inPosition, 1.0);
 }

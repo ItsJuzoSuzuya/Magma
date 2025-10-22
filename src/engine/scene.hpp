@@ -1,4 +1,5 @@
 #pragma once
+#include "camera.hpp"
 #include "gameobject.hpp"
 #include <functional>
 #include <memory>
@@ -61,6 +62,8 @@ public:
 
 private:
   inline static Scene *activeScene = nullptr;
+
+  std::unique_ptr<Camera> camera;
 
   std::vector<std::unique_ptr<GameObject>> gameObjects;
   std::vector<std::function<void()>> deferredActions;

@@ -1,4 +1,7 @@
 #include "scene.hpp"
+#include "../core/renderer.hpp"
+#include "../core/frame_info.hpp"
+#include "camera.hpp"
 #include "gameobject.hpp"
 #include "imgui.h"
 #include "scene_action.hpp"
@@ -10,6 +13,11 @@ using namespace std;
 namespace Magma {
 
 Scene::Scene() {
+  camera = make_unique<Camera>(); 
+  camera->setPerspectiveProjection(
+      glm::radians(90.f), 16.f / 9.f, 0.1f, 100.f);
+  camera->setView({0.f, 0.f, -5.f}, {0.f, 0.f, 0.f});
+
   if (activeScene == nullptr)
     setActive();
 }
@@ -76,6 +84,9 @@ void Scene::drawTree() {
 }
 
 void Scene::onRender(Renderer &renderer) {
+  activeScene->camera->pushCameraDataToGPU(renderer.getCameraBuffer(
+      FrameInfo::frameIndex));
+
   if (activeScene == nullptr)
     return;
 

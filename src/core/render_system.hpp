@@ -37,15 +37,6 @@ private:
   std::unique_ptr<SwapChain> swapChain = nullptr;
   void recreateSwapChain();
 
-  // UBOs
-  std::vector<std::unique_ptr<Buffer>> uboBuffers;
-
-  // Descriptors
-  std::unique_ptr<DescriptorPool> descriptorPool = nullptr;
-  std::unique_ptr<DescriptorSetLayout> globalSetLayout = nullptr;
-  std::vector<VkDescriptorSet> globalDescriptorSets;
-  void createDescriptorPool();
-
   // Renderering
   std::unique_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
   std::unique_ptr<ImGuiRenderer> imguiRenderer = nullptr;
