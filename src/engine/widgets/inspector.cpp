@@ -15,12 +15,11 @@ namespace Magma {
 
 // --- Public --- //
 // --- Rendering & Drawing ---
-bool Inspector::preFrame() {
+void Inspector::preFrame() {
   UIContext::ensureInit();
   ImGui::SetNextWindowClass(&UIContext::AppDockClass);
   ImGui::Begin(name());
   ImGui::End();
-  return true;
 }
 
 void Inspector::draw() {

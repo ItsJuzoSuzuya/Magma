@@ -29,7 +29,7 @@ public:
   /**
    * Simple pre-frame draw for calculating offscreen view size
    */
-  bool preFrame() override;
+  void preFrame() override;
   /**
    * Draw the inspector contents
    */

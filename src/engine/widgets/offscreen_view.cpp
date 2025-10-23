@@ -7,7 +7,7 @@
 namespace Magma {
 
 // Perform resize decision before starting frame.
-bool OffscreenView::preFrame() {
+void OffscreenView::preFrame() {
   UIContext::ensureInit();
   ImGui::SetNextWindowClass(&UIContext::AppDockClass);
   bool open = ImGui::Begin(name());
@@ -27,8 +27,8 @@ bool OffscreenView::preFrame() {
       offscreenRenderer.resize(newExtent);
     }
   }
+
   ImGui::End();
-  return true;
 }
 
 // Draw the widget

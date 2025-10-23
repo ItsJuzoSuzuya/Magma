@@ -21,7 +21,7 @@ public:
 
   // Pre-frame: set up dockspace and let widgets run their pre-frame hooks
   // Returns false if any widget requested to skip the frame (e.g., resize)
-  bool preFrame();
+  void preFrame();
 
   // Rendering
   void begin() override;

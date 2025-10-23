@@ -7,12 +7,11 @@ using namespace std;
 namespace Magma {
 
 // Pre-frame: Just attach Scene Tree
-bool SceneTree::preFrame() {
+void SceneTree::preFrame() {
   UIContext::ensureInit();
   ImGui::SetNextWindowClass(&UIContext::AppDockClass);
   ImGui::Begin(name());
   ImGui::End();
-  return true;
 }
 
 // Draw: Simple tree node

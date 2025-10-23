@@ -43,7 +43,7 @@ void ImGuiRenderer::newFrame() {
 
 // Pre-frame: set up dockspace and let widgets run their pre-frame hooks
 // Build dockspace and run widget pre-frame hooks (e.g., offscreen resize)
-bool ImGuiRenderer::preFrame() {
+void ImGuiRenderer::preFrame() {
   UIContext::ensureInit();
 
   ImGuiViewport *viewport = ImGui::GetMainViewport();
@@ -94,18 +94,8 @@ bool ImGuiRenderer::preFrame() {
   }
 
   // Run pre-frame hooks
-  bool ok = true;
-  for (auto &widget : widgets) {
-    ok = ok && widget->preFrame();
-    if (!ok)
-      break;
-  }
-
-  if (!ok) {
-    ImGui::EndFrame();
-    return false;
-  }
-  return true;
+  for (auto &widget : widgets) 
+    widget->preFrame();
 }
 
 // Rendering

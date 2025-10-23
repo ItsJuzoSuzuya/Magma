@@ -14,7 +14,7 @@ public:
   const char *name() const override { return "Offscreen View"; }
 
   // Perform resize decision before starting frame.
-  bool preFrame() override;
+  void preFrame() override;
 
   // Draw the widget
   void draw() override;

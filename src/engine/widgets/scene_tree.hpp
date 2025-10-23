@@ -10,7 +10,7 @@ public:
   const char *name() const override { return "Scene Tree"; }
 
   // Lifecycle
-  bool preFrame() override;
+  void preFrame() override;
   void draw() override;
 
   // Docking prefrence (Left 25%)

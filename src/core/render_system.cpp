@@ -132,9 +132,7 @@ void RenderSystem::recreateSwapChain() {
 bool RenderSystem::beginFrame() {
   // Start ImGui frame
   imguiRenderer->newFrame();
-
-  if (!imguiRenderer->preFrame())
-    return false;
+  imguiRenderer->preFrame();
 
   // Check if the swap chain needs to be recreated
   auto result = swapChain->acquireNextImage();

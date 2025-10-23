@@ -18,7 +18,7 @@ public:
   virtual const char *name() const = 0;
 
   // Optional pre-frame step (e.g, resizing). Return false to skip frame.
-  virtual bool preFrame() { return true; }
+  virtual void preFrame() { return; }
 
   // Draw the widget
   virtual void draw() = 0;
