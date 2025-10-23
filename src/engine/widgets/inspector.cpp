@@ -5,8 +5,10 @@
 #include "inspector_menu.hpp"
 #include "ui_context.hpp"
 #include <cfloat>
+#include <charconv>
 #include <cstdint>
 #include <print>
+#include <string>
 
 using namespace std;
 namespace Magma {
@@ -29,6 +31,16 @@ void Inspector::draw() {
   ImGui::SetNextWindowClass(&UIContext::AppDockClass);
   ImGui::Begin(name());
 
+  // Early out if no target
+  if (!contextTarget) {
+    resetLayoutState();
+    ImGui::TextDisabled("No target selected");
+    ImGui::End();
+    return;
+  }
+
+
+  // Right-click context menu
   const ImGuiHoveredFlags hoveredFlags =
       ImGuiHoveredFlags_ChildWindows |
       ImGuiHoveredFlags_DockHierarchy |
@@ -41,40 +53,55 @@ void Inspector::draw() {
     InspectorMenu::queueContextMenuFor(context);
   }
 
+  // Header
+  ImGui::TextDisabled("Object: %s", contextTarget->name.c_str());
+
+  // Gather components 
   vector<Component *> components;
   if (contextTarget)
     components = contextTarget->getComponents();
 
+  // Early out if no components
   if (components.empty()) {
-    ImGui::TextDisabled("No components to inspect.");
+    lastTarget = contextTarget; 
+    lastCount = 0;
+    lastTotalHeight = 0.f;
+    lastTotalWidth = 0.f;
+
     ImGui::End();
     inspectorMenu.draw();
     return;
   }
 
+  // Calculate total height of all components
   float totalHeight = 0.f;
   for (auto *component : components) 
     totalHeight += component->inspectorHeight();
 
+  // Scrolling child for dockspace
   ImGui::BeginChild("##InspectorDockScroll", ImVec2(-FLT_MIN, totalHeight), false,
                     ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-  
   ImVec2 childAvail = ImGui::GetContentRegionAvail();
   float dockWidth = childAvail.x;
 
+  // Main dockspace
   ImGui::DockSpace(innerDockspaceId, ImVec2(0.f, 0.f),
-                   ImGuiDockNodeFlags_None, &UIContext::InspectorDockClass);
+                     ImGuiDockNodeFlags_None, &UIContext::InspectorDockClass);
 
-  static GameObject* lastTarget = nullptr;
-  static int lastCount = -1;
-  static float lastTotalHeight = 0.f;
+  // ImGuiIDs
   vector<ImGuiID> lastDockedWindows = {static_cast<uint32_t>(components.size())};
 
   const bool targetChanged = (lastTarget != contextTarget);
   const bool countChanged = (static_cast<int>(components.size()) != lastCount);
-  const bool heightChanged = std::fabs(totalHeight - lastTotalHeight) > 1.f;
+  const bool heightChanged = (totalHeight != lastTotalHeight);
+  const bool widthChanged = (dockWidth != lastTotalWidth);
 
-  if (targetChanged || countChanged || heightChanged) {
+  double x = std::fabs(dockWidth - lastTotalWidth);
+  // print x
+  if(x != 0.0)
+    print("change delta: {}", x);
+
+  if (targetChanged || countChanged || heightChanged || widthChanged) {
     ImGui::DockBuilderRemoveNode(innerDockspaceId);
     ImGui::DockBuilderAddNode(innerDockspaceId, ImGuiDockNodeFlags_DockSpace | ImGuiDockNodeFlags_AutoHideTabBar);
 
@@ -85,7 +112,7 @@ void Inspector::draw() {
 
     lastDockedWindows.clear();
 
-    if (!components.empty() && totalHeight > 0.0f) {
+    if (!components.empty()) {
       ImGuiID remainingId = innerDockspaceId;
       float remainingPx = totalHeight;
 
@@ -94,8 +121,6 @@ void Inspector::draw() {
         const float compHeight = components[i]->inspectorHeight();
 
         if (remainingPx <= 1.0f) break;
-        println("Remaining px: {}", remainingPx);
-        println("  Docking component '{}' with height {}", winName, compHeight);
 
         // Extract a top slice with height ~= desiredPx from the remaining space
         float ratio = compHeight / remainingPx;
@@ -103,19 +128,25 @@ void Inspector::draw() {
         if (ratio >= 0.999f && i + 1 < components.size()) ratio = 0.999f; // keep space for next slices
 
         ImGuiID topSlice = 0;
-        ImGui::DockBuilderSplitNode(remainingId , ImGuiDir_Up, ratio, &topSlice, &remainingId);
+        if(i == components.size() - 1)
+          topSlice = remainingId; // last one takes all remaining space
+        else
+          ImGui::DockBuilderSplitNode(remainingId , ImGuiDir_Up, ratio, &topSlice, &remainingId);
+
         ImGui::DockBuilderDockWindow(winName, topSlice);
         lastDockedWindows.push_back(topSlice);
 
         remainingPx -= compHeight;
       }
-    }
 
-    ImGui::DockBuilderFinish(innerDockspaceId);
-    lastTarget = contextTarget;
-    lastCount = static_cast<int>(components.size());
-    lastTotalHeight = totalHeight;
+      ImGui::DockBuilderFinish(innerDockspaceId);
+      lastTarget = contextTarget;
+      lastCount = static_cast<int>(components.size());
+      lastTotalHeight = totalHeight;
+      lastTotalWidth = dockWidth;
+    }
   }
+
   ImGui::EndChild();
   ImGui::End();
 
@@ -125,7 +156,7 @@ void Inspector::draw() {
       ImGui::SetNextWindowClass(&UIContext::InspectorDockClass);
 
       // If we have a node id for this component, dock into that node specifically.
-      if (i < lastDockedWindows.size() - 1) 
+      if (i  < lastDockedWindows.size() - 1) 
         ImGui::SetNextWindowDockID(lastDockedWindows[i], ImGuiCond_Appearing);
       else 
         // Fallback: dock into the main dockspace (will group with others)

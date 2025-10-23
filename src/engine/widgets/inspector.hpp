@@ -1,5 +1,6 @@
 #pragma once
 #include "../gameobject.hpp"
+#include "imgui.h"
 #include "inspector_menu.hpp"
 #include "scene_menu.hpp"
 #include "widget.hpp"
@@ -41,10 +42,29 @@ public:
   }
 
 private:
+  Device *device = nullptr;
+
+  /** 
+   * The inspector context menu 
+   * @note Open via right-click in the inspector area
+   * */
   InspectorMenu inspectorMenu = {};
 
+  /** The current GameObject displayed */
   inline static GameObject *contextTarget = nullptr;
-  Device *device = nullptr;
+
+  // Inspector Layout State
+  GameObject *lastTarget = nullptr;
+  int lastCount = 0;
+  float lastTotalHeight = 0.0f;
+  float lastTotalWidth = 0.0f;
+  void resetLayoutState() {
+    lastTarget = nullptr;
+    lastCount = 0;
+    lastTotalHeight = 0.0f;
+    lastTotalWidth = 0.0f;
+  }
+
 };
 
 } // namespace Magma
