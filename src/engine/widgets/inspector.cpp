@@ -39,7 +39,6 @@ void Inspector::draw() {
     return;
   }
 
-
   // Right-click context menu
   const ImGuiHoveredFlags hoveredFlags =
       ImGuiHoveredFlags_ChildWindows |
@@ -79,7 +78,7 @@ void Inspector::draw() {
     totalHeight += component->inspectorHeight();
 
   // Scrolling child for dockspace
-  ImGui::BeginChild("##InspectorDockScroll", ImVec2(-FLT_MIN, totalHeight), false,
+  ImGui::BeginChild("##InspectorDockScroll", ImVec2(0.f, totalHeight), false,
                     ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
   ImVec2 childAvail = ImGui::GetContentRegionAvail();
   float dockWidth = childAvail.x;
@@ -89,20 +88,17 @@ void Inspector::draw() {
                      ImGuiDockNodeFlags_None, &UIContext::InspectorDockClass);
 
   // ImGuiIDs
-  vector<ImGuiID> lastDockedWindows = {static_cast<uint32_t>(components.size())};
+  vector<ImGuiID> lastDockedWindows;
 
   const bool targetChanged = (lastTarget != contextTarget);
   const bool countChanged = (static_cast<int>(components.size()) != lastCount);
   const bool heightChanged = (totalHeight != lastTotalHeight);
   const bool widthChanged = (dockWidth != lastTotalWidth);
 
-  double x = std::fabs(dockWidth - lastTotalWidth);
-  // print x
-  if(x != 0.0)
-    print("change delta: {}", x);
-
   if (targetChanged || countChanged || heightChanged || widthChanged) {
-    ImGui::DockBuilderRemoveNode(innerDockspaceId);
+    if (ImGui::DockBuilderGetNode(innerDockspaceId))
+      ImGui::DockBuilderRemoveNode(innerDockspaceId);
+
     ImGui::DockBuilderAddNode(innerDockspaceId, ImGuiDockNodeFlags_DockSpace | ImGuiDockNodeFlags_AutoHideTabBar);
 
     ImVec2 nodeSize = ImVec2(dockWidth, totalHeight);
@@ -156,7 +152,7 @@ void Inspector::draw() {
       ImGui::SetNextWindowClass(&UIContext::InspectorDockClass);
 
       // If we have a node id for this component, dock into that node specifically.
-      if (i  < lastDockedWindows.size() - 1) 
+      if (i  < (int)lastDockedWindows.size() - 1) 
         ImGui::SetNextWindowDockID(lastDockedWindows[i], ImGuiCond_Appearing);
       else 
         // Fallback: dock into the main dockspace (will group with others)

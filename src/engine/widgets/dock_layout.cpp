@@ -1,11 +1,14 @@
 
 #include "dock_layout.hpp"
+#include "imgui_internal.h"
 
 namespace Magma {
 DockLayout::DockLayout(ImGuiID rootId, const ImVec2 &size,
                        ImGuiDockNodeFlags rootFlags)
     : rootId(rootId), mainId(rootId) {
-  ImGui::DockBuilderRemoveNode(rootId);
+  if (ImGui::DockBuilderGetNode(rootId))
+    ImGui::DockBuilderRemoveNode(rootId);
+
   ImGui::DockBuilderAddNode(rootId, rootFlags);
   ImGui::DockBuilderSetNodeSize(rootId, size);
 }

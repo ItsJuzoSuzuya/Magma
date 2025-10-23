@@ -25,8 +25,6 @@ bool OffscreenView::preFrame() {
     if (needsResize) {
       VkExtent2D newExtent{(uint32_t)desired.x, (uint32_t)desired.y};
       offscreenRenderer.resize(newExtent);
-      ImGui::End();
-      return false;
     }
   }
   ImGui::End();
