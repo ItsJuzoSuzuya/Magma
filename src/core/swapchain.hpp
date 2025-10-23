@@ -1,6 +1,5 @@
 #pragma once
 #include "render_target_info.hpp"
-#include <cstdint>
 #include <cwchar>
 #include <memory>
 #include <vector>
@@ -8,15 +7,14 @@
 
 namespace Magma {
 
-class Device;
 struct RenderTargetInfo;
 
 class SwapChain {
 public:
   static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-  SwapChain(Device &device, VkExtent2D extent);
-  SwapChain(Device &device, VkExtent2D extent,
+  SwapChain(VkExtent2D extent);
+  SwapChain(VkExtent2D extent,
             std::shared_ptr<SwapChain> oldSwapChain);
   ~SwapChain();
 
@@ -32,14 +30,7 @@ public:
   VkResult acquireNextImage();
   VkResult submitCommandBuffer(const VkCommandBuffer *commandBuffer);
 
-  // Comparison
-  /*bool compareSwapFormats(const SwapChain &swapChain) {
-    return swapChain.swapChainImageFormat == swapChainImageFormat &&
-           swapChain.swapChainDepthFormat == swapChainDepthFormat;
-  }*/
-
 private:
-  Device &device;
   RenderTargetInfo renderInfo;
 
   // Swap Chain

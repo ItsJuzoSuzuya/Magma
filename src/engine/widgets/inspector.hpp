@@ -1,13 +1,10 @@
 #pragma once
 #include "../gameobject.hpp"
-#include "imgui.h"
 #include "inspector_menu.hpp"
 #include "scene_menu.hpp"
 #include "widget.hpp"
 
 namespace Magma {
-
-class Device;
 
 /**
  * Inspector widget for viewing and editing a selected GameObject.
@@ -16,7 +13,6 @@ class Device;
  */
 class Inspector : public Widget {
 public:
-  Inspector(Device *device): device{device} {}
   const char *name() const override { return "Inspector"; }
 
   /**
@@ -42,8 +38,6 @@ public:
   }
 
 private:
-  Device *device = nullptr;
-
   /** 
    * The inspector context menu 
    * @note Open via right-click in the inspector area

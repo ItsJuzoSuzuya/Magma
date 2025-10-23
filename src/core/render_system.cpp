@@ -5,8 +5,6 @@
 #include "../engine/widgets/inspector.hpp"
 #include "../engine/widgets/offscreen_view.hpp"
 #include "../engine/widgets/scene_tree.hpp"
-#include "buffer.hpp"
-#include "descriptors.hpp"
 #include "device.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -15,7 +13,6 @@
 #include "swapchain.hpp"
 #include <GLFW/glfw3.h>
 #include <cassert>
-#include <cstdio>
 #include <glm/mat4x4.hpp>
 #include <memory>
 #include <vulkan/vulkan_core.h>
@@ -26,18 +23,17 @@ namespace Magma {
 // Constructor
 RenderSystem::RenderSystem(Window &window) : window{window} {
   device = make_unique<Device>(window);
-  swapChain = make_unique<SwapChain>(*device, window.getExtent());
+  swapChain = make_unique<SwapChain>(window.getExtent());
 
   RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
   offscreenInfo.extent.width /= 2;
   offscreenInfo.extent.height /= 2;
-  offscreenRenderer = make_unique<OffscreenRenderer>(
-      *device, offscreenInfo);
-  imguiRenderer = make_unique<ImGuiRenderer>(*device, *swapChain);
+  offscreenRenderer = make_unique<OffscreenRenderer>(offscreenInfo);
+  imguiRenderer = make_unique<ImGuiRenderer>(*swapChain);
 
   // Add widgets
   imguiRenderer->addWidget(make_unique<SceneTree>());
-  imguiRenderer->addWidget(make_unique<Inspector>(device.get()));
+  imguiRenderer->addWidget(make_unique<Inspector>());
 
   // Important: Offscreen view must be added last so that its content size is
   // calculated according to the other widgets
@@ -49,7 +45,7 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
 
 // Destructor
 RenderSystem::~RenderSystem() {
-  vkDeviceWaitIdle(device->device());
+  Device::waitIdle();
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
@@ -122,10 +118,10 @@ void RenderSystem::recreateSwapChain() {
     glfwWaitEvents();
   }
 
-  vkDeviceWaitIdle(device->device());
+  Device::waitIdle();
 
   shared_ptr<SwapChain> oldSwapChain = std::move(swapChain);
-  swapChain = make_unique<SwapChain>(*device, extent, oldSwapChain);
+  swapChain = make_unique<SwapChain>(extent, oldSwapChain);
 }
 
 // Rendering

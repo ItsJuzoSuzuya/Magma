@@ -1,5 +1,6 @@
 #include "buffer.hpp"
 #include "device.hpp"
+#include "render_system.hpp"
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -11,14 +12,13 @@ namespace Magma {
 
 // Constructor
 
-Buffer::Buffer(Device &device, VkDeviceSize instanceSize,
+Buffer::Buffer(VkDeviceSize instanceSize,
                uint32_t instanceCount, VkBufferUsageFlags usageFlags,
                VkMemoryPropertyFlags memoryPropertyFlags,
-               VkDeviceSize minOffsetAlignment)
-    : device{device} {
+               VkDeviceSize minOffsetAlignment) {
   alignmentSize = getAlignment(instanceSize, minOffsetAlignment);
   bufferSize = alignmentSize * instanceCount;
-  device.createBuffer(bufferSize, usageFlags, memoryPropertyFlags, buffer,
+  Device::get().createBuffer(bufferSize, usageFlags, memoryPropertyFlags, buffer,
                       bufferMemory);
 }
 
@@ -27,8 +27,10 @@ Buffer::Buffer(Device &device, VkDeviceSize instanceSize,
 Buffer::~Buffer() { cleanUp(); }
 void Buffer::cleanUp() {
   unmap();
-  vkDestroyBuffer(device.device(), buffer, nullptr);
-  vkFreeMemory(device.device(), bufferMemory, nullptr);
+
+  VkDevice device = Device::get().device();
+  vkDestroyBuffer(device, buffer, nullptr);
+  vkFreeMemory(device, bufferMemory, nullptr);
 }
 // --- Public ---
 // Descriptor Info
@@ -45,7 +47,9 @@ VkDescriptorBufferInfo Buffer::descriptorInfo() {
 
 VkResult Buffer::map(VkDeviceSize size, VkDeviceSize offset) {
   assert(buffer && bufferMemory && "Buffer has to be created before mapping!");
-  return vkMapMemory(device.device(), bufferMemory, offset, size, 0,
+
+  VkDevice device = Device::get().device();
+  return vkMapMemory(device, bufferMemory, offset, size, 0,
                      &mappedMemory);
 }
 
@@ -67,6 +71,8 @@ void Buffer::getDepthBufferData(VkCommandBuffer &commandBuffer,
                                 std::vector<float> &depthData,
                                 VkDeviceSize offset) {
   assert(mappedMemory && "Cannot read from unmapped memory!");
+
+  Device &device = Device::get();
 
   VkImageCreateInfo imageInfo = {};
   imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -150,12 +156,14 @@ void Buffer::getDepthBufferData(VkCommandBuffer &commandBuffer,
 }
 
 void Buffer::flush(VkDeviceSize size, VkDeviceSize offset) {
+  VkDevice device = Device::get().device();
+
   VkMappedMemoryRange mappedRange = {};
   mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
   mappedRange.size = size;
   mappedRange.offset = offset;
   mappedRange.memory = bufferMemory;
-  vkFlushMappedMemoryRanges(device.device(), 1, &mappedRange);
+  vkFlushMappedMemoryRanges(device, 1, &mappedRange);
 }
 
 // --- Private ---
@@ -173,7 +181,8 @@ VkDeviceSize Buffer::getAlignment(VkDeviceSize instanceSize,
 
 void Buffer::unmap() {
   if (mappedMemory) {
-    vkUnmapMemory(device.device(), bufferMemory);
+    VkDevice device = Device::get().device();
+    vkUnmapMemory(device, bufferMemory);
     mappedMemory = nullptr;
   };
 }

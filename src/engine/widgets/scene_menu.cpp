@@ -1,4 +1,6 @@
 #include "scene_menu.hpp"
+#include "../scene.hpp"
+#include "../scene_action.hpp"
 #include "../gameobject.hpp"
 #include "imgui.h"
 

@@ -1,6 +1,7 @@
 #include "renderer.hpp"
 #include "mesh_data.hpp"
 #include "push_constant_data.hpp"
+#include "render_system.hpp"
 #include "swapchain.hpp"
 #include <cassert>
 #include <glm/ext/scalar_constants.hpp>
@@ -11,14 +12,13 @@ using namespace std;
 namespace Magma {
 
 // Constructor and destructor
-Renderer::Renderer(Device &device) : device{device} {}
-
 void Renderer::init(VkDescriptorSetLayout descriptorSetLayout) {
   createPipelineLayout(descriptorSetLayout);
 }
 
 Renderer::~Renderer() {
-  vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
+  VkDevice device = Device::get().device();
+  vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
   pipeline = nullptr;
 }
 
@@ -39,7 +39,8 @@ void Renderer::createPipelineLayout(VkDescriptorSetLayout descriptorSetLayout) {
   pipelineLayoutInfo.pushConstantRangeCount = 1;
   pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
-  if (vkCreatePipelineLayout(device.device(), &pipelineLayoutInfo, nullptr,
+  VkDevice device = Device::get().device();
+  if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr,
                              &pipelineLayout) != VK_SUCCESS)
     throw runtime_error("Failed to create pipeline layout!");
 }
@@ -54,7 +55,7 @@ void Renderer::createPipeline() {
   piplineConfigInfo.pipelineLayout = pipelineLayout;
 
   pipeline =
-      make_unique<Pipeline>(device, "src/shaders/shader.vert.spv",
+      make_unique<Pipeline>("src/shaders/shader.vert.spv",
                             "src/shaders/shader.frag.spv", piplineConfigInfo);
 }
 

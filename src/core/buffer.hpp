@@ -5,11 +5,9 @@
 
 namespace Magma {
 
-class Device;
-
 class Buffer {
 public:
-  Buffer(Device &device, VkDeviceSize instanceSize, uint32_t instanceCount,
+  Buffer(VkDeviceSize instanceSize, uint32_t instanceCount,
          VkBufferUsageFlags usageFlags,
          VkMemoryPropertyFlags memoryPropertyFlags,
          VkDeviceSize minOffsetAlignment = 0);
@@ -38,8 +36,6 @@ public:
   void flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 
 private:
-  Device &device;
-
   // Buffer
   VkBuffer buffer = VK_NULL_HANDLE;
   VkDeviceMemory bufferMemory = VK_NULL_HANDLE;

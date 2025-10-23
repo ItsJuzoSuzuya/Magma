@@ -2,6 +2,7 @@
 #include "../../core/frame_info.hpp"
 #include "../../core/render_target_info.hpp"
 #include "../scene.hpp"
+#include "imgui_impl_vulkan.h"
 #include <array>
 #include <vulkan/vulkan_core.h>
 
@@ -9,13 +10,12 @@ using namespace std;
 namespace Magma {
 
 // Constructor
-OffscreenRenderer::OffscreenRenderer(Device &device, RenderTargetInfo &info)
-    : Renderer(device) {
-
+OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info)
+    : Renderer() {
   cameraBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
   for (uint32_t i = 0; i < cameraBuffers.size(); ++i){
     cameraBuffers[i] = make_unique<Buffer>(
-        device, sizeof(CameraUBO), 1,
+        sizeof(CameraUBO), 1,
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT );
     cameraBuffers[i]->map();
@@ -26,7 +26,7 @@ OffscreenRenderer::OffscreenRenderer(Device &device, RenderTargetInfo &info)
   Renderer::init(descriptorSetLayout->getDescriptorSetLayout());
   createDescriptorSets();
 
-  renderTarget = make_unique<RenderTarget>(device, info);
+  renderTarget = make_unique<RenderTarget>(info);
   createPipeline();
 }
 
@@ -144,7 +144,7 @@ void OffscreenRenderer::resize(VkExtent2D newExtent) {
 // --- Desciptors ---
 void OffscreenRenderer::createDescriptorPool() {
   descriptorPool =
-      DescriptorPool::Builder(device.device())
+      DescriptorPool::Builder()
           .setMaxSets(2 * SwapChain::MAX_FRAMES_IN_FLIGHT)
           .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                        2 * SwapChain::MAX_FRAMES_IN_FLIGHT)
@@ -152,7 +152,7 @@ void OffscreenRenderer::createDescriptorPool() {
 }
 
 void OffscreenRenderer::createDescriptorSetLayout() {
-  descriptorSetLayout = DescriptorSetLayout::Builder(device.device())
+  descriptorSetLayout = DescriptorSetLayout::Builder()
     .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                 VK_SHADER_STAGE_VERTEX_BIT)
     .build();

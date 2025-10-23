@@ -1,5 +1,6 @@
 #include "scene.hpp"
 #include "../core/renderer.hpp"
+#include "../core/render_system.hpp"
 #include "../core/frame_info.hpp"
 #include "camera.hpp"
 #include "gameobject.hpp"
@@ -8,6 +9,7 @@
 #include "widgets/inspector.hpp"
 #include "widgets/scene_menu.hpp"
 #include <memory>
+#include <print>
 
 using namespace std;
 namespace Magma {
@@ -97,6 +99,7 @@ void Scene::onRender(Renderer &renderer) {
 }
 
 void Scene::processDeferredActions() {
+  Device::waitIdle();
   if (activeScene == nullptr)
     return;
 

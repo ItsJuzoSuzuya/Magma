@@ -1,5 +1,4 @@
 #pragma once
-#include "../../core/descriptors.hpp"
 #include "../../core/renderer.hpp"
 #include "../widgets/widget.hpp"
 #include <memory>
@@ -8,7 +7,7 @@ namespace Magma {
 
 class ImGuiRenderer : public Renderer {
 public:
-  ImGuiRenderer(Device &device, SwapChain &swapChain);
+  ImGuiRenderer(SwapChain &swapChain);
 
   // Getters
   VkDescriptorPool getDescriptorPool() const;

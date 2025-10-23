@@ -2,6 +2,7 @@
 #include "../../core/frame_info.hpp"
 #include "../../core/push_constant_data.hpp"
 #include "../../core/renderer.hpp"
+#include "imgui.h"
 #include <glm/fwd.hpp>
 #include <glm/trigonometric.hpp>
 #include <vulkan/vulkan_core.h>

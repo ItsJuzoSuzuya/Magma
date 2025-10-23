@@ -2,6 +2,7 @@
 #include "../../core/frame_info.hpp"
 #include "../../core/renderer.hpp"
 #include "../../core/buffer.hpp"
+#include "imgui.h"
 #include <cstdint>
 
 namespace Magma {
@@ -11,7 +12,7 @@ class RenderTargetInfo;
 class OffscreenRenderer : public Renderer {
 public:
   // Constructor
-  OffscreenRenderer(Device &device, RenderTargetInfo &info);
+  OffscreenRenderer(RenderTargetInfo &info);
   // Destructor
   ~OffscreenRenderer();
 

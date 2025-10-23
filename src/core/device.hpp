@@ -28,8 +28,9 @@ public:
   Device &operator=(const Device &&) = delete;
 
   // Getters
-  VkSurfaceKHR surface() { return surface_; }
+  static Device &get() { return *instance_; }
   VkDevice device() { return device_; }
+  VkSurfaceKHR surface() { return surface_; }
   VkCommandPool getCommandPool() { return commandPool; }
   VkQueue graphicsQueue() { return graphicsQueue_; }
   VkQueue presentQueue() { return presentQueue_; }
@@ -81,6 +82,9 @@ public:
   // Depth Format
   VkFormat findDepthFormat();
 
+  // Sync
+  static void waitIdle() { vkDeviceWaitIdle(get().device_); }
+
 private:
   // Validation Layers
 #ifdef NDEBUG
@@ -91,6 +95,8 @@ private:
   const std::vector<const char *> validationLayers = {
       "VK_LAYER_KHRONOS_validation"};
   bool checkValidationLayerSupport();
+
+  inline static Device *instance_ = nullptr;
 
   // Instance
   VkInstance instance;

@@ -3,6 +3,7 @@
 #include "scene.hpp"
 #include <algorithm>
 #include <functional>
+#include <vulkan/vulkan_core.h>
 namespace Magma {
 
 class SceneAction {

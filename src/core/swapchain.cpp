@@ -1,7 +1,7 @@
 #include "swapchain.hpp"
-#include "device.hpp"
 #include "frame_info.hpp"
 #include "queue_family_indices.hpp"
+#include "render_system.hpp"
 #include "render_target_info.hpp"
 #include <algorithm>
 #include <cstddef>
@@ -16,14 +16,14 @@ using namespace std;
 namespace Magma {
 
 // Constructor
-SwapChain::SwapChain(Device &device, VkExtent2D extent) : device{device} {
+SwapChain::SwapChain(VkExtent2D extent) {
   createSwapChain(extent);
   createSyncObjects();
 }
 
-SwapChain::SwapChain(Device &device, VkExtent2D extent,
+SwapChain::SwapChain(VkExtent2D extent,
                      std::shared_ptr<SwapChain> oldSwapChain)
-    : device{device}, oldSwapChain{oldSwapChain} {
+    : oldSwapChain{oldSwapChain} {
   createSwapChain(extent);
   createSyncObjects();
 
@@ -32,27 +32,31 @@ SwapChain::SwapChain(Device &device, VkExtent2D extent,
 
 // Destructor
 SwapChain::~SwapChain() {
-  vkDestroySwapchainKHR(device.device(), swapChain, nullptr);
+  VkDevice device = Device::get().device();
+  vkDestroySwapchainKHR(device, swapChain, nullptr);
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-    vkDestroySemaphore(device.device(), imageAvailableSemaphores[i], nullptr);
-    vkDestroySemaphore(device.device(), renderFinishedSemaphores[i], nullptr);
-    vkDestroyFence(device.device(), inFlightFences[i], nullptr);
+    vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
+    vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
+    vkDestroyFence(device, inFlightFences[i], nullptr);
   }
 }
 
 // --- Public ---
 // Rendering
 VkResult SwapChain::acquireNextImage() {
-  vkWaitForFences(device.device(), 1, &inFlightFences[currentFrame], VK_TRUE,
+  VkDevice device = Device::get().device();
+  vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE,
                   UINT64_MAX);
 
-  return vkAcquireNextImageKHR(device.device(), swapChain, UINT64_MAX,
+  return vkAcquireNextImageKHR(device, swapChain, UINT64_MAX,
                                imageAvailableSemaphores[currentFrame],
                                VK_NULL_HANDLE, &FrameInfo::imageIndex);
 }
 
 VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
+  Device &device = Device::get();
+
   VkSubmitInfo submitInfo = {};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
@@ -90,6 +94,7 @@ VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
 // --- Private ---
 // Swap Chain
 void SwapChain::createSwapChain(VkExtent2D &extent) {
+  Device &device = Device::get();
   SwapchainSupportDetails swapChainSupport = device.getSwapChainSupport();
 
   VkSurfaceFormatKHR surfaceFormat =
@@ -146,6 +151,7 @@ void SwapChain::createSwapChain(VkExtent2D &extent) {
 
 // Synchronization
 void SwapChain::createSyncObjects() {
+  VkDevice device = Device::get().device();
   imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
   renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
   inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
@@ -158,11 +164,11 @@ void SwapChain::createSyncObjects() {
   fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-    if (vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr,
+    if (vkCreateSemaphore(device, &semaphoreInfo, nullptr,
                           &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-        vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr,
+        vkCreateSemaphore(device, &semaphoreInfo, nullptr,
                           &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-        vkCreateFence(device.device(), &fenceInfo, nullptr,
+        vkCreateFence(device, &fenceInfo, nullptr,
                       &inFlightFences[i]) != VK_SUCCESS)
       throw std::runtime_error("Failed to create synchronization objects!");
   }

@@ -1,4 +1,5 @@
 #include "descriptors.hpp"
+#include "device.hpp"
 #include <cassert>
 #include <cstdint>
 #include <memory>
@@ -25,13 +26,12 @@ DescriptorSetLayout::Builder &DescriptorSetLayout::Builder::addBinding(
 
 std::unique_ptr<DescriptorSetLayout>
 DescriptorSetLayout::Builder::build() const {
-  return std::make_unique<DescriptorSetLayout>(device, bindings);
+  return std::make_unique<DescriptorSetLayout>(bindings);
 }
 
 //                      Descriptor Set Layout                                 //
 
 DescriptorSetLayout::DescriptorSetLayout(
-    VkDevice device,
     std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings)
     : bindings{bindings} {
   std::vector<VkDescriptorSetLayoutBinding> layoutBindings;
@@ -43,12 +43,14 @@ DescriptorSetLayout::DescriptorSetLayout(
   layoutCreateInfo.pBindings = layoutBindings.data();
   layoutCreateInfo.bindingCount = static_cast<uint32_t>(bindings.size());
 
+  VkDevice device = Device::get().device();
   if (vkCreateDescriptorSetLayout(device, &layoutCreateInfo, nullptr,
                                   &descriptorSetLayout) != VK_SUCCESS)
     throw std::runtime_error("Failed to create descriptor set layout!");
 }
 
 DescriptorSetLayout::~DescriptorSetLayout() {
+  VkDevice device = Device::get().device();
   vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 }
 
@@ -73,17 +75,15 @@ DescriptorPool::Builder::setPoolFlags(VkDescriptorPoolCreateFlags flags) {
 }
 
 std::unique_ptr<DescriptorPool> DescriptorPool::Builder::build() const {
-  return std::make_unique<DescriptorPool>(device, maxSets, poolFlags,
+  return std::make_unique<DescriptorPool>(maxSets, poolFlags,
                                           poolSizes);
 }
 
 //                      Descriptor Pool                                       //
 
 DescriptorPool::DescriptorPool(
-    VkDevice device, uint32_t maxSets, VkDescriptorPoolCreateFlags poolFlags,
-    const std::vector<VkDescriptorPoolSize> &poolSizes)
-    : device{device} {
-
+    uint32_t maxSets, VkDescriptorPoolCreateFlags poolFlags,
+    const std::vector<VkDescriptorPoolSize> &poolSizes){
   VkDescriptorPoolCreateInfo createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   createInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
@@ -91,10 +91,12 @@ DescriptorPool::DescriptorPool(
   createInfo.maxSets = maxSets;
   createInfo.flags = poolFlags;
 
+  VkDevice device = Device::get().device();
   vkCreateDescriptorPool(device, &createInfo, nullptr, &descriptorPool);
 }
 
 DescriptorPool::~DescriptorPool() {
+  VkDevice device = Device::get().device();
   vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 }
 
@@ -106,6 +108,7 @@ bool DescriptorPool::allocateDescriptor(VkDescriptorSetLayout setLayout,
   allocInfo.pSetLayouts = &setLayout;
   allocInfo.descriptorSetCount = 1;
 
+  VkDevice device = Device::get().device();
   if (vkAllocateDescriptorSets(device, &allocInfo, &set) != VK_SUCCESS) {
     return false;
   } else {
@@ -181,7 +184,8 @@ void DescriptorWriter::overwrite(VkDescriptorSet &set) {
     write.dstSet = set;
   }
 
-  vkUpdateDescriptorSets(pool.device, writes.size(), writes.data(), 0, nullptr);
+  VkDevice device = Device::get().device();
+  vkUpdateDescriptorSets(device, writes.size(), writes.data(), 0, nullptr);
 }
 
 } // namespace Magma

@@ -44,12 +44,8 @@ void Inspector::draw() {
       ImGuiHoveredFlags_DockHierarchy |
       ImGuiHoveredFlags_NoPopupHierarchy;
 
-  if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered(hoveredFlags)) {
-    MenuContext context;
-    context.target = contextTarget;
-    context.device = device;
-    InspectorMenu::queueContextMenuFor(context);
-  }
+  if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered(hoveredFlags)) 
+    InspectorMenu::queueContextMenuFor(contextTarget);
 
   // Header
   ImGui::TextDisabled("Object: %s", contextTarget->name.c_str());

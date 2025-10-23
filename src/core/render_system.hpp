@@ -1,8 +1,6 @@
 #pragma once
 #include "../engine/render/imgui_renderer.hpp"
 #include "../engine/render/offscreen_renderer.hpp"
-#include "buffer.hpp"
-#include "descriptors.hpp"
 #include "device.hpp"
 #include "frame_info.hpp"
 #include "imgui_impl_vulkan.h"
@@ -22,14 +20,13 @@ public:
 
   // Getters
   ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
-  Device &getDevice() { return *device; }
   SwapChain &getSwapChain() { return *swapChain; }
 
   // Render
   void renderFrame();
 
 private:
-  // Device
+  /** Vulkan Logical Device */
   std::unique_ptr<Device> device = nullptr;
   Window &window;
 

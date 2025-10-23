@@ -1,6 +1,5 @@
 #pragma once
 #include "descriptors.hpp"
-#include "device.hpp"
 #include "pipeline.hpp"
 #include "render_target.hpp"
 #include "swapchain.hpp"
@@ -20,7 +19,7 @@ struct RendererType {
 class Renderer {
 public:
   // Constructor and destructor
-  Renderer(Device &device);
+  Renderer() = default;
   void init(VkDescriptorSetLayout descriptorSetLayout);
   virtual ~Renderer();
 
@@ -43,8 +42,6 @@ public:
   void endFrame();
 
 protected:
-  Device &device;
-
   // Render Target
   std::unique_ptr<RenderTarget> renderTarget;
 

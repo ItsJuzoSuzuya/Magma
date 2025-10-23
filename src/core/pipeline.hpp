@@ -1,3 +1,4 @@
+#pragma once
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -29,7 +30,7 @@ struct PipelineConfigInfo {
 
 class Pipeline {
 public:
-  Pipeline(Device &device, const std::string &vertFilepath,
+  Pipeline(const std::string &vertFilepath,
            const std::string &fragFilepath,
            const PipelineConfigInfo &configInfo);
   ~Pipeline();
@@ -42,7 +43,6 @@ public:
   void bind(VkCommandBuffer commandBuffer);
 
 private:
-  Device &device;
   VkPipeline graphicsPipeline;
   VkShaderModule vertShaderModule;
   VkShaderModule tcsShaderModule;

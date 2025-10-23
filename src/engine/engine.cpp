@@ -28,7 +28,7 @@ Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
   transform->position = {0.f, 0.f, 1.f};
   transform->scale = {0.1f, 0.1f, 0.1f};
 
-  obj.addComponent<Mesh>(renderSystem->getDevice());
+  obj.addComponent<Mesh>();
   auto mesh = obj.getComponent<Mesh>();
   if (!mesh->load("assets/cube/scene.gltf")) 
     throw std::runtime_error("Failed to load model!");

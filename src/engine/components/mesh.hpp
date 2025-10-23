@@ -15,7 +15,7 @@ class MeshData;
  */
 class Mesh : public Component {
 public:
-  Mesh(GameObject *owner, Device &device);
+  Mesh(GameObject *owner);
   ~Mesh();
 
   // --- Data ---
@@ -46,7 +46,6 @@ public:
   const float inspectorHeight() const override { return 150.0f; }
 
 private:
-  Device &device;
   MeshData *meshData = nullptr;
 
   // --- Buffers ---

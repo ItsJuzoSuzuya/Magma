@@ -62,6 +62,7 @@ Device::Device(Window &window) {
   pickPhysicalDevice();
   createLogicalDevice();
   createCommandPool();
+  instance_ = this;
 }
 
 // Destructor

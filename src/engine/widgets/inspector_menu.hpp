@@ -4,15 +4,6 @@
 namespace Magma {
 
 class GameObject;
-class Device;
-
-/**
-  * Menu context state
-  */
-struct MenuContext {
-  GameObject *target = nullptr;
-  Device *device = nullptr;
-};
 
 /**
  * Inspector Menu Widget
@@ -21,16 +12,11 @@ class InspectorMenu : public Widget {
 public:
   const char *name() const override { return "Inspector Menu"; }
 
-  // Setters
-  static void setContextTarget(GameObject *gameObject) {
-    contextState.target = gameObject;
-  }
-
   /**
    * Queue opening Menu 
    */
-  static void queueContextMenuFor(MenuContext state) {
-    contextState = state;
+  static void queueContextMenuFor(GameObject *target) {
+    contextTarget = target;
     openPopupRequested = true;
   }
 
@@ -38,7 +24,7 @@ public:
   void draw() override;
 
 private:
-  inline static MenuContext contextState = {};
+  inline static GameObject *contextTarget = nullptr;
   inline static bool openPopupRequested = false;
 
   void drawAddComponentMenu();

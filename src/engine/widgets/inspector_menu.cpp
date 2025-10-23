@@ -16,8 +16,8 @@ void InspectorMenu::draw() {
 
   // Popup menu
   if (ImGui::BeginPopup(name())) {
-    if (auto *target = contextState.target) {
-      ImGui::TextUnformatted(target->name.c_str());
+    if (contextTarget) {
+      ImGui::TextUnformatted(contextTarget->name.c_str());
       ImGui::Separator();
       drawAddComponentMenu();
     } else {
@@ -25,6 +25,8 @@ void InspectorMenu::draw() {
       ImGui::Separator();
       if (ImGui::MenuItem("Add Entity"))
         GameObject::create();
+      if (ImGui::MenuItem("Delete"))
+        ; // No scene deletion for now
     }
 
     ImGui::EndPopup();
@@ -32,14 +34,14 @@ void InspectorMenu::draw() {
 }
 
 void InspectorMenu::drawAddComponentMenu() {
-  if (!contextState.target && !contextState.device)
+  if (!contextTarget)
     return;
 
   if (ImGui::BeginMenu("Add Component")) {
     if (ImGui::MenuItem("Transform"))
-      contextState.target->addComponent<Transform>();
+      contextTarget->addComponent<Transform>();
     if (ImGui::MenuItem("Mesh"))
-      contextState.target->addComponent<Mesh>(*contextState.device);
+      contextTarget->addComponent<Mesh>();
     ImGui::EndMenu();
   }
 }

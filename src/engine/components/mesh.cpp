@@ -1,6 +1,6 @@
 #include "mesh.hpp"
 #include "../../core/window.hpp"
-#include "../core/device.hpp"
+#include "../core/render_system.hpp"
 #include "../core/frame_info.hpp"
 #include "../core/mesh_data.hpp"
 #include "../scene.hpp"
@@ -42,8 +42,8 @@ inline bool hasAllowedExt(const fs::path &path) {
 
 } // namespace string_utils
 
-Mesh::Mesh(GameObject *owner, Device &device)
-    : Component(owner), device{device} {
+Mesh::Mesh(GameObject *owner)
+    : Component(owner){
   println("Mesh created");
 }
 
@@ -349,19 +349,20 @@ void Mesh::createVertexBuffer() {
   uint32_t vertexSize = sizeof(meshData->vertices[0]);
   uint32_t bufferSize = vertexSize * vertexCount;
 
-  Buffer stagingBuffer(device, vertexSize, vertexCount,
+
+  Buffer stagingBuffer(vertexSize, vertexCount,
                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   stagingBuffer.map();
   stagingBuffer.writeToBuffer((void *)meshData->vertices.data());
 
-  vertexBuffer = make_unique<Buffer>(device, vertexSize, vertexCount,
+  vertexBuffer = make_unique<Buffer>(vertexSize, vertexCount,
                                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                          VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-  device.copyBuffer(stagingBuffer.getBuffer(), vertexBuffer->getBuffer(),
+  Device::get().copyBuffer(stagingBuffer.getBuffer(), vertexBuffer->getBuffer(),
                     bufferSize);
 }
 
@@ -378,19 +379,19 @@ void Mesh::createIndexBuffer() {
   uint32_t indexSize = sizeof(meshData->indices[0]);
   uint32_t bufferSize = indexSize * indexCount;
 
-  Buffer stagingBuffer(device, indexSize, indexCount,
+  Buffer stagingBuffer(indexSize, indexCount,
                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   stagingBuffer.map();
   stagingBuffer.writeToBuffer((void *)meshData->indices.data());
 
-  indexBuffer = make_unique<Buffer>(device, indexSize, indexCount,
+  indexBuffer = make_unique<Buffer>(indexSize, indexCount,
                                     VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
                                         VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-  device.copyBuffer(stagingBuffer.getBuffer(), indexBuffer->getBuffer(),
+  Device::get().copyBuffer(stagingBuffer.getBuffer(), indexBuffer->getBuffer(),
                     bufferSize);
 }
 

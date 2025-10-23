@@ -1,7 +1,9 @@
 #include "imgui_renderer.hpp"
 #include "../../core/frame_info.hpp"
+#include "../../core/render_system.hpp"
 #include "../widgets/dock_layout.hpp"
 #include "../widgets/ui_context.hpp"
+#include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include <array>
 #include <print>
@@ -12,13 +14,12 @@ using namespace std;
 namespace Magma {
 
 // Constructor
-ImGuiRenderer::ImGuiRenderer(Device &device, SwapChain &swapChain)
-    : Renderer(device) {
+ImGuiRenderer::ImGuiRenderer(SwapChain &swapChain): Renderer() {
   createDescriptorPool();
   createDescriptorSetLayout();
   Renderer::init(descriptorSetLayout->getDescriptorSetLayout());
 
-  renderTarget = make_unique<RenderTarget>(device, swapChain);
+  renderTarget = make_unique<RenderTarget>(swapChain);
   createPipeline();
   println("Descriptor pool {}", (void *)descriptorPool->getDescriptorPool());
 }
@@ -154,7 +155,7 @@ void ImGuiRenderer::resize(VkExtent2D extent, VkSwapchainKHR swapChain) {
 // Descriptors
 void ImGuiRenderer::createDescriptorPool() {
   descriptorPool =
-      DescriptorPool::Builder(device.device())
+      DescriptorPool::Builder()
           .setMaxSets(100 * SwapChain::MAX_FRAMES_IN_FLIGHT)
           .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                        100 * SwapChain::MAX_FRAMES_IN_FLIGHT)
@@ -163,7 +164,8 @@ void ImGuiRenderer::createDescriptorPool() {
 }
 
 void ImGuiRenderer::createDescriptorSetLayout() {
-  descriptorSetLayout = DescriptorSetLayout::Builder(device.device()).build();
+  descriptorSetLayout = DescriptorSetLayout::Builder()
+                            .build();
 }
 
 } // namespace Magma

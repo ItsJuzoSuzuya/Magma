@@ -1,6 +1,6 @@
 #include "pipeline.hpp"
-#include "device.hpp"
 #include "mesh_data.hpp"
+#include "render_system.hpp"
 #include <cassert>
 #include <cstdint>
 #include <fstream>
@@ -14,17 +14,17 @@
 
 namespace Magma {
 
-Pipeline::Pipeline(Device &device, const std::string &vertFilepath,
+Pipeline::Pipeline(const std::string &vertFilepath,
                    const std::string &fragFilepath,
-                   const PipelineConfigInfo &configInfo)
-    : device{device} {
+                   const PipelineConfigInfo &configInfo){
   createGraphicsPipeline(vertFilepath, fragFilepath, configInfo);
 }
 
 Pipeline::~Pipeline() {
-  vkDestroyShaderModule(device.device(), vertShaderModule, nullptr);
-  vkDestroyShaderModule(device.device(), fragShaderModule, nullptr);
-  vkDestroyPipeline(device.device(), graphicsPipeline, nullptr);
+  VkDevice device = Device::get().device();
+  vkDestroyShaderModule(device, vertShaderModule, nullptr);
+  vkDestroyShaderModule(device, fragShaderModule, nullptr);
+  vkDestroyPipeline(device, graphicsPipeline, nullptr);
 }
 
 void Pipeline::bind(VkCommandBuffer commandBuffer) {
@@ -98,7 +98,8 @@ void Pipeline::createGraphicsPipeline(const std::string &vertFilepath,
 
   pipelineInfo.pNext = nullptr;
 
-  if (vkCreateGraphicsPipelines(device.device(), VK_NULL_HANDLE, 1,
+  VkDevice device = Device::get().device();
+  if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1,
                                 &pipelineInfo, nullptr,
                                 &graphicsPipeline) != VK_SUCCESS)
     throw std::runtime_error("Failed to create graphics pipeline!");
@@ -127,7 +128,8 @@ void Pipeline::createShaderModule(const std::vector<char> &code,
   createInfo.codeSize = code.size();
   createInfo.pCode = reinterpret_cast<const uint32_t *>(code.data());
 
-  if (vkCreateShaderModule(device.device(), &createInfo, nullptr,
+  VkDevice device = Device::get().device();
+  if (vkCreateShaderModule(device, &createInfo, nullptr,
                            shaderModule) != VK_SUCCESS)
     throw std::runtime_error("Failed to create shader module!");
 }

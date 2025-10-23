@@ -7,8 +7,6 @@
 
 namespace Magma {
 
-class Device;
-
 struct MeshData {
   struct Vertex {
     glm::vec3 position{0.f, 0.f, 0.f};

@@ -1,7 +1,5 @@
 #pragma once
-#include "device.hpp"
 #include "render_target_info.hpp"
-#include <utility>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -14,8 +12,8 @@ enum class RenderType { Offscreen, Swapchain };
 class RenderTarget {
 public:
   // Constructors / Destructor
-  RenderTarget(Device &device, RenderTargetInfo info);
-  RenderTarget(Device &device, SwapChain &swapChain);
+  RenderTarget(RenderTargetInfo info);
+  RenderTarget(SwapChain &swapChain);
   ~RenderTarget();
   void cleanup();
 
@@ -51,7 +49,6 @@ private:
   // Type of render target
   RenderType type;
 
-  Device &device;
   VkExtent2D targetExtent{};
 
   // Destruction helpers
