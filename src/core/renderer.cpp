@@ -1,8 +1,6 @@
 #include "renderer.hpp"
-#include "mesh_data.hpp"
+#include "device.hpp"
 #include "push_constant_data.hpp"
-#include "render_system.hpp"
-#include "swapchain.hpp"
 #include <cassert>
 #include <glm/ext/scalar_constants.hpp>
 #include <vulkan/vulkan_core.h>
@@ -45,7 +43,7 @@ void Renderer::createPipelineLayout(VkDescriptorSetLayout descriptorSetLayout) {
     throw runtime_error("Failed to create pipeline layout!");
 }
 
-void Renderer::createPipeline() {
+void Renderer::createPipeline(RenderTarget* renderTarget) {
   assert(pipelineLayout != nullptr &&
          "Cannot create pipeline before pipeline layout!");
 

@@ -28,8 +28,6 @@ public:
   Renderer &operator=(const Renderer &) = delete;
 
   // Getters
-  RenderTarget &target() { return *renderTarget; }
-  VkRenderPass getRenderPass() { return renderTarget->getRenderPass(); }
   VkPipelineLayout getPipelineLayout() { return pipelineLayout; }
   virtual Buffer *getCameraBuffer(uint32_t i) { return nullptr; }
 
@@ -42,12 +40,9 @@ public:
   void endFrame();
 
 protected:
-  // Render Target
-  std::unique_ptr<RenderTarget> renderTarget;
-
   // Pipeline
   std::unique_ptr<Pipeline> pipeline;
-  void createPipeline();
+  void createPipeline(RenderTarget *renderTarget);
 
   // Descriptor Pool
   std::unique_ptr<DescriptorPool> descriptorPool;

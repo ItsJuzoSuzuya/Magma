@@ -1,9 +1,6 @@
-#include "render_target.hpp"
-#include "render_system.hpp"
-#include "render_target_info.hpp"
-#include "swapchain.hpp"
+#include "offscreen_target.hpp"
+#include "../core/device.hpp"
 #include <array>
-#include <cassert>
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -11,12 +8,12 @@
 using namespace std;
 namespace Magma {
 
-// Offscreen Render Target
-RenderTarget::RenderTarget(RenderTargetInfo info)
-    : targetExtent{info.extent}, imageFormat{info.colorFormat},
-      depthImageFormat{info.depthFormat}, imageCount_{info.imageCount} {
-  type = RenderType::Offscreen;
-
+// Constructor
+OffscreenTarget::OffscreenTarget(const RenderTargetInfo &info)
+    : targetExtent{info.extent},
+      imageFormat{info.colorFormat},
+      depthImageFormat{info.depthFormat},
+      imageCount_{info.imageCount} {
   createImages();
   createImageViews();
   createRenderPass(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -25,27 +22,9 @@ RenderTarget::RenderTarget(RenderTargetInfo info)
   createColorSampler();
 }
 
-// Swapchain Render Target
-RenderTarget::RenderTarget(SwapChain &swapChain){
-  type = RenderType::Swapchain;
+OffscreenTarget::~OffscreenTarget() { cleanup(); }
 
-  auto info = swapChain.getRenderInfo();
-  targetExtent = info.extent;
-  imageFormat = info.colorFormat;
-  depthImageFormat = info.depthFormat;
-  imageCount_ = info.imageCount;
-
-  createImages(swapChain.getSwapChain());
-  createImageViews();
-  createRenderPass(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-  createDepthResources();
-  createFramebuffers();
-}
-
-// Destructor
-RenderTarget::~RenderTarget() { cleanup(); }
-
-void RenderTarget::cleanup() {
+void OffscreenTarget::cleanup() {
   VkDevice device = Device::get().device();
   if (colorSampler != VK_NULL_HANDLE) {
     vkDestroySampler(device, colorSampler, nullptr);
@@ -62,17 +41,11 @@ void RenderTarget::cleanup() {
   }
   imageViews.clear();
 
-  if (type == RenderType::Offscreen)
-    destroyColorResources();
+  destroyColorResources();
 }
 
-//--- Public ---
 // Resize (Offscreen)
-void RenderTarget::resize(VkExtent2D newExtent) {
-  assert(
-      type == RenderType::Offscreen &&
-      "RenderTarget::resize(extent) can only be called on Offscreen targets");
-
+void OffscreenTarget::resize(VkExtent2D newExtent) {
   if (newExtent.width == 0 || newExtent.height == 0)
     return;
   if (newExtent.width == targetExtent.width &&
@@ -93,39 +66,10 @@ void RenderTarget::resize(VkExtent2D newExtent) {
   createColorSampler();
 }
 
-// Resize (Swapchain)
-void RenderTarget::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
-  assert(type == RenderType::Swapchain &&
-         "RenderTarget::resize(extent, swapChain) can only be called on "
-         "Swapchain ");
+// --- Private helpers ---
 
-  if (newExtent.width == 0 || newExtent.height == 0)
-    return;
-  if (newExtent.width == targetExtent.width &&
-      newExtent.height == targetExtent.height)
-    return;
-
-  VkDevice device = Device::get().device();
-  vkDeviceWaitIdle(device);
-  cleanup();
-
-  targetExtent = newExtent;
-
-  createImages(swapChain);
-  createImageViews();
-  createRenderPass(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-  createDepthResources();
-  createFramebuffers();
-}
-
-//--- Private ---
-
-// Images (color)
-//  -> Offscreen
-void RenderTarget::createImages() {
-  assert(
-      type == RenderType::Offscreen &&
-      "RenderTarget::createImages() can only be called on Offscreen targets");
+// Images (color) - Offscreen
+void OffscreenTarget::createImages() {
   images.resize(imageCount_);
   imageMemories.resize(imageCount_);
 
@@ -147,23 +91,10 @@ void RenderTarget::createImages() {
 
   for (uint32_t i = 0; i < imageCount_; ++i)
     Device::get().createImageWithInfo(imageInfo, VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
-                               images[i], imageMemories[i]);
+                                      images[i], imageMemories[i]);
 }
 
-//  -> Swapchain
-void RenderTarget::createImages(VkSwapchainKHR swapChain) {
-  assert(type == RenderType::Swapchain &&
-         "RenderTarget::createImages(swapChain) can only be called on "
-         "Swapchain targets");
-  VkDevice device = Device::get().device();
-  vkGetSwapchainImagesKHR(device, swapChain, &imageCount_, nullptr);
-  images.resize(imageCount_);
-  vkGetSwapchainImagesKHR(device, swapChain, &imageCount_,
-                          images.data());
-}
-
-// Image Views (color)
-void RenderTarget::createImageViews() {
+void OffscreenTarget::createImageViews() {
   VkDevice device = Device::get().device();
 
   imageViews.resize(images.size());
@@ -180,22 +111,11 @@ void RenderTarget::createImageViews() {
 
     if (vkCreateImageView(device, &viewInfo, nullptr,
                           &imageViews[i]) != VK_SUCCESS)
-      throw std::runtime_error(
-          "RenderTarget: failed to create color image view");
+      throw std::runtime_error("OffscreenRenderTarget: failed to create color image view");
   }
 }
 
-// Render Pass
-void RenderTarget::createRenderPass(VkImageLayout finalLayout) {
-  assert(
-      (type == RenderType::Offscreen &&
-       finalLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) ||
-      (type == RenderType::Swapchain &&
-       finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) &&
-          "RenderTarget::createRenderPass(finalLayout) - finalLayout must be "
-          "VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL for Offscreen targets "
-          "and VK_IMAGE_LAYOUT_PRESENT_SRC_KHR for Swapchain targets");
-
+void OffscreenTarget::createRenderPass(VkImageLayout finalLayout) {
   VkAttachmentDescription colorAttachment{};
   colorAttachment.format = imageFormat;
   colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -256,11 +176,10 @@ void RenderTarget::createRenderPass(VkImageLayout finalLayout) {
   VkDevice device = Device::get().device();
   if (vkCreateRenderPass(device, &rpInfo, nullptr, &renderPass) !=
       VK_SUCCESS)
-    throw std::runtime_error("RenderTarget: failed to create render pass");
+    throw std::runtime_error("OffscreenRenderTarget: failed to create render pass");
 }
 
-// Depth Resources
-void RenderTarget::createDepthResources() {
+void OffscreenTarget::createDepthResources() {
   Device &device = Device::get();
 
   depthImages.resize(images.size());
@@ -298,13 +217,12 @@ void RenderTarget::createDepthResources() {
 
     if (vkCreateImageView(device.device(), &viewInfo, nullptr,
                           &depthImageViews[i]) != VK_SUCCESS) {
-      throw std::runtime_error("RenderTarget: failed to create depth view");
+      throw std::runtime_error("OffscreenRenderTarget: failed to create depth view");
     }
   }
 }
 
-// Framebuffers
-void RenderTarget::createFramebuffers() {
+void OffscreenTarget::createFramebuffers() {
   VkDevice device = Device::get().device();
 
   framebuffers.resize(images.size());
@@ -322,12 +240,11 @@ void RenderTarget::createFramebuffers() {
 
     if (vkCreateFramebuffer(device, &framebufferInfo, nullptr,
                             &framebuffers[i]) != VK_SUCCESS)
-      throw std::runtime_error("RenderTarget: failed to create framebuffer");
+      throw std::runtime_error("OffscreenRenderTarget: failed to create framebuffer");
   }
 }
 
-// Sampler (for using color image as a texture)
-void RenderTarget::createColorSampler() {
+void OffscreenTarget::createColorSampler() {
   if (colorSampler != VK_NULL_HANDLE)
     return;
 
@@ -349,11 +266,11 @@ void RenderTarget::createColorSampler() {
   VkDevice device = Device::get().device();
   if (vkCreateSampler(device, &info, nullptr, &colorSampler) !=
       VK_SUCCESS)
-    throw std::runtime_error("RenderTarget: failed to create sampler");
+    throw std::runtime_error("OffscreenRenderTarget: failed to create sampler");
 }
 
 // Destruction helpers
-void RenderTarget::destroyColorResources() {
+void OffscreenTarget::destroyColorResources() {
   VkDevice device = Device::get().device();
   for (size_t i = 0; i < images.size(); ++i) {
     if (images[i] != VK_NULL_HANDLE)
@@ -365,7 +282,7 @@ void RenderTarget::destroyColorResources() {
   imageMemories.clear();
 }
 
-void RenderTarget::destroyDepthResources() {
+void OffscreenTarget::destroyDepthResources() {
   VkDevice device = Device::get().device();
   for (size_t i = 0; i < depthImages.size(); ++i) {
     if (depthImageViews[i] != VK_NULL_HANDLE)
@@ -380,7 +297,7 @@ void RenderTarget::destroyDepthResources() {
   depthImageMemories.clear();
 }
 
-void RenderTarget::destroyFramebuffers() {
+void OffscreenTarget::destroyFramebuffers() {
   VkDevice device = Device::get().device();
   for (auto fb : framebuffers) {
     if (fb != VK_NULL_HANDLE)
@@ -389,7 +306,7 @@ void RenderTarget::destroyFramebuffers() {
   framebuffers.clear();
 }
 
-void RenderTarget::destroyRenderPass() {
+void OffscreenTarget::destroyRenderPass() {
   VkDevice device = Device::get().device();
   if (renderPass != VK_NULL_HANDLE) {
     vkDestroyRenderPass(device, renderPass, nullptr);

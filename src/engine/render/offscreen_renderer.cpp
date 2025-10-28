@@ -3,6 +3,7 @@
 #include "../../core/render_target_info.hpp"
 #include "../scene.hpp"
 #include "imgui_impl_vulkan.h"
+#include "offscreen_target.hpp"
 #include <array>
 #include <vulkan/vulkan_core.h>
 
@@ -26,8 +27,8 @@ OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info)
   Renderer::init(descriptorSetLayout->getDescriptorSetLayout());
   createDescriptorSets();
 
-  renderTarget = make_unique<RenderTarget>(info);
-  createPipeline();
+  renderTarget = make_unique<OffscreenTarget>(info);
+  createPipeline(renderTarget.get());
 }
 
 // Destructor
@@ -136,7 +137,7 @@ void OffscreenRenderer::resize(VkExtent2D newExtent) {
     ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)texture);
 
   renderTarget->resize(newExtent);
-  createPipeline();
+  createPipeline(renderTarget.get());
   createOffscreenTextures();
 }
 

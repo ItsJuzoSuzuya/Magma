@@ -1,13 +1,13 @@
 #include "imgui_renderer.hpp"
+#include "imgui_impl_vulkan.h"
+#include "swapchain_target.hpp"
 #include "../../core/frame_info.hpp"
-#include "../../core/render_system.hpp"
 #include "../widgets/dock_layout.hpp"
 #include "../widgets/ui_context.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include <array>
 #include <print>
-#include <string>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -19,8 +19,8 @@ ImGuiRenderer::ImGuiRenderer(SwapChain &swapChain): Renderer() {
   createDescriptorSetLayout();
   Renderer::init(descriptorSetLayout->getDescriptorSetLayout());
 
-  renderTarget = make_unique<RenderTarget>(swapChain);
-  createPipeline();
+  renderTarget = make_unique<SwapchainTarget>(swapChain);
+  createPipeline(renderTarget.get());
   println("Descriptor pool {}", (void *)descriptorPool->getDescriptorPool());
 }
 
@@ -148,7 +148,7 @@ void ImGuiRenderer::end() {
 // Resize
 void ImGuiRenderer::resize(VkExtent2D extent, VkSwapchainKHR swapChain) {
   renderTarget->resize(extent, swapChain);
-  createPipeline();
+  createPipeline(renderTarget.get());
 }
 
 // --- Private ---

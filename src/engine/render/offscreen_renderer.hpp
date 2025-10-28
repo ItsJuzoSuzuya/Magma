@@ -3,6 +3,7 @@
 #include "../../core/renderer.hpp"
 #include "../../core/buffer.hpp"
 #include "imgui.h"
+#include "offscreen_target.hpp"
 #include <cstdint>
 
 namespace Magma {
@@ -23,6 +24,8 @@ public:
     return textures[FrameInfo::frameIndex];
   }
   Buffer *getCameraBuffer(uint32_t i) override { return cameraBuffers[i].get(); }
+  OffscreenTarget &target() { return *renderTarget; }
+  VkRenderPass getRenderPass() { return renderTarget->getRenderPass(); }
 
   // Textures
   void createOffscreenTextures();
@@ -38,6 +41,9 @@ public:
 private:
   // Textures for ImGui
   std::vector<ImTextureID> textures;
+
+  // RenderTarget for picking Objects in the scene
+  std::unique_ptr<OffscreenTarget> renderTarget;
 
   // Descriptors
   std::vector<VkDescriptorSet> descriptorSets;

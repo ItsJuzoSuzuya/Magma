@@ -42,7 +42,6 @@ set(SOURCES
     src/core/pipeline.cpp
     src/core/renderer.cpp
     src/core/buffer.cpp
-    src/core/render_target.cpp
     # engine
     src/engine/engine.cpp
     src/engine/scene.cpp
@@ -61,6 +60,8 @@ set(SOURCES
     # renderers
     src/engine/render/imgui_renderer.cpp
     src/engine/render/offscreen_renderer.cpp
+    src/engine/render/offscreen_target.cpp
+    src/engine/render/swapchain_target.cpp
 )
 
 # Build executable
