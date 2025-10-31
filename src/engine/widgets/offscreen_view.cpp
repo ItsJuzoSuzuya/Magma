@@ -45,7 +45,6 @@ void OffscreenView::draw() {
                imgSize);
 
   if(ImGui::IsItemClicked()){
-    println("OffscreenView: Clicked at image");
     ImVec2 itemMin = ImGui::GetItemRectMin();
     ImVec2 itemMax = ImGui::GetItemRectMax();
     ImVec2 mousePos = ImGui::GetIO().MousePos;
@@ -62,12 +61,9 @@ void OffscreenView::draw() {
     uint32_t pixelX = static_cast<uint32_t>(localX);
     uint32_t pixelY = static_cast<uint32_t>(localY);
 
-    println("OffscreenView: Local click at pixel ({}, {})", pixelX, pixelY);
-
     ImVec2 sceneSize = offscreenRenderer.getSceneSize();
     if (sceneSize.x > 0 && sceneSize.y > 0){
       GameObject* picked = offscreenRenderer.pickAtPixel(pixelX, pixelY);
-      println("OffscreenView: Picked object: {}", picked ? picked->name : "None");
 
       if (picked) 
         Inspector::setContext(picked);

@@ -26,6 +26,7 @@ public:
   }
   VkSampler getColorSampler() const override { return colorSampler; }
   VkFormat getColorFormat() const override { return imageFormat; }
+  uint32_t getColorAttachmentCount() const override { return 2; }
 
   VkFormat getDepthFormat() const override { return depthImageFormat; }
 
@@ -74,6 +75,7 @@ private:
   VkExtent2D targetExtent{};
 
   // Destruction helpers
+  void destroyIdImages();
   void destroyColorResources();
   void destroyDepthResources();
   void destroyFramebuffers();

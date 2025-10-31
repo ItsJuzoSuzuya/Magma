@@ -12,7 +12,7 @@ using namespace std;
 namespace Magma {
 
 // Static member initialization
-GameObject::id_t GameObject::nextId = 0;
+GameObject::id_t GameObject::nextId = 1;
 
 GameObject::id_t GameObject::getNextId() { return nextId++; }
 

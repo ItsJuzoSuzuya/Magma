@@ -66,9 +66,14 @@ void OffscreenRenderer::begin() {
       FrameInfo::frameIndex >= SwapChain::MAX_FRAMES_IN_FLIGHT)
     throw runtime_error("Invalid frame index in FrameInfo!");
 
-  array<VkClearValue, 2> clearValues{};
+  array<VkClearValue, 3> clearValues{};
   clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
-  clearValues[1].depthStencil = {1.0f, 0};
+  clearValues[1].color = {};
+  clearValues[1].color.uint32[0] = 0;
+  clearValues[1].color.uint32[1] = 0;
+  clearValues[1].color.uint32[2] = 0;
+  clearValues[1].color.uint32[3] = 0;
+  clearValues[2].depthStencil = {1.0f, 0};
 
   VkRenderPassBeginInfo beginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
   beginInfo.renderPass = renderTarget->getRenderPass();

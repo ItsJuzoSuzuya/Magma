@@ -189,16 +189,19 @@ void Pipeline::defaultPipelineConfig(PipelineConfigInfo &configInfo) {
   configInfo.depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
   configInfo.depthStencilInfo.stencilTestEnable = VK_FALSE;
 
-  // Color Blending
-  configInfo.colorBlendAttachment.colorWriteMask =
+  // Color Blending: default single attachment
+  VkPipelineColorBlendAttachmentState defaultAttachmant{};
+  defaultAttachmant.colorWriteMask =
       VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
       VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-  configInfo.colorBlendAttachment.blendEnable = VK_FALSE;
+  defaultAttachmant.blendEnable = VK_FALSE;
+  configInfo.colorBlendAttachments.clear();
+  configInfo.colorBlendAttachments.push_back(defaultAttachmant);
 
   configInfo.colorBlendInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
   configInfo.colorBlendInfo.logicOpEnable = VK_FALSE;
   configInfo.colorBlendInfo.attachmentCount = 1;
-  configInfo.colorBlendInfo.pAttachments = &configInfo.colorBlendAttachment;
+  configInfo.colorBlendInfo.pAttachments = configInfo.colorBlendAttachments.data();
 }
 } // namespace Magma

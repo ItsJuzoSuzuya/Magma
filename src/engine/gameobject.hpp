@@ -49,7 +49,6 @@ public:
     assert(component &&
            "Failed to create component. Make sure the constructor is valid.");
 
-    std::println("Added component of type {}", typeid(T).name());
     components[typeid(T)] = std::move(component);
     return *this;
   }

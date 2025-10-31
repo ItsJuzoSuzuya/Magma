@@ -24,6 +24,8 @@ public:
   virtual VkFormat getColorFormat() const = 0;
   virtual VkFormat getDepthFormat() const = 0;
 
+  virtual uint32_t getColorAttachmentCount() const { return 1; }
+
   // Resizing - implementations decide what overload(s) they support
   virtual void resize(VkExtent2D newExtent) { }
   virtual void resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) { }

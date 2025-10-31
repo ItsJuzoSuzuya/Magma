@@ -15,11 +15,11 @@ OffscreenTarget::OffscreenTarget(const RenderTargetInfo &info)
       depthImageFormat{info.depthFormat},
       imageCount_{info.imageCount} {
   createImages();
+  createIdImage();
   createRenderPass(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   createDepthResources();
   createFramebuffers();
   createColorSampler();
-  createIdImage();
 }
 
 OffscreenTarget::~OffscreenTarget() { cleanup(); }
@@ -59,11 +59,12 @@ void OffscreenTarget::resize(VkExtent2D newExtent) {
   targetExtent = newExtent;
 
   createImages();
+  createIdImage();
   createRenderPass(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   createDepthResources();
   createFramebuffers();
   createColorSampler();
-  createIdImage();
+
 }
 
 // --- Private helpers ---
@@ -132,11 +133,25 @@ void OffscreenTarget::createRenderPass(VkImageLayout finalLayout) {
   colorRef.attachment = 0;
   colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+  VkAttachmentDescription idAttachment{};
+  idAttachment.format = idImageFormat;
+  idAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+  idAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  idAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  idAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  idAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  idAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  idAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+  VkAttachmentReference idRef{};
+  idRef.attachment = 1;
+  idRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
   VkAttachmentDescription depthAttachment{};
   depthAttachment.format = depthImageFormat;
   depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
   depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
   depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
   depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
   depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -144,13 +159,14 @@ void OffscreenTarget::createRenderPass(VkImageLayout finalLayout) {
       VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
   VkAttachmentReference depthRef{};
-  depthRef.attachment = 1;
+  depthRef.attachment = 2;
   depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+  array<VkAttachmentReference, 2> colorRefs = {colorRef, idRef};
   VkSubpassDescription subpass{};
   subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  subpass.colorAttachmentCount = 1;
-  subpass.pColorAttachments = &colorRef;
+  subpass.colorAttachmentCount = static_cast<uint32_t>(colorRefs.size());
+  subpass.pColorAttachments = colorRefs.data();
   subpass.pDepthStencilAttachment = &depthRef;
 
   VkSubpassDependency dependency{};
@@ -164,7 +180,8 @@ void OffscreenTarget::createRenderPass(VkImageLayout finalLayout) {
   dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
                              VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-  std::array<VkAttachmentDescription, 2> attachments{colorAttachment,
+  std::array<VkAttachmentDescription, 3> attachments{colorAttachment,
+                                                     idAttachment,
                                                      depthAttachment};
 
   VkRenderPassCreateInfo rpInfo{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
@@ -264,7 +281,7 @@ void OffscreenTarget::createFramebuffers() {
 
   framebuffers.resize(images.size());
   for (size_t i = 0; i < images.size(); ++i) {
-    std::array<VkImageView, 2> attachments{imageViews[i], depthImageViews[i]};
+    std::array<VkImageView, 3> attachments{imageViews[i], idImageView, depthImageViews[i]};
 
     VkFramebufferCreateInfo framebufferInfo{
         VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
@@ -307,6 +324,22 @@ void OffscreenTarget::createColorSampler() {
 }
 
 // Destruction helpers
+void OffscreenTarget::destroyIdImages() {
+  VkDevice device = Device::get().device();
+  if (idImageView != VK_NULL_HANDLE) {
+    vkDestroyImageView(device, idImageView, nullptr);
+    idImageView = VK_NULL_HANDLE;
+  }
+  if (idImage != VK_NULL_HANDLE) {
+    vkDestroyImage(device, idImage, nullptr);
+    idImage = VK_NULL_HANDLE;
+  }
+  if (idImageMemory != VK_NULL_HANDLE) {
+    vkFreeMemory(device, idImageMemory, nullptr);
+    idImageMemory = VK_NULL_HANDLE;
+  }
+}
+
 void OffscreenTarget::destroyColorResources() {
   VkDevice device = Device::get().device();
   for (size_t i = 0; i < images.size(); ++i) {

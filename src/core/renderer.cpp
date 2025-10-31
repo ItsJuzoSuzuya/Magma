@@ -48,14 +48,33 @@ void Renderer::createPipeline(RenderTarget* renderTarget, const std::string &ver
                               const std::string &fragFile) {
   assert(pipelineLayout != nullptr &&
          "Cannot create pipeline before pipeline layout!");
+  assert(renderTarget != nullptr &&
+         "Cannot create pipeline for null render target!");
 
-  PipelineConfigInfo piplineConfigInfo = {};
-  Pipeline::defaultPipelineConfig(piplineConfigInfo);
-  piplineConfigInfo.renderPass = renderTarget->getRenderPass();
-  piplineConfigInfo.pipelineLayout = pipelineLayout;
+  PipelineConfigInfo pipelineConfigInfo = {};
+  Pipeline::defaultPipelineConfig(pipelineConfigInfo);
+  pipelineConfigInfo.renderPass = renderTarget->getRenderPass();
+  pipelineConfigInfo.pipelineLayout = pipelineLayout;
+
+  uint32_t colorAttachmentCount = renderTarget->getColorAttachmentCount();
+  if(pipelineConfigInfo.colorBlendAttachments.size() < colorAttachmentCount) {
+    auto first = pipelineConfigInfo.colorBlendAttachments.empty() ?
+                 VkPipelineColorBlendAttachmentState{} :
+                 pipelineConfigInfo.colorBlendAttachments[0];
+    pipelineConfigInfo.colorBlendAttachments.resize(colorAttachmentCount, first);
+    pipelineConfigInfo.colorBlendInfo.attachmentCount =
+        static_cast<uint32_t>(pipelineConfigInfo.colorBlendAttachments.size());
+    pipelineConfigInfo.colorBlendInfo.pAttachments =
+        pipelineConfigInfo.colorBlendAttachments.data();
+  } else {
+    pipelineConfigInfo.colorBlendInfo.attachmentCount =
+        static_cast<uint32_t>(pipelineConfigInfo.colorBlendAttachments.size());
+    pipelineConfigInfo.colorBlendInfo.pAttachments =
+        pipelineConfigInfo.colorBlendAttachments.data();
+  }
 
   pipeline =
-      make_unique<Pipeline>(vertFile, fragFile, piplineConfigInfo);
+      make_unique<Pipeline>(vertFile, fragFile, pipelineConfigInfo);
 }
 
 } // namespace Magma

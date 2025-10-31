@@ -43,9 +43,7 @@ inline bool hasAllowedExt(const fs::path &path) {
 } // namespace string_utils
 
 Mesh::Mesh(GameObject *owner)
-    : Component(owner){
-  println("Mesh created");
-}
+    : Component(owner) {}
 
 Mesh::~Mesh() {
   if (meshData) {
@@ -228,100 +226,8 @@ void Mesh::onInspector() {
     Window::resetDrop();
   }
 
-  /*
-  // Accept drag-and-drop onto the input (payload must be a NUL-terminated
-  path) if (ImGui::BeginDragDropTarget()) { if (const ImGuiPayload *payload =
-            ImGui::AcceptDragDropPayload("FILE_PATH")) {
-      const char *path = reinterpret_cast<const char *>(payload->Data);
-      if (path && *path) {
-        std::snprintf(pathBuffer, sizeof(pathBuffer), "%s", path);
-        if (load(path))
-          sourcePath = path;
-      }
-    }
-    ImGui::EndDragDropTarget();
-  }
-
-
-  bool inputActive = ImGui::IsItemFocused();
-  if (inputActive) {
-    println("Input active");
-    string query = string_utils::toLower(pathBuffer);
-    println("Query: {}", query);
-    filteredAssets.clear();
-
-    if (!query.empty()) {
-      for (const auto &asset : assets) {
-        println("Checking asset: {}", asset);
-        if (string_utils::toLower(asset).find(query) != string::npos)
-          filteredAssets.push_back(asset);
-        if (filteredAssets.size() >= 20)
-          break;
-      }
-    }
-
-    if (popupSelection >= (int)filteredAssets.size())
-      popupSelection = 0;
-    if (popupSelection < 0 && !filteredAssets.empty())
-      popupSelection = (int)filteredAssets.size() - 1;
-  }
-
-    ImVec2 pos = ImGui::GetItemRectMin();
-    pos.y = ImGui::GetItemRectMax().y;
-    ImGui::SetNextWindowPos(pos);
-    ImGui::SetNextWindowSizeConstraints(
-        ImVec2(ImGui::GetItemRectSize().x, 0.f),
-        ImVec2(ImGui::GetItemRectSize().x, 240.f));
-
-    ImGui::OpenPopup("##mesh_path_popup");
-  } else {
-    popupSelection = -1;
-  }
-  println("Input active: {}, popupSelection: {}", inputActive,
-  popupSelection);
-
-  bool pickedFromPopup = false;
-  string pickedPath;
-
-  if (ImGui::BeginPopup("##mesh_path_popup")) {
-    // Keyboard navigation
-    if (ImGui::IsKeyPressed(ImGuiKey_DownArrow))
-      popupSelection++;
-    if (ImGui::IsKeyPressed(ImGuiKey_UpArrow))
-      popupSelection--;
-
-    int idx = 0;
-    for (const auto &item : filteredAssets) {
-      bool selected = (idx == popupSelection);
-      if (ImGui::Selectable(item.c_str(), selected)) {
-        pickedFromPopup = true;
-        pickedPath = item;
-      }
-      if (selected)
-        ImGui::SetItemDefaultFocus();
-      idx++;
-    }
-
-    ImGui::EndPopup();
-  }
-
-  if (pickedFromPopup) {
-    std::snprintf(pathBuffer, sizeof(pathBuffer), "%s", pickedPath.c_str());
-    if (load(pickedPath))
-      sourcePath = pickedPath;
-
-    ImGui::CloseCurrentPopup();
-  }
-  */
   if (pressedEnter) {
     std::string typed = pathBuffer;
-    /*// Prefer highlighted suggestion if popup is open and we have one
-    if (ImGui::IsPopupOpen("##mesh_path_popup") && !filteredAssets.empty() &&
-        popupSelection >= 0 && popupSelection < (int)filteredAssets.size()) {
-      typed = filteredAssets[popupSelection];
-      std::snprintf(pathBuffer, sizeof(pathBuffer), "%s", typed.c_str());
-    }
-    */
 
     if (find_if(assets.begin(), assets.end(), [&typed](const string &asset) {
           return asset == typed;
