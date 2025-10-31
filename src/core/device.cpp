@@ -202,10 +202,6 @@ void Device::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width,
 void Device::copyImageToBuffer(VkCommandBuffer &commandBuffer,
                                VkBuffer dstBuffer, VkImage image,
                                VkBufferImageCopy region) {
-  transitionDepthImage(commandBuffer, image,
-                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-
   vkCmdCopyImageToBuffer(commandBuffer, image,
                          VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstBuffer, 1,
                          &region);

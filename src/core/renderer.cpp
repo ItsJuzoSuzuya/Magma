@@ -44,7 +44,8 @@ void Renderer::createPipelineLayout(VkDescriptorSetLayout descriptorSetLayout) {
     throw runtime_error("Failed to create pipeline layout!");
 }
 
-void Renderer::createPipeline(RenderTarget* renderTarget) {
+void Renderer::createPipeline(RenderTarget* renderTarget, const std::string &vertFile,
+                              const std::string &fragFile) {
   assert(pipelineLayout != nullptr &&
          "Cannot create pipeline before pipeline layout!");
 
@@ -54,8 +55,7 @@ void Renderer::createPipeline(RenderTarget* renderTarget) {
   piplineConfigInfo.pipelineLayout = pipelineLayout;
 
   pipeline =
-      make_unique<Pipeline>("src/shaders/shader.vert.spv",
-                            "src/shaders/shader.frag.spv", piplineConfigInfo);
+      make_unique<Pipeline>(vertFile, fragFile, piplineConfigInfo);
 }
 
 } // namespace Magma

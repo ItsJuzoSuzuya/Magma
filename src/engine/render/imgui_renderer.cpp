@@ -19,7 +19,8 @@ ImGuiRenderer::ImGuiRenderer(SwapChain &swapChain): Renderer() {
   Renderer::init(descriptorSetLayout->getDescriptorSetLayout());
 
   renderTarget = make_unique<SwapchainTarget>(swapChain);
-  createPipeline(renderTarget.get());
+  createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
+                 "src/shaders/imgui.frag.spv");
 }
 
 // --- Public ---
@@ -146,7 +147,8 @@ void ImGuiRenderer::end() {
 // Resize
 void ImGuiRenderer::resize(VkExtent2D extent, VkSwapchainKHR swapChain) {
   renderTarget->resize(extent, swapChain);
-  createPipeline(renderTarget.get());
+  createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
+                 "src/shaders/imgui.frag.spv");
 }
 
 // --- Private ---
@@ -163,7 +165,8 @@ void ImGuiRenderer::createDescriptorPool() {
 
 void ImGuiRenderer::createDescriptorSetLayout() {
   descriptorSetLayout = DescriptorSetLayout::Builder()
-                            .build();
+        .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+        .build();
 }
 
 } // namespace Magma

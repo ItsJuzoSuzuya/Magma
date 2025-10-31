@@ -29,7 +29,8 @@ OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info)
   createDescriptorSets();
 
   renderTarget = make_unique<OffscreenTarget>(info);
-  createPipeline(renderTarget.get());
+  createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
+                 "src/shaders/shader.frag.spv");
 }
 
 // Destructor

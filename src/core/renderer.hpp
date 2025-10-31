@@ -42,7 +42,8 @@ public:
 protected:
   // Pipeline
   std::unique_ptr<Pipeline> pipeline;
-  void createPipeline(RenderTarget *renderTarget);
+  void createPipeline(RenderTarget *renderTarget, const std::string &vertFile = "src/shaders/shader.vert.spv",
+                      const std::string &fragFile = "src/shaders/shader.frag.spv");
 
   // Descriptor Pool
   std::unique_ptr<DescriptorPool> descriptorPool;
