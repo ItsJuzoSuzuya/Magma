@@ -20,6 +20,7 @@ Renderer::~Renderer() {
   pipeline = nullptr;
 }
 
+
 // --- Private --- //
 // Pipeline Layout
 void Renderer::createPipelineLayout(VkDescriptorSetLayout descriptorSetLayout) {

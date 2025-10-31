@@ -7,7 +7,6 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include <array>
-#include <print>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -21,7 +20,6 @@ ImGuiRenderer::ImGuiRenderer(SwapChain &swapChain): Renderer() {
 
   renderTarget = make_unique<SwapchainTarget>(swapChain);
   createPipeline(renderTarget.get());
-  println("Descriptor pool {}", (void *)descriptorPool->getDescriptorPool());
 }
 
 // --- Public ---

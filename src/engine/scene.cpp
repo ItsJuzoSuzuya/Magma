@@ -31,6 +31,30 @@ Scene::~Scene() {
 }
 
 // --- Public --- //
+
+
+GameObject *Scene::findGameObjectById(GameObject::id_t id){
+  if (activeScene == nullptr)
+    return nullptr;
+
+  std::function<GameObject*(GameObject*)> findFrom = [&](GameObject* node)->GameObject*{
+      if (!node) return nullptr;
+      if (node->id == id) return node;
+      auto children = node->getChildren();
+      for (auto *c : children) {
+        if (auto r = findFrom(c)) return r;
+      }
+      return nullptr;
+    };
+
+    for (const auto &g : activeScene->gameObjects) {
+      if (!g) continue;
+      if (g->id == id) return g.get();
+      if (auto r = findFrom(g.get())) return r;
+    }
+    return nullptr;
+}
+
 // --- GameObject management ---
 GameObject &Scene::addGameObject(unique_ptr<GameObject> gameObject) {
   assert(gameObject != nullptr &&

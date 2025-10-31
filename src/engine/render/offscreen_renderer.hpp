@@ -38,6 +38,8 @@ public:
   // Resize
   void resize(VkExtent2D newExtent);
 
+  GameObject *pickAtPixel(uint32_t x, uint32_t y);
+
 private:
   // Textures for ImGui
   std::vector<ImTextureID> textures;

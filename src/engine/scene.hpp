@@ -31,6 +31,9 @@ public:
     return gameObjects;
   }
 
+  // Find GameObject by ID
+  GameObject *findGameObjectById(GameObject::id_t id);
+
   // --- GameObject management ---
   GameObject &addGameObject(std::unique_ptr<GameObject> gameObject);
   void removeGameObject(GameObject *gameObject);

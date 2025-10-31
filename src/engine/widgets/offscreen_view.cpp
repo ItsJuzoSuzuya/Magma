@@ -2,8 +2,11 @@
 #include "../render/offscreen_renderer.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "inspector.hpp"
 #include "ui_context.hpp"
+#include <print>
 
+using namespace std;
 namespace Magma {
 
 // Perform resize decision before starting frame.
@@ -36,8 +39,41 @@ void OffscreenView::draw() {
   UIContext::ensureInit();
   ImGui::SetNextWindowClass(&UIContext::AppDockClass);
   ImGui::Begin("Offscreen View");
+
+  ImVec2 imgSize = offscreenRenderer.getSceneSize();
   ImGui::Image(offscreenRenderer.getSceneTexture(),
-               offscreenRenderer.getSceneSize());
+               imgSize);
+
+  if(ImGui::IsItemClicked()){
+    println("OffscreenView: Clicked at image");
+    ImVec2 itemMin = ImGui::GetItemRectMin();
+    ImVec2 itemMax = ImGui::GetItemRectMax();
+    ImVec2 mousePos = ImGui::GetIO().MousePos;
+
+    float localX = mousePos.x - itemMin.x;
+    float localY = mousePos.y - itemMin.y;
+
+    // Clamp
+    if (localX < 0) localX = 0;
+    if (localY < 0) localY = 0;
+    if (localX > imgSize.x) localX = imgSize.x;
+    if (localY > imgSize.y) localY = imgSize.y;
+
+    uint32_t pixelX = static_cast<uint32_t>(localX);
+    uint32_t pixelY = static_cast<uint32_t>(localY);
+
+    println("OffscreenView: Local click at pixel ({}, {})", pixelX, pixelY);
+
+    ImVec2 sceneSize = offscreenRenderer.getSceneSize();
+    if (sceneSize.x > 0 && sceneSize.y > 0){
+      GameObject* picked = offscreenRenderer.pickAtPixel(pixelX, pixelY);
+      println("OffscreenView: Picked object: {}", picked ? picked->name : "None");
+
+      if (picked) 
+        Inspector::setContext(picked);
+    }
+  }
+
   ImGui::End();
 }
 

@@ -15,11 +15,11 @@ OffscreenTarget::OffscreenTarget(const RenderTargetInfo &info)
       depthImageFormat{info.depthFormat},
       imageCount_{info.imageCount} {
   createImages();
-  createImageViews();
   createRenderPass(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   createDepthResources();
   createFramebuffers();
   createColorSampler();
+  createIdImage();
 }
 
 OffscreenTarget::~OffscreenTarget() { cleanup(); }
@@ -59,11 +59,11 @@ void OffscreenTarget::resize(VkExtent2D newExtent) {
   targetExtent = newExtent;
 
   createImages();
-  createImageViews();
   createRenderPass(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   createDepthResources();
   createFramebuffers();
   createColorSampler();
+  createIdImage();
 }
 
 // --- Private helpers ---
@@ -92,6 +92,8 @@ void OffscreenTarget::createImages() {
   for (uint32_t i = 0; i < imageCount_; ++i)
     Device::get().createImageWithInfo(imageInfo, VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
                                       images[i], imageMemories[i]);
+
+  createImageViews();
 }
 
 void OffscreenTarget::createImageViews() {
@@ -220,6 +222,41 @@ void OffscreenTarget::createDepthResources() {
       throw std::runtime_error("OffscreenRenderTarget: failed to create depth view");
     }
   }
+}
+
+void OffscreenTarget::createIdImage() {
+  VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+  imageInfo.imageType = VK_IMAGE_TYPE_2D;
+  imageInfo.extent.width = targetExtent.width;
+  imageInfo.extent.height = targetExtent.height;
+  imageInfo.extent.depth = 1;
+  imageInfo.mipLevels = 1;
+  imageInfo.arrayLayers = 1;
+  imageInfo.format = idImageFormat;
+  imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+  imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                    VK_IMAGE_USAGE_SAMPLED_BIT;
+  imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+  imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  Device::get().createImageWithInfo(imageInfo, VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
+                                    idImage, idImageMemory);
+
+  VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+  viewInfo.image = idImage;
+  viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  viewInfo.format = idImageFormat;
+  viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  viewInfo.subresourceRange.baseMipLevel = 0;
+  viewInfo.subresourceRange.levelCount = 1;
+  viewInfo.subresourceRange.baseArrayLayer = 0;
+  viewInfo.subresourceRange.layerCount = 1;
+
+  if(vkCreateImageView(Device::get().device(), &viewInfo, nullptr,
+                        &idImageView) != VK_SUCCESS)
+    throw runtime_error("OffscreenRenderTarget: failed to create id image view");
 }
 
 void OffscreenTarget::createFramebuffers() {

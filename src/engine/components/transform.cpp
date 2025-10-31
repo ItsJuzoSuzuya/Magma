@@ -1,6 +1,7 @@
 #include "transform.hpp"
 #include "../../core/frame_info.hpp"
 #include "../../core/push_constant_data.hpp"
+#include "../../engine/gameobject.hpp"
 #include "../../core/renderer.hpp"
 #include "imgui.h"
 #include <glm/fwd.hpp>
@@ -15,6 +16,11 @@ namespace Magma {
 void Transform::onRender(Renderer &renderer) {
   PushConstantData push{};
   push.modelMatrix = mat4();
+
+  if(owner)
+    push.objectId = static_cast<uint32_t>(owner->id);
+  else 
+    push.objectId = 0;
 
   vkCmdPushConstants(FrameInfo::commandBuffer, renderer.getPipelineLayout(),
                      VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData),
