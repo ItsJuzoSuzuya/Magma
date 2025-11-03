@@ -1,10 +1,11 @@
 #include "offscreen_view.hpp"
 #include "../render/offscreen_renderer.hpp"
+#include "../components/transform.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "inspector.hpp"
 #include "ui_context.hpp"
-#include <print>
+#include <glm/fwd.hpp>
 
 using namespace std;
 namespace Magma {
@@ -65,12 +66,43 @@ void OffscreenView::draw() {
     if (sceneSize.x > 0 && sceneSize.y > 0){
       GameObject* picked = offscreenRenderer.pickAtPixel(pixelX, pixelY);
 
-      if (picked) 
+      if (picked) {
+        draggedObject = picked;
+        dragStartMousePos = mousePos;
         Inspector::setContext(picked);
+      }
     }
   }
 
+  if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+    draggedObject = nullptr;
+    dragStartMousePos = ImVec2{0,0};
+  }
+
+  handleMouseDrag();
+
   ImGui::End();
+}
+
+// --- Private --- //
+
+void OffscreenView::handleMouseDrag(){
+  if (draggedObject) {
+    ImVec2 currentMousePos = ImGui::GetIO().MousePos;
+    ImVec2 delta{
+        currentMousePos.x - dragStartMousePos.x,
+        currentMousePos.y - dragStartMousePos.y
+    };
+
+    // Apply some sensitivity factor
+    float sensitivity = 0.01f;
+    glm::vec3& pos = draggedObject->getComponent<Transform>()->position;
+    pos.x += delta.x * sensitivity;
+    pos.y -= delta.y * sensitivity;
+
+    // Update drag start position for next frame
+    dragStartMousePos = currentMousePos;
+  }
 }
 
 } // namespace Magma

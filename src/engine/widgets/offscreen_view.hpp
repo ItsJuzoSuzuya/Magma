@@ -1,9 +1,11 @@
 #pragma once
+#include "imgui.h"
 #include "widget.hpp"
 
 namespace Magma {
 
 class OffscreenRenderer;
+class GameObject;
 
 class OffscreenView : public Widget {
 public:
@@ -26,6 +28,10 @@ public:
 
 private:
   OffscreenRenderer &offscreenRenderer;
+
+  GameObject *draggedObject = nullptr;
+  ImVec2 dragStartMousePos = {0,0};
+  void handleMouseDrag();
 };
 
 } // namespace Magma
