@@ -34,6 +34,37 @@ void Transform::onInspector() {
   ImGui::DragFloat3("Scale", &scale.x, 0.1f);
 }
 
+// Direction vectors
+glm::vec3 Transform::forward() const {
+  const float c1 = glm::cos(rotation.y);
+  const float s1 = glm::sin(rotation.y);
+  const float c2 = glm::cos(rotation.x);
+  const float s2 = glm::sin(rotation.x);
+  return glm::vec3{s1 * c2, -s2, c1 * c2};
+}
+
+glm::vec3 Transform::right() const {
+  const float c1 = glm::cos(rotation.y);
+  const float s1 = glm::sin(rotation.y);
+  const float c2 = glm::cos(rotation.x);
+  const float s2 = glm::sin(rotation.x);
+  const float c3 = glm::cos(rotation.z);
+  const float s3 = glm::sin(rotation.z);
+  return glm::vec3{c1 * c3 + s1 * s2 * s3, c2 * s3,
+                   c1 * s2 * s3 - s1 * c3};
+}
+
+glm::vec3 Transform::up() const {
+  const float c1 = glm::cos(rotation.y);
+  const float s1 = glm::sin(rotation.y);
+  const float c2 = glm::cos(rotation.x);
+  const float s2 = glm::sin(rotation.x);
+  const float c3 = glm::cos(rotation.z);
+  const float s3 = glm::sin(rotation.z);
+  return glm::vec3{s1 * s2 * c3 - s3 * c1, c2 * c3,
+                   s1 * s3 + c1 * s2 * c3};
+}
+
 // --- Private --- //
 // Matrix calculations
 glm::mat4 Transform::mat4() const {

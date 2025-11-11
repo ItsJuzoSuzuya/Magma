@@ -253,7 +253,7 @@ void OffscreenRenderer::createDescriptorSets() {
   descriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
   for (size_t i = 0; i < static_cast<uint32_t>(descriptorSets.size()); i++) {
     VkDescriptorBufferInfo cameraBufferInfo =
-        getCameraBuffer(i)->descriptorInfo();
+        cameraBuffers[i]->descriptorInfo();
     DescriptorWriter(*descriptorSetLayout, *descriptorPool)
         .writeBuffer(0, &cameraBufferInfo)
         .build(descriptorSets[i]);

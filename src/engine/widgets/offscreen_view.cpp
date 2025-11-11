@@ -1,5 +1,6 @@
 #include "offscreen_view.hpp"
 #include "../render/offscreen_renderer.hpp"
+#include "../scene.hpp"
 #include "../components/transform.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -40,6 +41,24 @@ void OffscreenView::draw() {
   UIContext::ensureInit();
   ImGui::SetNextWindowClass(&UIContext::AppDockClass);
   ImGui::Begin("Offscreen View");
+
+  if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
+    ImGuiIO& io = ImGui::GetIO();
+    io.WantCaptureKeyboard = true;
+
+    if (ImGui::IsKeyPressed(ImGuiKey_A)) 
+      Scene::current()->moveCameraAlongRight(-0.1f);
+    if (ImGui::IsKeyPressed(ImGuiKey_D)) 
+      Scene::current()->moveCameraAlongRight(0.1f);
+    if (ImGui::IsKeyPressed(ImGuiKey_W)) 
+      Scene::current()->moveCameraAlongForward(0.1f);
+    if (ImGui::IsKeyPressed(ImGuiKey_S))
+      Scene::current()->moveCameraAlongForward(-0.1f);
+    if (ImGui::IsKeyPressed(ImGuiKey_Space)) 
+      Scene::current()->moveCameraAlongUp(0.1f);
+    if (ImGui::IsKeyPressed(ImGuiKey_LeftShift))
+      Scene::current()->moveCameraAlongUp(-0.1f);
+  }
 
   ImVec2 imgSize = offscreenRenderer.getSceneSize();
   ImGui::Image(offscreenRenderer.getSceneTexture(),

@@ -1,10 +1,11 @@
 #include "camera.hpp"
-#include "components/transform.hpp"
-#include "../core/frame_info.hpp"
+#include "transform.hpp"
+#include "../core/renderer.hpp"
 #include "../core/buffer.hpp"
 #include <array>
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float3.hpp>
+#include <print>
 #include <vulkan/vulkan_core.h>
 
 namespace Magma {
@@ -13,6 +14,9 @@ struct AABB {
   glm::vec3 min;
   glm::vec3 max;
 };
+
+Camera::Camera(Transform *transform)
+    : Component(transform->owner), ownerTransform(transform) {}
 
 void Camera::setPerspectiveProjection(float fov, float aspect, float near,
                                       float far) {
@@ -25,7 +29,15 @@ void Camera::setPerspectiveProjection(float fov, float aspect, float near,
   projectionMatrix[3][2] = -(far * near) / (far - near);
 }
 
-void Camera::setView(const glm::vec3 &position, const glm::vec3 &rotation) {
+void Camera::onUpdate() {
+  if (!ownerTransform)
+    return;
+
+  setView(ownerTransform->position, ownerTransform->rotation);
+}
+
+void Camera::setView(const glm::vec3 &position,
+                         const glm::vec3 &rotation) {
   const float c1 = glm::cos(rotation.y);
   const float s1 = glm::sin(rotation.y);
   const float c2 = glm::cos(rotation.x);
@@ -50,14 +62,6 @@ void Camera::setView(const glm::vec3 &position, const glm::vec3 &rotation) {
   viewMatrix[3][1] = -glm::dot(v, position);
   viewMatrix[3][2] = -glm::dot(w, position);
 };
-
-
-void Camera::follow(const Transform &transform, glm::vec3 offset){
-  glm::vec3 position = transform.position;
-  glm::vec3 rotation = transform.rotation;
-
-  setView(position + offset, rotation);
-}
 
 bool Camera::canSee(const glm::vec3 &position) const {
   AABB chunkBounds;
@@ -92,6 +96,11 @@ void Camera::pushCameraDataToGPU(Buffer *uboBuffer) {
     ubo.projectionView = getProjection() * getView();
     uboBuffer->writeToBuffer((void *)&ubo);
     uboBuffer->flush();
+}
+
+// --- Lifecycle ---
+void Camera::onRender(Renderer &renderer) {
+  pushCameraDataToGPU(renderer.getCameraBuffer());
 }
 
 } // namespace magma

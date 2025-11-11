@@ -24,6 +24,11 @@ public:
   const char *inspectorName() const override { return "Transform"; }
   const float inspectorHeight() const override { return 110.0f; }
 
+  // Direction vectors
+  glm::vec3 forward() const;
+  glm::vec3 right() const;
+  glm::vec3 up() const;
+
 private:
   glm::mat4x4 mat4() const;
   glm::mat4 normalMatrix() const;

@@ -29,7 +29,7 @@ public:
 
   // Getters
   VkPipelineLayout getPipelineLayout() { return pipelineLayout; }
-  virtual Buffer *getCameraBuffer(uint32_t i) { return nullptr; }
+  virtual Buffer *getCameraBuffer() { return nullptr; }
 
   // Rendering
   virtual void begin() = 0;

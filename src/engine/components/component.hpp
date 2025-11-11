@@ -26,8 +26,8 @@ public:
   virtual const char *inspectorName() const = 0;
   virtual const float inspectorHeight() const = 0;
 
-protected:
   GameObject *owner = nullptr;
+
 };
 
 } // namespace Magma

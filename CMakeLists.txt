@@ -46,10 +46,10 @@ set(SOURCES
     src/engine/engine.cpp
     src/engine/scene.cpp
     src/engine/gameobject.cpp
-    src/engine/camera.cpp
     # components
     src/engine/components/transform.cpp
     src/engine/components/mesh.cpp
+    src/engine/components/camera.cpp
     # widgets
     src/engine/widgets/dock_layout.cpp
     src/engine/widgets/inspector.cpp

@@ -23,7 +23,7 @@ public:
   ImTextureID getSceneTexture() const {
     return textures[FrameInfo::frameIndex];
   }
-  Buffer *getCameraBuffer(uint32_t i) override { return cameraBuffers[i].get(); }
+  Buffer *getCameraBuffer() override { return cameraBuffers[FrameInfo::frameIndex].get(); }
   OffscreenTarget &target() { return *renderTarget; }
   VkRenderPass getRenderPass() { return renderTarget->getRenderPass(); }
 
