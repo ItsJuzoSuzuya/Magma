@@ -91,7 +91,7 @@ void OffscreenTarget::createImages() {
   imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
   for (uint32_t i = 0; i < imageCount_; ++i)
-    Device::get().createImageWithInfo(imageInfo, VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
+    Device::get().createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                       images[i], imageMemories[i]);
 
   createImageViews();
@@ -221,7 +221,7 @@ void OffscreenTarget::createDepthResources() {
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    device.createImageWithInfo(imageInfo, VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
+    device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                depthImages[i], depthImageMemories[i]);
 
     VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
@@ -258,7 +258,7 @@ void OffscreenTarget::createIdImage() {
   imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
   imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  Device::get().createImageWithInfo(imageInfo, VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
+  Device::get().createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                     idImage, idImageMemory);
 
   VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};

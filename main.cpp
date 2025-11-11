@@ -1,10 +1,5 @@
 #include "src/engine/engine.hpp"
 #include "src/engine/specifications.hpp"
-#include <cstdio>
-#include <stdlib.h>
-#define GLFW_INCLUDE_NONE
-#define GLFW_INCLUDE_VULKAM
-#include <GLFW/glfw3.h>
 
 // Main code
 int main(int, char **) {
@@ -17,6 +12,7 @@ int main(int, char **) {
     Magma::Engine engine{spec};
     engine.run();
   } catch (const std::exception &e) {
+    std::println("Error: {}", e.what());
     fprintf(stderr, "Error: %s\n", e.what());
     return EXIT_FAILURE;
   }

@@ -46,11 +46,11 @@ SwapChain::~SwapChain() {
 // Rendering
 VkResult SwapChain::acquireNextImage() {
   VkDevice device = Device::get().device();
-  vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE,
+  vkWaitForFences(device, 1, &inFlightFences[FrameInfo::frameIndex], VK_TRUE,
                   UINT64_MAX);
 
   return vkAcquireNextImageKHR(device, swapChain, UINT64_MAX,
-                               imageAvailableSemaphores[currentFrame],
+                               imageAvailableSemaphores[FrameInfo::frameIndex],
                                VK_NULL_HANDLE, &FrameInfo::imageIndex);
 }
 
@@ -59,7 +59,7 @@ VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
 
   VkSubmitInfo submitInfo = {};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
+  VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[FrameInfo::frameIndex]};
   VkPipelineStageFlags waitStages[] = {
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
   submitInfo.waitSemaphoreCount = 1;
@@ -68,13 +68,13 @@ VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = commandBuffer;
 
-  VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
+  VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[FrameInfo::frameIndex]};
   submitInfo.signalSemaphoreCount = 1;
   submitInfo.pSignalSemaphores = signalSemaphores;
 
-  vkResetFences(device.device(), 1, &inFlightFences[currentFrame]);
+  vkResetFences(device.device(), 1, &inFlightFences[FrameInfo::frameIndex]);
   if (vkQueueSubmit(device.graphicsQueue(), 1, &submitInfo,
-                    inFlightFences[currentFrame]) != VK_SUCCESS)
+                    inFlightFences[FrameInfo::frameIndex]) != VK_SUCCESS)
     throw std::runtime_error("Failed to submit draw command buffer!");
 
   VkPresentInfoKHR presentInfo = {};
@@ -115,7 +115,7 @@ void SwapChain::createSwapChain(VkExtent2D &extent) {
   createInfo.minImageCount = imageCount;
   createInfo.imageFormat = surfaceFormat.format;
   createInfo.imageColorSpace = surfaceFormat.colorSpace;
-  createInfo.imageExtent = extent;
+  createInfo.imageExtent = chosenExtent;
   createInfo.imageArrayLayers = 1;
   createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
@@ -139,7 +139,7 @@ void SwapChain::createSwapChain(VkExtent2D &extent) {
 
   if (vkCreateSwapchainKHR(device.device(), &createInfo, nullptr, &swapChain) !=
       VK_SUCCESS)
-    std::runtime_error("Failed to create swap chain!");
+    throw std::runtime_error("Failed to create swap chain!");
 
   renderInfo = {
       .extent = chosenExtent,

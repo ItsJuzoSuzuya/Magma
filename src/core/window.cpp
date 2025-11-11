@@ -50,6 +50,9 @@ void Window::dropCallback(GLFWwindow *window, int count, const char **paths) {
   if (count > 0) {
     const char *needle = "Magma/";
     const char *last = strstr(paths[0], needle);
+    if (last == nullptr)
+      return;
+
     last += strlen(needle);
 
     droppedText = string(last);

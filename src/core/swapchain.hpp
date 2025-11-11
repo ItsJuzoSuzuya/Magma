@@ -1,6 +1,5 @@
 #pragma once
 #include "render_target_info.hpp"
-#include <cwchar>
 #include <memory>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -42,7 +41,6 @@ private:
   std::vector<VkSemaphore> imageAvailableSemaphores;
   std::vector<VkSemaphore> renderFinishedSemaphores;
   std::vector<VkFence> inFlightFences;
-  size_t currentFrame = 0;
   void createSyncObjects();
 
   // Helpers

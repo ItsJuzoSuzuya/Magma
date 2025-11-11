@@ -83,6 +83,7 @@ public:
   VkFormat findDepthFormat();
 
   // Sync
+  VkFence fence;
   static void waitIdle() { vkDeviceWaitIdle(get().device_); }
 
 private:

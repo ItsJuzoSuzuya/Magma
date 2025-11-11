@@ -70,89 +70,63 @@ void Buffer::getDepthBufferData(VkCommandBuffer &commandBuffer,
                                 const VkExtent2D &extent,
                                 std::vector<float> &depthData,
                                 VkDeviceSize offset) {
-  assert(mappedMemory && "Cannot read from unmapped memory!");
-
   Device &device = Device::get();
 
-  VkImageCreateInfo imageInfo = {};
-  imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  imageInfo.imageType = VK_IMAGE_TYPE_2D;
-  imageInfo.extent.depth = 1.f;
-  imageInfo.extent.width = extent.width / 4;
-  imageInfo.extent.height = extent.height / 4;
-  imageInfo.usage =
-      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-  imageInfo.format = VK_FORMAT_D32_SFLOAT;
-  imageInfo.mipLevels = 1;
-  imageInfo.arrayLayers = 1;
-  imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-  imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-  imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  uint32_t targetWidth = extent.width / 4;
+  uint32_t targetHeight = extent.height / 4;
 
-  VkImage dstDepthImage;
-  VkDeviceMemory depthImageMemory;
-  device.createImageWithInfo(imageInfo,
-                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-                             dstDepthImage, depthImageMemory);
+  const size_t pixelCount = static_cast<size_t>(targetWidth) * targetHeight;
+  const VkDeviceSize bufferSizeBytes = pixelCount * sizeof(float);
 
-  VkImageBlit blit = {};
-  blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-  blit.srcSubresource.mipLevel = 0;
-  blit.srcSubresource.baseArrayLayer = 0;
-  blit.srcSubresource.layerCount = 1;
-  blit.srcOffsets[1] = {static_cast<int32_t>(extent.width),
-                        static_cast<int32_t>(extent.height), 1};
+  // Ensure output vector has the right size
+  depthData.resize(pixelCount);
 
-  blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-  blit.dstSubresource.mipLevel = 0;
-  blit.dstSubresource.baseArrayLayer = 0;
-  blit.dstSubresource.layerCount = 1;
-  blit.dstOffsets[1] = {static_cast<int32_t>(extent.width / 4.f),
-                        static_cast<int32_t>(extent.height / 4.f), 1};
+  Buffer stagingBuffer(sizeof(float), static_cast<uint32_t>(pixelCount),
+                       VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  stagingBuffer.map();
 
   VkCommandBufferBeginInfo beginInfo = {};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
   vkResetCommandBuffer(commandBuffer, 0);
-  vkBeginCommandBuffer(commandBuffer, &beginInfo);
+  if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) 
+    throw std::runtime_error("Failed to begin command buffer!");
 
   device.transitionDepthImage(commandBuffer, srcImage,
                               VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-  device.transitionDepthImage(commandBuffer, dstDepthImage,
-                              VK_IMAGE_LAYOUT_UNDEFINED,
-                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-
-  vkCmdBlitImage(commandBuffer, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                 dstDepthImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit,
-                 VK_FILTER_NEAREST);
-
   VkBufferImageCopy region = {};
   region.bufferOffset = offset;
-  region.bufferRowLength = 0;
-  region.bufferImageHeight = 0;
+  region.bufferRowLength = 0;   // tightly packed
+  region.bufferImageHeight = 0; // tightly packed
   region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
   region.imageSubresource.mipLevel = 0;
   region.imageSubresource.baseArrayLayer = 0;
   region.imageSubresource.layerCount = 1;
   region.imageOffset = {0, 0, 0};
-  region.imageExtent = {extent.width / 4, extent.height / 4, 1};
+  region.imageExtent = {targetWidth, targetHeight, 1};
 
-  device.copyImageToBuffer(commandBuffer, buffer, dstDepthImage, region);
+  // Issue copy from image to buffer
+  device.copyImageToBuffer(commandBuffer, stagingBuffer.getBuffer(), srcImage, region);
 
-  std::memcpy(depthData.data(), mappedMemory, depthData.size() * sizeof(float));
-
+  // Transition depth image back to depth-stencil attachment layout
   device.transitionDepthImage(commandBuffer, srcImage,
                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                               VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
+  // Submit and wait for completion (Device::submitCommands ends and submits the buffer)
   device.submitCommands(commandBuffer);
 
-  vkDestroyImage(device.device(), dstDepthImage, nullptr);
-  vkFreeMemory(device.device(), depthImageMemory, nullptr);
+  // Read back from mapped staging buffer into depthData
+  void *mapped = stagingBuffer.mappedData();
+  if (mapped) {
+    std::memcpy(depthData.data(), mapped, bufferSizeBytes);
+  } else {
+    throw runtime_error("Failed to map staging buffer for depth readback!");
+  }
 }
 
 void Buffer::flush(VkDeviceSize size, VkDeviceSize offset) {

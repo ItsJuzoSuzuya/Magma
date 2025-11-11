@@ -92,7 +92,8 @@ DescriptorPool::DescriptorPool(
   createInfo.flags = poolFlags;
 
   VkDevice device = Device::get().device();
-  vkCreateDescriptorPool(device, &createInfo, nullptr, &descriptorPool);
+  if(vkCreateDescriptorPool(device, &createInfo, nullptr, &descriptorPool) != VK_SUCCESS) 
+    throw std::runtime_error("Failed to create descriptor pool!");
 }
 
 DescriptorPool::~DescriptorPool() {

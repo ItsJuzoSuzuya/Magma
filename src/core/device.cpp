@@ -69,6 +69,7 @@ Device::Device(Window &window) {
 
 Device::~Device() {
   vkDestroyCommandPool(device_, commandPool, nullptr);
+  vkDestroyFence(device_, fence, nullptr);
   vkDestroyDevice(device_, nullptr);
 
   if (enableValidationLayers)
@@ -343,8 +344,8 @@ void Device::submitCommands(VkCommandBuffer &commandBuffer) {
   VkFenceCreateInfo fenceInfo{};
   fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 
-  VkFence fence;
-  vkCreateFence(device_, &fenceInfo, nullptr, &fence);
+  if (vkCreateFence(device_, &fenceInfo, nullptr, &fence) != VK_SUCCESS)
+    throw runtime_error("Failed to create fence!");
 
   if (vkQueueSubmit(graphicsQueue(), 1, &submitInfo, fence) != VK_SUCCESS)
     throw runtime_error("Failed to submit command buffer!");

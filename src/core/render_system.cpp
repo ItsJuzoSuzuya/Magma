@@ -89,7 +89,6 @@ void RenderSystem::renderFrame() {
     endFrame();
   }
 
-  vkDeviceWaitIdle(device->device());
   if (firstFrame)
     firstFrame = false;
 }
