@@ -1,5 +1,4 @@
 #pragma once
-#include "components/camera.hpp"
 #include "gameobject.hpp"
 #include <functional>
 #include <memory>
@@ -63,16 +62,8 @@ public:
    */
   void processDeferredActions();
 
-
-  void moveCameraAlongRight(float speed);
-  void moveCameraAlongForward(float speed);
-  void moveCameraAlongUp(float speed);
-
 private:
   inline static Scene *activeScene = nullptr;
-
-  std::unique_ptr<Transform> cameraTransform;
-  std::unique_ptr<Camera> camera;
 
   std::vector<std::unique_ptr<GameObject>> gameObjects;
   std::vector<std::function<void()>> deferredActions;

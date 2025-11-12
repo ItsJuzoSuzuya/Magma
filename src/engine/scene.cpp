@@ -1,8 +1,6 @@
 #include "scene.hpp"
 #include "../core/renderer.hpp"
 #include "../core/device.hpp"
-#include "components/camera.hpp"
-#include "components/transform.hpp"
 #include "gameobject.hpp"
 #include "imgui.h"
 #include "scene_action.hpp"
@@ -14,12 +12,6 @@ using namespace std;
 namespace Magma {
 
 Scene::Scene() {
-  cameraTransform = make_unique<Transform>(nullptr);
-  camera = make_unique<Camera>(cameraTransform.get());
-
-  camera->setPerspectiveProjection(
-      glm::radians(90.f), 16.f / 9.f, 0.1f, 100.f);
-
   if (activeScene == nullptr)
     setActive();
 }
@@ -110,9 +102,6 @@ void Scene::drawTree() {
 }
 
 void Scene::onRender(Renderer &renderer) {
-  activeScene->camera->onUpdate();
-  activeScene->camera->onRender(renderer);
-
   if (activeScene == nullptr)
     return;
 
@@ -131,21 +120,6 @@ void Scene::processDeferredActions() {
     action();
 
   deferredActions.clear();
-}
-
-void Scene::moveCameraAlongRight(float speed) {
-  cameraTransform->position +=
-      cameraTransform->right() * speed;
-}
-
-void Scene::moveCameraAlongForward(float speed) {
-  cameraTransform->position +=
-      cameraTransform->forward() * speed;
-}
-
-void Scene::moveCameraAlongUp(float speed) {
-  cameraTransform->position +=
-      cameraTransform->up() * speed;
 }
 
 } // namespace Magma

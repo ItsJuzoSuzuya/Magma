@@ -24,6 +24,7 @@ namespace Magma {
 RenderSystem::RenderSystem(Window &window) : window{window} {
   device = make_unique<Device>(window);
   swapChain = make_unique<SwapChain>(window.getExtent());
+  editorCamera = make_unique<EditorCamera>();
 
   RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
   offscreenInfo.extent.width /= 2;
@@ -38,7 +39,7 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   // Important: Offscreen view must be added last so that its content size is
   // calculated according to the other widgets
   imguiRenderer->addWidget(
-      make_unique<OffscreenView>(*offscreenRenderer.get()));
+      make_unique<OffscreenView>(*offscreenRenderer.get(), editorCamera.get()));
 
   createCommandBuffers();
 }
@@ -79,6 +80,8 @@ void RenderSystem::renderFrame() {
   if (beginFrame()) {
     offscreenRenderer->begin();
     offscreenRenderer->record();
+    editorCamera->onUpdate();
+    editorCamera->onRender(*offscreenRenderer);
     Scene::onRender(*offscreenRenderer);
     offscreenRenderer->end();
 

@@ -1,0 +1,41 @@
+#pragma once
+#include "components/transform.hpp"
+#include "components/camera.hpp"
+#include <memory>
+
+namespace Magma {
+
+class Renderer;
+
+/**
+ * EditorCamera aggregates a Transform and a Camera for editor usage.
+ * It owns the transform and camera instances and exposes simple movement
+ * APIs for the editor (e.g., when user presses WASD in the offscreen view).
+ */
+class EditorCamera {
+public:
+  EditorCamera();
+  ~EditorCamera() = default;
+
+  // Lifecycle helpers
+  void onUpdate();
+  void onRender(Renderer &renderer);
+
+  // Movement helpers used by editor input
+  void moveRight(float speed);
+  void moveForward(float speed);
+  void moveUp(float speed);
+
+  // Perspective config
+  void setPerspectiveProjection(float fov, float aspect, float near, float far);
+
+  // Accessors
+  Transform *getTransform() { return transform.get(); }
+  Camera *getCamera() { return camera.get(); }
+
+private:
+  std::unique_ptr<Transform> transform;
+  std::unique_ptr<Camera> camera;
+};
+
+} // namespace Magma

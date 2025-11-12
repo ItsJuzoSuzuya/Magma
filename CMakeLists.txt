@@ -46,6 +46,7 @@ set(SOURCES
     src/engine/engine.cpp
     src/engine/scene.cpp
     src/engine/gameobject.cpp
+    src/engine/editor_camera.cpp
     # components
     src/engine/components/transform.cpp
     src/engine/components/mesh.cpp

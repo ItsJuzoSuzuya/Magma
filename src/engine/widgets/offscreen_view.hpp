@@ -1,5 +1,6 @@
 #pragma once
 #include "imgui.h"
+#include "../editor_camera.hpp"
 #include "widget.hpp"
 
 namespace Magma {
@@ -9,8 +10,8 @@ class GameObject;
 
 class OffscreenView : public Widget {
 public:
-  explicit OffscreenView(OffscreenRenderer &renderer)
-      : offscreenRenderer{renderer} {}
+  explicit OffscreenView(OffscreenRenderer &renderer, EditorCamera *editorCamera = nullptr)
+      : offscreenRenderer{renderer}, editorCamera{editorCamera} {}
 
   // Name of the widget
   const char *name() const override { return "Offscreen View"; }
@@ -28,6 +29,7 @@ public:
 
 private:
   OffscreenRenderer &offscreenRenderer;
+  EditorCamera *editorCamera = nullptr;
 
   GameObject *draggedObject = nullptr;
   ImVec2 dragStartMousePos = {0,0};

@@ -1,6 +1,7 @@
 #pragma once
 #include "../engine/render/imgui_renderer.hpp"
 #include "../engine/render/offscreen_renderer.hpp"
+#include "../engine/editor_camera.hpp"
 #include "device.hpp"
 #include "frame_info.hpp"
 #include "imgui_impl_vulkan.h"
@@ -55,5 +56,8 @@ private:
   // Frame info
   FrameInfo frameInfo;
   bool firstFrame = true;
+
+  // Editor Camera
+  std::unique_ptr<EditorCamera> editorCamera = nullptr;
 };
 } // namespace Magma

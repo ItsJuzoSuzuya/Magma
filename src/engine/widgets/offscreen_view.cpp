@@ -43,21 +43,18 @@ void OffscreenView::draw() {
   ImGui::Begin("Offscreen View");
 
   if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
-    ImGuiIO& io = ImGui::GetIO();
-    io.WantCaptureKeyboard = true;
-
     if (ImGui::IsKeyPressed(ImGuiKey_A)) 
-      Scene::current()->moveCameraAlongRight(-0.1f);
+      editorCamera->moveRight(-0.1f);
     if (ImGui::IsKeyPressed(ImGuiKey_D)) 
-      Scene::current()->moveCameraAlongRight(0.1f);
+      editorCamera->moveRight(0.1f);
     if (ImGui::IsKeyPressed(ImGuiKey_W)) 
-      Scene::current()->moveCameraAlongForward(0.1f);
+      editorCamera->moveForward(0.1f);
     if (ImGui::IsKeyPressed(ImGuiKey_S))
-      Scene::current()->moveCameraAlongForward(-0.1f);
+      editorCamera->moveForward(-0.1f);
     if (ImGui::IsKeyPressed(ImGuiKey_Space)) 
-      Scene::current()->moveCameraAlongUp(0.1f);
+      editorCamera->moveUp(0.1f);
     if (ImGui::IsKeyPressed(ImGuiKey_LeftShift))
-      Scene::current()->moveCameraAlongUp(-0.1f);
+      editorCamera->moveUp(-0.1f);
   }
 
   ImVec2 imgSize = offscreenRenderer.getSceneSize();

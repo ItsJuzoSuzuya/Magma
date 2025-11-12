@@ -5,6 +5,7 @@
 #include "../scene.hpp"
 #include "imgui_impl_vulkan.h"
 #include "offscreen_target.hpp"
+#include "../components/camera.hpp"
 #include <array>
 #include <vulkan/vulkan_core.h>
 
