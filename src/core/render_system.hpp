@@ -59,5 +59,10 @@ private:
 
   // Editor Camera
   std::unique_ptr<EditorCamera> editorCamera = nullptr;
+
+  // FPS 
+  double lastTime = 0.0f;
+  double deltaTime = 0.0f;
+  void calculateFPS(float deltaTime);
 };
 } // namespace Magma

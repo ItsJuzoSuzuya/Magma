@@ -112,10 +112,12 @@ void Scene::onRender(Renderer &renderer) {
 }
 
 void Scene::processDeferredActions() {
-  Device::waitIdle();
   if (activeScene == nullptr)
     return;
+  if (deferredActions.empty())
+    return;
 
+  Device::waitIdle();
   for (auto &action : deferredActions)
     action();
 
