@@ -32,6 +32,8 @@ public:
   // Accessors
   Transform *getTransform() { return transform.get(); }
   Camera *getCamera() { return camera.get(); }
+  const glm::mat4 &getProjection() const { return camera->getProjection(); }
+  const glm::mat4 &getView() const { return camera->getView(); }
 
 private:
   std::unique_ptr<Transform> transform;
