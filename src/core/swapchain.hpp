@@ -41,7 +41,9 @@ private:
   std::vector<VkSemaphore> imageAvailableSemaphores;
   std::vector<VkSemaphore> renderFinishedSemaphores;
   std::vector<VkFence> inFlightFences;
+  std::vector<VkFence> imagesInFlight;
   void createSyncObjects();
+  void destroySyncObjects();
 
   // Helpers
   VkSurfaceFormatKHR chooseSwapSurfaceFormat(

@@ -24,7 +24,11 @@ Buffer::Buffer(VkDeviceSize instanceSize,
 
 // Destructor
 
-Buffer::~Buffer() { cleanUp(); }
+Buffer::~Buffer() { 
+  Device::waitIdle();
+  cleanUp();
+}
+
 void Buffer::cleanUp() {
   unmap();
 
