@@ -1,6 +1,5 @@
-#include "offscreen_view.hpp"
+#include "game_editor.hpp"
 #include "../render/offscreen_renderer.hpp"
-#include "../scene.hpp"
 #include "../components/transform.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -13,9 +12,9 @@ using namespace std;
 namespace Magma {
 
 // Perform resize decision before starting frame.
-void OffscreenView::preFrame() {
+void GameEditor::preFrame() {
   UIContext::ensureInit();
-  ImGui::SetNextWindowClass(&UIContext::AppDockClass);
+  ImGui::SetNextWindowClass(&UIContext::GameViewDockClass);
   bool open = ImGui::Begin(name());
   if (open) {
     ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -38,10 +37,10 @@ void OffscreenView::preFrame() {
 }
 
 // Draw the widget
-void OffscreenView::draw() {
+void GameEditor::draw() {
   UIContext::ensureInit();
-  ImGui::SetNextWindowClass(&UIContext::AppDockClass);
-  ImGui::Begin("Offscreen View");
+  ImGui::SetNextWindowClass(&UIContext::GameViewDockClass);
+  ImGui::Begin("Editor");
 
   if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
     if (ImGui::IsKeyPressed(ImGuiKey_A)) editorCamera->moveRight(-0.1f);
@@ -93,7 +92,7 @@ void OffscreenView::draw() {
 
 // --- Private --- //
 
-void OffscreenView::beginDrag(GameObject* picked,
+void GameEditor::beginDrag(GameObject* picked,
                               const ImVec2 &mousePos,
                               const ImVec2 &imageMin,
                               const ImVec2 &imageSize) {
@@ -140,7 +139,7 @@ void OffscreenView::beginDrag(GameObject* picked,
   dragPixelOffset = ImVec2(mouseLocalX - objPixelX, mouseLocalY - objPixelY);
 }
 
-void OffscreenView::handleMouseDrag() {
+void GameEditor::handleMouseDrag() {
   if (!draggedObject || !editorCamera)
     return;
 

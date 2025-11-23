@@ -8,13 +8,13 @@ namespace Magma {
 class OffscreenRenderer;
 class GameObject;
 
-class OffscreenView : public Widget {
+class GameEditor : public Widget {
 public:
-  explicit OffscreenView(OffscreenRenderer &renderer, EditorCamera *editorCamera = nullptr)
+  explicit GameEditor(OffscreenRenderer &renderer, EditorCamera *editorCamera = nullptr)
       : offscreenRenderer{renderer}, editorCamera{editorCamera} {}
 
   // Name of the widget
-  const char *name() const override { return "Offscreen View"; }
+  const char *name() const override { return "Editor"; }
 
   // Perform resize decision before starting frame.
   void preFrame() override;

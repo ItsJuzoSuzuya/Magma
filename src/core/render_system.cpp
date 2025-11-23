@@ -3,7 +3,7 @@
 #include "../engine/scene.hpp"
 #include "../engine/widgets/dock_layout.hpp"
 #include "../engine/widgets/inspector.hpp"
-#include "../engine/widgets/offscreen_view.hpp"
+#include "../engine/widgets/game_editor.hpp"
 #include "../engine/widgets/runtime_control.hpp"
 #include "../engine/widgets/scene_tree.hpp"
 #include "device.hpp"
@@ -39,10 +39,12 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   imguiRenderer->addWidget(make_unique<SceneTree>());
   imguiRenderer->addWidget(make_unique<Inspector>());
 
-  // Important: Offscreen view must be added last so that its content size is
+  // Important: GameEditor must be added last so that its content size is
   // calculated according to the other widgets
   imguiRenderer->addWidget(
-      make_unique<OffscreenView>(*offscreenRenderer.get(), editorCamera.get()));
+      make_unique<GameEditor>(*offscreenRenderer.get(), editorCamera.get()));
+  imguiRenderer->addWidget(
+      make_unique<GameEditor>(*offscreenRenderer.get(), editorCamera.get()));
 
   createCommandBuffers();
 }
@@ -196,7 +198,7 @@ void RenderSystem::createDockspace(ImGuiID &dockspace_id, const ImVec2 &size) {
   dockLayout.makeCentral();
 
   dockLayout.dockWindow("Scene Tree", dock_id_left);
-  dockLayout.dockWindow("Offscreen View", dock_id_center);
+  dockLayout.dockWindow("Editor", dock_id_center);
   dockLayout.dockWindow("Inspector", dock_id_right);
 
   dockLayout.finish();

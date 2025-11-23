@@ -36,6 +36,7 @@ OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info)
 
 // Destructor
 OffscreenRenderer::~OffscreenRenderer() {
+  vkDeviceWaitIdle(Device::get().device());
   for (auto texture : textures)
     ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)texture);
 }
@@ -141,6 +142,7 @@ void OffscreenRenderer::end() {
 
 // --- Resize ---
 void OffscreenRenderer::resize(VkExtent2D newExtent) {
+  Device::waitIdle();
   for (auto texture : textures)
     ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)texture);
 
