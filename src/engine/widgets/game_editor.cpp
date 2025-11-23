@@ -40,7 +40,12 @@ void GameEditor::preFrame() {
 void GameEditor::draw() {
   UIContext::ensureInit();
   ImGui::SetNextWindowClass(&UIContext::GameViewDockClass);
-  ImGui::Begin("Editor");
+  bool open = ImGui::Begin("Editor");
+
+  if (!open) {
+    ImGui::End();
+    return;
+  }
 
   if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
     if (ImGui::IsKeyPressed(ImGuiKey_A)) editorCamera->moveRight(-0.1f);

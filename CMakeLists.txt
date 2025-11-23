@@ -58,6 +58,7 @@ set(SOURCES
     src/engine/widgets/scene_tree.cpp
     src/engine/widgets/scene_menu.cpp
     src/engine/widgets/game_editor.cpp
+    src/engine/widgets/game_view.cpp
     src/engine/widgets/runtime_control.cpp
     # renderers
     src/engine/render/imgui_renderer.cpp

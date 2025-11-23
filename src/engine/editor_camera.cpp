@@ -8,7 +8,6 @@ EditorCamera::EditorCamera() {
   // Create a transform and a camera bound to it
   transform = make_unique<Transform>(nullptr);
   camera = make_unique<Camera>(transform.get());
-  // Default perspective (matches previous default)
   camera->setPerspectiveProjection(glm::radians(90.f), 16.f / 9.f, 0.1f, 100.f);
 }
 

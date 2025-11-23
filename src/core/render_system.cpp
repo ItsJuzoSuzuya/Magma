@@ -4,6 +4,7 @@
 #include "../engine/widgets/dock_layout.hpp"
 #include "../engine/widgets/inspector.hpp"
 #include "../engine/widgets/game_editor.hpp"
+#include "../engine/widgets/game_view.hpp"
 #include "../engine/widgets/runtime_control.hpp"
 #include "../engine/widgets/scene_tree.hpp"
 #include "device.hpp"
@@ -44,7 +45,7 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   imguiRenderer->addWidget(
       make_unique<GameEditor>(*offscreenRenderer.get(), editorCamera.get()));
   imguiRenderer->addWidget(
-      make_unique<GameEditor>(*offscreenRenderer.get(), editorCamera.get()));
+      make_unique<GameView>(*offscreenRenderer.get()));
 
   createCommandBuffers();
 }
