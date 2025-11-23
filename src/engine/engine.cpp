@@ -6,6 +6,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 #include "specifications.hpp"
+#include "widgets/ui_context.hpp"
 #include <GLFW/glfw3.h>
 #include <X11/X.h>
 #include <vulkan/vulkan_core.h>
@@ -54,7 +55,6 @@ void Engine::run() {
 void Engine::initImGui() {
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
-  (void)io;
   io.DisplaySize = ImVec2(static_cast<float>(specifications.windowWidth),
                           static_cast<float>(specifications.windowHeight));
   io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
@@ -62,6 +62,20 @@ void Engine::initImGui() {
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
   ImGui::StyleColorsDark();
+
+  io.Fonts->AddFontDefault();
+
+  {
+    ImFontConfig config;
+    config.MergeMode = true;
+    config.PixelSnapH = true;
+    config.GlyphMinAdvanceX = 0.0f;
+
+    static const ImWchar fa_range[] = { 0xF000, 0xF8FF, 0 };
+    UIContext::IconFont = io.Fonts->AddFontFromFileTTF(
+        "assets/fonts/fa7-solid.otf", 10.0f, &config, fa_range);
+    IM_ASSERT(UIContext::IconFont && "Failed to load fa6-solid.otf");
+  }
 
   ImGui_ImplGlfw_InitForVulkan(window->getGLFWwindow(), true);
   ImGui_ImplVulkan_InitInfo init_info = renderSystem->getImGuiInitInfo();

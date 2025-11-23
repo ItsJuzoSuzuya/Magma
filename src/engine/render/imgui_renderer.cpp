@@ -89,7 +89,17 @@ void ImGuiRenderer::preFrame() {
       }
     }
 
+    UIContext::TopBarDockId = layout.splitUp(0.05f);
+
     layout.finish();
+
+  // After finishing, fetch node and set flags
+    if (UIContext::TopBarDockId != 0) {
+      if (ImGuiDockNode *node = ImGui::DockBuilderGetNode(UIContext::TopBarDockId)) 
+        node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar |
+                            ImGuiDockNodeFlags_NoWindowMenuButton |
+                            ImGuiDockNodeFlags_NoCloseButton;
+    }
     dockBuilt = true;
   }
 

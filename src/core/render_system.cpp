@@ -4,6 +4,7 @@
 #include "../engine/widgets/dock_layout.hpp"
 #include "../engine/widgets/inspector.hpp"
 #include "../engine/widgets/offscreen_view.hpp"
+#include "../engine/widgets/runtime_control.hpp"
 #include "../engine/widgets/scene_tree.hpp"
 #include "device.hpp"
 #include "imgui.h"
@@ -34,6 +35,7 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   imguiRenderer = make_unique<ImGuiRenderer>(*swapChain);
 
   // Add widgets
+  imguiRenderer->addWidget(make_unique<RuntimeControl>());
   imguiRenderer->addWidget(make_unique<SceneTree>());
   imguiRenderer->addWidget(make_unique<Inspector>());
 

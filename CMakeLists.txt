@@ -58,6 +58,7 @@ set(SOURCES
     src/engine/widgets/scene_tree.cpp
     src/engine/widgets/scene_menu.cpp
     src/engine/widgets/offscreen_view.cpp
+    src/engine/widgets/runtime_control.cpp
     # renderers
     src/engine/render/imgui_renderer.cpp
     src/engine/render/offscreen_renderer.cpp
