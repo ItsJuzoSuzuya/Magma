@@ -7,6 +7,7 @@
 #include "../engine/widgets/game_view.hpp"
 #include "../engine/widgets/runtime_control.hpp"
 #include "../engine/widgets/scene_tree.hpp"
+#include "../engine/magma_config.hpp"
 #include "device.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -27,39 +28,48 @@ namespace Magma {
 RenderSystem::RenderSystem(Window &window) : window{window} {
   device = make_unique<Device>(window);
   swapChain = make_unique<SwapChain>(window.getExtent());
-  editorCamera = make_unique<EditorCamera>();
 
   RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
   offscreenInfo.extent.width /= 2;
   offscreenInfo.extent.height /= 2;
   offscreenRenderer = make_unique<OffscreenRenderer>(offscreenInfo);
-  imguiRenderer = make_unique<ImGuiRenderer>(*swapChain);
 
-  // Add widgets
-  imguiRenderer->addWidget(make_unique<RuntimeControl>());
-  imguiRenderer->addWidget(make_unique<SceneTree>());
-  imguiRenderer->addWidget(make_unique<Inspector>());
 
-  // Important: GameEditor must be added last so that its content size is
-  // calculated according to the other widgets
-  imguiRenderer->addWidget(
-      make_unique<GameEditor>(*offscreenRenderer.get(), editorCamera.get()));
-  imguiRenderer->addWidget(
-      make_unique<GameView>(*offscreenRenderer.get()));
+  if constexpr(kEditorEnabled){
+    editorCamera = make_unique<EditorCamera>();
+
+    // Rendering ImGui
+    imguiRenderer = make_unique<ImGuiRenderer>(*swapChain);
+
+    // Add widgets
+    imguiRenderer->addWidget(make_unique<RuntimeControl>());
+    imguiRenderer->addWidget(make_unique<SceneTree>());
+    imguiRenderer->addWidget(make_unique<Inspector>());
+
+    // Important: GameEditor must be added last so that its content size is
+    // calculated according to the other widgets
+    imguiRenderer->addWidget(
+        make_unique<GameEditor>(*offscreenRenderer.get(), editorCamera.get()));
+    imguiRenderer->addWidget(
+        make_unique<GameView>(*offscreenRenderer.get()));
+  }
 
   createCommandBuffers();
 }
 
 // Destructor
 RenderSystem::~RenderSystem() {
-  Device::waitIdle();
-  ImGui_ImplVulkan_Shutdown();
-  ImGui_ImplGlfw_Shutdown();
-  ImGui::DestroyContext();
+  if constexpr(kEditorEnabled){
+    Device::waitIdle();
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+  }
 }
 
 // --- Public ---
 // Getters
+#if defined (MAGMA_WITH_EDITOR)
 ImGui_ImplVulkan_InitInfo RenderSystem::getImGuiInitInfo() {
   ImGui_ImplVulkan_InitInfo init_info = {};
   device->populateImGuiInitInfo(&init_info);
@@ -76,6 +86,7 @@ ImGui_ImplVulkan_InitInfo RenderSystem::getImGuiInitInfo() {
 
   return init_info;
 }
+#endif
 
 void RenderSystem::renderFrame() {
   // Create textures that will be displayed in an ImGui Image
@@ -91,14 +102,19 @@ void RenderSystem::renderFrame() {
   if (beginFrame()) {
     offscreenRenderer->begin();
     offscreenRenderer->record();
-    editorCamera->onUpdate();
-    editorCamera->onRender(*offscreenRenderer);
+
+    if constexpr(kEditorEnabled) {
+      editorCamera->onUpdate();
+      editorCamera->onRender(*offscreenRenderer);
+    }
     Scene::onRender(*offscreenRenderer);
     offscreenRenderer->end();
 
-    imguiRenderer->begin();
-    imguiRenderer->record();
-    imguiRenderer->end();
+    if constexpr(kEditorEnabled) {
+      imguiRenderer->begin();
+      imguiRenderer->record();
+      imguiRenderer->end();
+    }
 
     endFrame();
   }
@@ -140,8 +156,10 @@ void RenderSystem::recreateSwapChain() {
 // Rendering
 bool RenderSystem::beginFrame() {
   // Start ImGui frame
-  imguiRenderer->newFrame();
-  imguiRenderer->preFrame();
+  if constexpr(kEditorEnabled){
+    imguiRenderer->newFrame();
+    imguiRenderer->preFrame();
+  }
 
   // Check if the swap chain needs to be recreated
   auto result = swapChain->acquireNextImage();
@@ -185,7 +203,8 @@ void RenderSystem::endFrame() {
 void RenderSystem::onWindowResized() {
   window.resetWindowResizedFlag();
   recreateSwapChain();
-  imguiRenderer->resize(window.getExtent(), swapChain->getSwapChain());
+  if constexpr(kEditorEnabled)
+    imguiRenderer->resize(window.getExtent(), swapChain->getSwapChain());
 }
 
 // ImGui Dockspace

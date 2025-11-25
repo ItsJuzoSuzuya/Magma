@@ -20,8 +20,11 @@ public:
   ~RenderSystem();
 
   // Getters
+  #if defined (MAGMA_WITH_EDITOR)
   ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
+  #endif
   SwapChain &getSwapChain() { return *swapChain; }
+
 
   // Render
   void renderFrame();
@@ -37,7 +40,9 @@ private:
 
   // Renderering
   std::unique_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
+  #if defined (MAGMA_WITH_EDITOR)
   std::unique_ptr<ImGuiRenderer> imguiRenderer = nullptr;
+  #endif
   bool beginFrame();
   void endFrame();
 
@@ -58,7 +63,9 @@ private:
   bool firstFrame = true;
 
   // Editor Camera
+  #if defined (MAGMA_WITH_EDITOR)
   std::unique_ptr<EditorCamera> editorCamera = nullptr;
+  #endif
 
   // FPS 
   double lastTime = 0.0f;

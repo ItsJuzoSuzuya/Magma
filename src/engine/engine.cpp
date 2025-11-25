@@ -5,6 +5,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include "magma_config.hpp"
 #include "specifications.hpp"
 #include "widgets/ui_context.hpp"
 #include <GLFW/glfw3.h>
@@ -19,7 +20,10 @@ namespace Magma {
 Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
   window = make_unique<Window>(specifications);
   renderSystem = make_unique<RenderSystem>(*window);
-  initImGui();
+
+  if constexpr(kEditorEnabled) 
+    initImGui();
+
   scene = make_unique<Scene>();
 
   auto &obj = GameObject::create();
