@@ -214,6 +214,12 @@ void RenderSystem::onWindowResized() {
   #if defined(MAGMA_WITH_EDITOR)
     imguiRenderer->resize(window.getExtent(), swapChain->getSwapChain());
   #endif
+
+  #if defined(MAGMA_WITH_EDITOR)
+    offscreenRenderer->resize(window.getExtent());
+  #else
+    offscreenRenderer->resize(window.getExtent(), swapChain->getSwapChain());
+  #endif
 }
 
 // ImGui Dockspace

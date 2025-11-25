@@ -18,7 +18,7 @@ struct CameraUBO {
 
 class Camera: public Component {
 public:
-  Camera(Transform *owner);
+  Camera(GameObject *owner);
 
   void setPerspectiveProjection(float fov, float aspect, float near, float far);
 

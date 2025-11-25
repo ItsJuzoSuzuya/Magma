@@ -1,4 +1,5 @@
 #pragma once
+#include "components/camera.hpp"
 #include "gameobject.hpp"
 #include <functional>
 #include <memory>
@@ -25,6 +26,7 @@ public:
 
   // --- Global access ---
   static Scene *current() { return activeScene; }
+  static void setActiveCamera(Camera *camera){ activeCamera = camera; }
   void setActive() { activeScene = this; }
   std::vector<std::unique_ptr<GameObject>> &getGameObjects() {
     return gameObjects;
@@ -66,6 +68,7 @@ public:
 
 private:
   inline static Scene *activeScene = nullptr;
+  inline static Camera *activeCamera = nullptr;
 
   std::vector<std::unique_ptr<GameObject>> gameObjects;
   std::vector<std::function<void()>> deferredActions;

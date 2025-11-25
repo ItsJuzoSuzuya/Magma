@@ -2,6 +2,7 @@
 #include "transform.hpp"
 #include "../core/renderer.hpp"
 #include "../core/buffer.hpp"
+#include "../gameobject.hpp"
 #include <array>
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float3.hpp>
@@ -15,8 +16,8 @@ struct AABB {
   glm::vec3 max;
 };
 
-Camera::Camera(Transform *transform)
-    : Component(transform->owner), ownerTransform(transform) {}
+Camera::Camera(GameObject *owner)
+    : Component(owner), ownerTransform(owner->getComponent<Transform>()) {}
 
 void Camera::setPerspectiveProjection(float fov, float aspect, float near,
                                       float far) {

@@ -6,6 +6,7 @@
 namespace Magma {
 
 class Renderer;
+class GameObject;
 
 /**
  * EditorCamera aggregates a Transform and a Camera for editor usage.
@@ -36,6 +37,7 @@ public:
   const glm::mat4 &getView() const { return camera->getView(); }
 
 private:
+  GameObject *cameraObject = nullptr;
   std::unique_ptr<Transform> transform;
   std::unique_ptr<Camera> camera;
 };

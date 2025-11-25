@@ -1,6 +1,7 @@
 #include "scene.hpp"
 #include "../core/renderer.hpp"
 #include "../core/device.hpp"
+#include "components/transform.hpp"
 #include "gameobject.hpp"
 #include "scene_action.hpp"
 
@@ -18,6 +19,13 @@ namespace Magma {
 Scene::Scene() {
   if (activeScene == nullptr)
     setActive();
+  
+  auto &camera = GameObject::create("Main Camera");
+  camera.addComponent<Transform>();
+  camera.addComponent<Camera>();
+  Camera *camComp = camera.getComponent<Camera>();
+  camComp->setPerspectiveProjection(glm::radians(60.0f), 16.0f/9.0f, 0.1f, 100.0f);
+  Scene::setActiveCamera(camComp);
 }
 
 // Destructor

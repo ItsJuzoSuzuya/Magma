@@ -94,7 +94,7 @@ void OffscreenRenderer::createOffscreenTextures() {
 }
 #endif
 
-static int currentFramebufferIndex(RenderTarget *target) {
+static int currentFramebufferIndex() {
   #if defined(MAGMA_WITH_EDITOR)
     return FrameInfo::frameIndex;
   #endif
@@ -124,7 +124,7 @@ void OffscreenRenderer::begin() {
 
   VkRenderPassBeginInfo beginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
   beginInfo.renderPass = renderTarget->getRenderPass();
-  beginInfo.framebuffer = renderTarget->getFrameBuffer(FrameInfo::frameIndex);
+  beginInfo.framebuffer = renderTarget->getFrameBuffer(currentFramebufferIndex());
   beginInfo.renderArea.offset = {0, 0};
   beginInfo.renderArea.extent = renderTarget->extent();
   beginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());

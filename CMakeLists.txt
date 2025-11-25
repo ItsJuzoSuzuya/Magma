@@ -77,8 +77,19 @@ else()
   message(STATUS "Building without editor support")
 endif()
 
+
 # Build executable
 add_executable(${PROJECT_NAME} ${SOURCES} ${IMGUI_SOURCES})
+add_custom_target(shaders
+  COMMAND ${CMAKE_COMMAND} -E env MAGMA_WITH_EDITOR=$<IF:$<BOOL:${MAGMA_WITH_EDITOR}>,ON,OFF>
+          ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR} bash src/shaders/compile.sh
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  COMMENT "Compiling Vulkan shaders (MAGMA_WITH_EDITOR=$<IF:$<BOOL:${MAGMA_WITH_EDITOR}>,ON,OFF>)"
+)
+
+# Now it is safe to add the dependency on the already-created executable target
+add_dependencies(${PROJECT_NAME} shaders)
+
 if(MAGMA_WITH_EDITOR)
   target_compile_definitions(${PROJECT_NAME} PRIVATE MAGMA_WITH_EDITOR)  # define the macro
 endif()
