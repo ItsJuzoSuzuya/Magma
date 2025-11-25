@@ -32,10 +32,12 @@ public:
   void onUpdate() override;
   void onRender(Renderer &renderer) override;
 
+  #if defined(MAGMA_WITH_EDITOR)
   // Inspector
   void onInspector() override {};
   const char *inspectorName() const override { return "Camera"; }
   const float inspectorHeight() const override { return 150.0f; }
+  #endif
 
 private:
   Transform *ownerTransform = nullptr;

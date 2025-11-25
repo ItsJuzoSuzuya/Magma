@@ -80,7 +80,7 @@ endif()
 # Build executable
 add_executable(${PROJECT_NAME} ${SOURCES} ${IMGUI_SOURCES})
 if(MAGMA_WITH_EDITOR)
-  #target_compile_definitions(${PROJECT_NAME} PRIVATE MAGMA_WITH_EDITOR)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE MAGMA_WITH_EDITOR)  # define the macro
 endif()
 
 find_package(X11 REQUIRED)

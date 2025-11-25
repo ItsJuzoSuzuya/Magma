@@ -31,7 +31,9 @@ private:
   std::unique_ptr<Scene> scene = nullptr;
 
   // ImGui
+  #if defined(MAGMA_WITH_EDITOR)
   void initImGui();
+  #endif
 };
 
 } // namespace Magma

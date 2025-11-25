@@ -2,12 +2,16 @@
 #include "components/mesh.hpp"
 #include "components/transform.hpp"
 #include "gameobject.hpp"
+#include "specifications.hpp"
+#include <print>
+
+#if defined(MAGMA_WITH_EDITOR)
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
-#include "magma_config.hpp"
-#include "specifications.hpp"
 #include "widgets/ui_context.hpp"
+#endif
+
 #include <GLFW/glfw3.h>
 #include <X11/X.h>
 #include <vulkan/vulkan_core.h>
@@ -21,8 +25,9 @@ Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
   window = make_unique<Window>(specifications);
   renderSystem = make_unique<RenderSystem>(*window);
 
-  if constexpr(kEditorEnabled) 
+  #if defined(MAGMA_WITH_EDITOR)
     initImGui();
+  #endif
 
   scene = make_unique<Scene>();
 
@@ -56,6 +61,7 @@ void Engine::run() {
 
 // --- Private ---
 // Initialize ImGui
+#if defined(MAGMA_WITH_EDITOR)
 void Engine::initImGui() {
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
@@ -88,5 +94,6 @@ void Engine::initImGui() {
     throw std::runtime_error(
         "Failed to initialize ImGui Vulkan implementation!");
 }
+#endif
 
 } // namespace Magma

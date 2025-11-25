@@ -1,11 +1,14 @@
 #include "gameobject.hpp"
 #include "components/mesh.hpp"
-#include "imgui.h"
 #include "scene.hpp"
+
+#if defined(MAGMA_WITH_EDITOR)
+#include "imgui.h"
 #include "widgets/inspector.hpp"
 #include "widgets/scene_menu.hpp"
+#endif
+
 #include <memory>
-#include <print>
 #include <string>
 
 using namespace std;
@@ -25,7 +28,9 @@ GameObject::~GameObject() {
 void GameObject::destroy() {
   Scene::current()->removeGameObject(this);
 
-  Inspector::setContext(nullptr);
+  #if defined(MAGMA_WITH_EDITOR)
+    Inspector::setContext(nullptr);
+  #endif
 }
 
 // Factory methods
@@ -80,6 +85,7 @@ vector<GameObject *> GameObject::getChildren() {
   return result;
 }
 
+#if defined(MAGMA_WITH_EDITOR)
 void GameObject::drawChildren() {
   for (const auto &child : children) {
     if (child) {
@@ -114,6 +120,7 @@ void GameObject::drawChildren() {
     }
   }
 }
+#endif
 
 // Rendering
 void GameObject::onRender(Renderer &renderer) {

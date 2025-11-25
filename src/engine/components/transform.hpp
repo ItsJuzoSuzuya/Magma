@@ -19,10 +19,12 @@ public:
   void onAwake() override {};
   void onUpdate() override {};
 
+  #if defined(MAGMA_WITH_EDITOR)
   // Inspector
   void onInspector() override;
   const char *inspectorName() const override { return "Transform"; }
   const float inspectorHeight() const override { return 110.0f; }
+  #endif
 
   // Direction vectors
   glm::vec3 forward() const;

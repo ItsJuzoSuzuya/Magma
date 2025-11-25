@@ -1,12 +1,15 @@
 #include "mesh.hpp"
-#include "../../core/window.hpp"
-#include "../core/render_system.hpp"
 #include "../core/frame_info.hpp"
 #include "../core/mesh_data.hpp"
+#include "../core/device.hpp"
 #include "../scene.hpp"
 #include "../scene_action.hpp"
 #include "component.hpp"
+
+#if defined(MAGMA_WITH_EDITOR)
 #include "imgui.h"
+#endif
+
 #include <X11/X.h>
 #include <algorithm>
 #include <cstdint>
@@ -54,6 +57,7 @@ Mesh::~Mesh() {
   }
 }
 
+#if defined(MAGMA_WITH_EDITOR)
 // --- Public --- //
 bool Mesh::load() {
   if (sourcePath.empty()) {
@@ -62,6 +66,7 @@ bool Mesh::load() {
   }
   return load(sourcePath);
 }
+#endif
 
 // --- Data ---
 bool Mesh::load(const string &filepath) {
@@ -150,7 +155,9 @@ bool Mesh::load(const string &filepath) {
   createVertexBuffer();
   createIndexBuffer();
 
-  sourcePath = filepath;
+  #if defined(MAGMA_WITH_EDITOR)
+    sourcePath = filepath;
+  #endif
 
   return true;
 }
@@ -186,6 +193,7 @@ void Mesh::draw() {
               static_cast<uint32_t>(meshData->vertices.size()), 1, 0, 0);
 }
 
+#if defined(MAGMA_WITH_EDITOR)
 // --- Inspector ---
 void Mesh::onInspector() {
   if (meshData) {
@@ -244,6 +252,7 @@ void Mesh::onInspector() {
     ImGui::TextWrapped("%s", sourcePath.c_str());
   }
 }
+#endif
 
 // --- Private --- //
 // --- Buffers ---
@@ -302,6 +311,7 @@ void Mesh::createIndexBuffer() {
 }
 
 // --- Assets ---
+#if defined(MAGMA_WITH_EDITOR)
 void Mesh::scanAssetsOnce() {
   const fs::path assetDir = "assets/";
   try {
@@ -319,5 +329,6 @@ void Mesh::scanAssetsOnce() {
   std::sort(assets.begin(), assets.end());
   assets.erase(std::unique(assets.begin(), assets.end()), assets.end());
 }
+#endif
 
 } // namespace Magma

@@ -2,11 +2,25 @@
 #include "components/component.hpp"
 #include <cassert>
 #include <memory>
-#include <print>
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
+
 namespace Magma {
+
+namespace util {
+
+inline void sortComponentsByName(std::vector<Component *> &components){
+  #if defined(MAGMA_WITH_EDITOR)
+  std::sort(components.begin(), components.end(),
+            [](Component *a, Component *b) {
+              return std::string(a->inspectorName()) <
+                     std::string(b->inspectorName());
+            });
+  #endif
+}
+
+}
 
 class Renderer;
 
@@ -64,11 +78,7 @@ public:
     std::vector<Component *> vec = {};
     for (auto &[type, comp] : components)
       vec.push_back(comp.get());
-    std::sort(vec.begin(), vec.end(),
-              [](Component *a, Component *b) {
-                return std::string(a->inspectorName()) <
-                       std::string(b->inspectorName());
-              });
+    util::sortComponentsByName(vec);
     return vec;
   }
 
@@ -78,8 +88,12 @@ public:
   // Children
   void addChild();
   void addChild(std::unique_ptr<GameObject> child);
-  void drawChildren();
   bool hasChildren() const { return !children.empty(); }
+  #if defined(MAGMA_WITH_EDITOR)
+  void drawChildren();
+  #endif
+
+
 
   /**
    * Render (recursive)
@@ -107,5 +121,6 @@ private:
   std::unordered_map<std::type_index, std::unique_ptr<Component>> components;
   std::vector<std::unique_ptr<GameObject>> children;
 };
+
 
 } // namespace Magma

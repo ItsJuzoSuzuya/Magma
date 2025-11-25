@@ -1,10 +1,7 @@
 #pragma once
-#include "../engine/render/imgui_renderer.hpp"
 #include "../engine/render/offscreen_renderer.hpp"
-#include "../engine/editor_camera.hpp"
 #include "device.hpp"
 #include "frame_info.hpp"
-#include "imgui_impl_vulkan.h"
 #include "renderer.hpp"
 #include "swapchain.hpp"
 #include <memory>
@@ -14,6 +11,9 @@ namespace Magma {
 
 class Window;
 
+class ImGuiRenderer;
+class EditorCamera;
+
 class RenderSystem {
 public:
   RenderSystem(Window &window);
@@ -21,12 +21,11 @@ public:
 
   // Getters
   #if defined (MAGMA_WITH_EDITOR)
-  ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
+    #include "imgui_impl_vulkan.h"
+    ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
   #endif
   SwapChain &getSwapChain() { return *swapChain; }
 
-
-  // Render
   void renderFrame();
 
 private:
@@ -40,9 +39,6 @@ private:
 
   // Renderering
   std::unique_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
-  #if defined (MAGMA_WITH_EDITOR)
-  std::unique_ptr<ImGuiRenderer> imguiRenderer = nullptr;
-  #endif
   bool beginFrame();
   void endFrame();
 
@@ -56,14 +52,18 @@ private:
   void createCommandBuffers();
 
   // ImGui Dockspace
+  #if defined(MAGMA_WITH_EDITOR)
   void createDockspace(ImGuiID &dockspace_id, const ImVec2 &size);
+  #endif
+
 
   // Frame info
   FrameInfo frameInfo;
   bool firstFrame = true;
 
-  // Editor Camera
+  // Editor 
   #if defined (MAGMA_WITH_EDITOR)
+  std::unique_ptr<ImGuiRenderer> imguiRenderer = nullptr;
   std::unique_ptr<EditorCamera> editorCamera = nullptr;
   #endif
 

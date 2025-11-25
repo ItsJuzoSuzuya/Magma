@@ -21,10 +21,12 @@ public:
   virtual void onUpdate() = 0;
   virtual void onRender(Renderer &renderer) = 0;
 
+  #if defined(MAGMA_WITH_EDITOR)
   // Inspector
   virtual void onInspector() = 0;
   virtual const char *inspectorName() const = 0;
   virtual const float inspectorHeight() const = 0;
+  #endif
 
   GameObject *owner = nullptr;
 

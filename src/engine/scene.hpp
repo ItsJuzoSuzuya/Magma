@@ -41,7 +41,9 @@ public:
   /**
    * Draw the scene hierarchy in a tree structure
    * */
+  #if defined(MAGMA_WITH_EDITOR)
   static void drawTree();
+  #endif
 
   /**
    * Render GameObjects recursively

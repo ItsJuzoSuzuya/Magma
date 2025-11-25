@@ -40,10 +40,12 @@ public:
   void onRender(Renderer &renderer) override;
   void draw();
 
+  #if defined(MAGMA_WITH_EDITOR)
   // Inspector
   void onInspector() override;
   const char *inspectorName() const override { return "Mesh Renderer"; }
   const float inspectorHeight() const override { return 150.0f; }
+  #endif
 
 private:
   MeshData *meshData = nullptr;
@@ -55,6 +57,7 @@ private:
   void createVertexBuffer();
   void createIndexBuffer();
 
+  #if defined(MAGMA_WITH_EDITOR)
   // --- Inspector ---
   std::string sourcePath;
   char pathBuffer[256] = "";
@@ -62,9 +65,11 @@ private:
   std::vector<std::string> filteredAssets;
 
   // --- Assets Cache ---
+
   inline static std::vector<std::string> assets;
   inline static bool assetsScanned = false;
   static void scanAssetsOnce();
+  #endif
 };
 
 } // namespace Magma

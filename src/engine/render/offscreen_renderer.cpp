@@ -3,9 +3,14 @@
 #include "../../core/device.hpp"
 #include "../../core/render_target_info.hpp"
 #include "../scene.hpp"
-#include "imgui_impl_vulkan.h"
 #include "offscreen_target.hpp"
 #include "../components/camera.hpp"
+#include "swapchain_target.hpp"
+
+#if defined(MAGMA_WITH_EDITOR)
+#include "imgui_impl_vulkan.h"
+#endif
+
 #include <array>
 #include <vulkan/vulkan_core.h>
 
@@ -29,22 +34,30 @@ OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info)
   Renderer::init(descriptorSetLayout->getDescriptorSetLayout());
   createDescriptorSets();
 
+  #if defined(MAGMA_WITH_EDITOR)
   renderTarget = make_unique<OffscreenTarget>(info);
+  #else
+  renderTarget = make_unique<SwapchainTarget>(swapChain);
+  #endif
+
   createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
                  "src/shaders/shader.frag.spv");
 }
 
 // Destructor
 OffscreenRenderer::~OffscreenRenderer() {
-  vkDeviceWaitIdle(Device::get().device());
+  #if defined(MAGMA_WITH_EDITOR)
+  Device::waitIdle();
   for (auto texture : textures)
     ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)texture);
+  #endif
 }
 
 // Getters
 VkImage &OffscreenRenderer::getSceneImage() const {
   return renderTarget->getColorImage(FrameInfo::frameIndex);
 }
+#if defined(MAGMA_WITH_EDITOR)
 ImVec2 OffscreenRenderer::getSceneSize() const {
   return ImVec2(static_cast<float>(renderTarget->extent().width),
                 static_cast<float>(renderTarget->extent().height));
@@ -59,6 +72,7 @@ void OffscreenRenderer::createOffscreenTextures() {
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   }
 }
+#endif
 
 // Rendering helpers
 void OffscreenRenderer::begin() {
@@ -142,13 +156,20 @@ void OffscreenRenderer::end() {
 
 // --- Resize ---
 void OffscreenRenderer::resize(VkExtent2D newExtent) {
+
   Device::waitIdle();
+
+  #if defined(MAGMA_WITH_EDITOR)
   for (auto texture : textures)
     ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)texture);
+  #endif
 
   renderTarget->resize(newExtent);
   createPipeline(renderTarget.get());
+
+  #if defined(MAGMA_WITH_EDITOR)
   createOffscreenTextures();
+  #endif  
 }
 
 GameObject *OffscreenRenderer::pickAtPixel(uint32_t x, uint32_t y) {

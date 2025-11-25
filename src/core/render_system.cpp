@@ -1,25 +1,25 @@
 #include "render_system.hpp"
 #include "../core/window.hpp"
 #include "../engine/scene.hpp"
+#include "device.hpp"
+#include "renderer.hpp"
+#include "swapchain.hpp"
+
+#if defined (MAGMA_WITH_EDITOR)
 #include "../engine/widgets/dock_layout.hpp"
 #include "../engine/widgets/inspector.hpp"
 #include "../engine/widgets/game_editor.hpp"
 #include "../engine/widgets/game_view.hpp"
 #include "../engine/widgets/runtime_control.hpp"
 #include "../engine/widgets/scene_tree.hpp"
-#include "../engine/magma_config.hpp"
-#include "device.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
-#include "renderer.hpp"
-#include "swapchain.hpp"
+#endif
+
 #include <GLFW/glfw3.h>
 #include <cassert>
-#include <glm/mat4x4.hpp>
 #include <memory>
-#include <print>
-#include <vulkan/vulkan_core.h>
 
 using namespace std;
 namespace Magma {
@@ -35,7 +35,7 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   offscreenRenderer = make_unique<OffscreenRenderer>(offscreenInfo);
 
 
-  if constexpr(kEditorEnabled){
+  #if defined(MAGMA_WITH_EDITOR)
     editorCamera = make_unique<EditorCamera>();
 
     // Rendering ImGui
@@ -52,19 +52,19 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
         make_unique<GameEditor>(*offscreenRenderer.get(), editorCamera.get()));
     imguiRenderer->addWidget(
         make_unique<GameView>(*offscreenRenderer.get()));
-  }
+  #endif
 
   createCommandBuffers();
 }
 
 // Destructor
 RenderSystem::~RenderSystem() {
-  if constexpr(kEditorEnabled){
+  #if defined(MAGMA_WITH_EDITOR)
     Device::waitIdle();
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-  }
+  #endif
 }
 
 // --- Public ---
@@ -96,25 +96,28 @@ void RenderSystem::renderFrame() {
   lastTime = glfwGetTime();
   //calculateFPS(deltaTime);
 
+  #if defined(MAGMA_WITH_EDITOR)
   if (firstFrame)
     offscreenRenderer->createOffscreenTextures();
+  #endif
 
   if (beginFrame()) {
     offscreenRenderer->begin();
     offscreenRenderer->record();
 
-    if constexpr(kEditorEnabled) {
+    #if defined(MAGMA_WITH_EDITOR)
       editorCamera->onUpdate();
       editorCamera->onRender(*offscreenRenderer);
-    }
+    #endif
+
     Scene::onRender(*offscreenRenderer);
     offscreenRenderer->end();
 
-    if constexpr(kEditorEnabled) {
+    #if defined(MAGMA_WITH_EDITOR)
       imguiRenderer->begin();
       imguiRenderer->record();
       imguiRenderer->end();
-    }
+    #endif
 
     endFrame();
   }
@@ -156,10 +159,10 @@ void RenderSystem::recreateSwapChain() {
 // Rendering
 bool RenderSystem::beginFrame() {
   // Start ImGui frame
-  if constexpr(kEditorEnabled){
+  #if defined(MAGMA_WITH_EDITOR)
     imguiRenderer->newFrame();
     imguiRenderer->preFrame();
-  }
+  #endif
 
   // Check if the swap chain needs to be recreated
   auto result = swapChain->acquireNextImage();
@@ -203,11 +206,13 @@ void RenderSystem::endFrame() {
 void RenderSystem::onWindowResized() {
   window.resetWindowResizedFlag();
   recreateSwapChain();
-  if constexpr(kEditorEnabled)
+  #if defined(MAGMA_WITH_EDITOR)
     imguiRenderer->resize(window.getExtent(), swapChain->getSwapChain());
+  #endif
 }
 
 // ImGui Dockspace
+#if defined(MAGMA_WITH_EDITOR)
 void RenderSystem::createDockspace(ImGuiID &dockspace_id, const ImVec2 &size) {
   DockLayout dockLayout(dockspace_id, size);
 
@@ -238,5 +243,6 @@ void RenderSystem::calculateFPS(float deltaTime) {
     elapsedTime = 0.0f;
   }
 }
+#endif
 
 } // namespace Magma

@@ -3,7 +3,11 @@
 #include "../../core/push_constant_data.hpp"
 #include "../../engine/gameobject.hpp"
 #include "../../core/renderer.hpp"
+
+#if defined(MAGMA_WITH_EDITOR)
 #include "imgui.h"
+#endif
+
 #include <glm/fwd.hpp>
 #include <glm/trigonometric.hpp>
 #include <vulkan/vulkan_core.h>
@@ -27,12 +31,14 @@ void Transform::onRender(Renderer &renderer) {
                      &push);
 }
 
+#if defined(MAGMA_WITH_EDITOR)
 // Inspector
 void Transform::onInspector() {
   ImGui::DragFloat3("Position", &position.x, 0.1f);
   ImGui::DragFloat3("Rotation", &rotation.x, 0.1f);
   ImGui::DragFloat3("Scale", &scale.x, 0.1f);
 }
+#endif
 
 // Direction vectors
 glm::vec3 Transform::forward() const {

@@ -2,10 +2,14 @@
 #include "../core/renderer.hpp"
 #include "../core/device.hpp"
 #include "gameobject.hpp"
-#include "imgui.h"
 #include "scene_action.hpp"
+
+#if defined(MAGMA_WITH_EDITOR)
+#include "imgui.h"
 #include "widgets/inspector.hpp"
 #include "widgets/scene_menu.hpp"
+#endif
+
 #include <memory>
 
 using namespace std;
@@ -62,6 +66,7 @@ void Scene::removeGameObject(GameObject *gameObject) {
 }
 
 // --- Scene operations ---
+#if defined(MAGMA_WITH_EDITOR)
 void Scene::drawTree() {
   if (activeScene == nullptr)
     return;
@@ -100,6 +105,7 @@ void Scene::drawTree() {
     }
   }
 }
+#endif
 
 void Scene::onRender(Renderer &renderer) {
   if (activeScene == nullptr)
