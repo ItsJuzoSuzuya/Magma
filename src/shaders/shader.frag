@@ -1,6 +1,8 @@
 #version 460
 
+#if defined(MAGMA_WITH_EDITOR)
 layout(location = 0) flat in uint inObjectID;
+#endif
 
 layout(location = 0) out vec4 fragColor;
 #if defined(MAGMA_WITH_EDITOR)

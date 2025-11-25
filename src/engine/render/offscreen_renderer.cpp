@@ -1,17 +1,16 @@
 #include "offscreen_renderer.hpp"
 #include "../../core/frame_info.hpp"
 #include "../../core/device.hpp"
-#include "../../core/render_target_info.hpp"
 #include "../scene.hpp"
-#include "offscreen_target.hpp"
 #include "../components/camera.hpp"
 #include "swapchain_target.hpp"
 
 #if defined(MAGMA_WITH_EDITOR)
+#include "offscreen_target.hpp"
+#include "../../core/render_target_info.hpp"
 #include "imgui_impl_vulkan.h"
 #endif
 
-#include <array>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -94,6 +93,14 @@ void OffscreenRenderer::createOffscreenTextures() {
   }
 }
 #endif
+
+static int currentFramebufferIndex(RenderTarget *target) {
+  #if defined(MAGMA_WITH_EDITOR)
+    return FrameInfo::frameIndex;
+  #endif
+  return FrameInfo::imageIndex;
+
+}
 
 // Rendering helpers
 void OffscreenRenderer::begin() {
