@@ -1,5 +1,6 @@
 #pragma once
 #include "components/component.hpp"
+#include <algorithm>
 #include <cassert>
 #include <memory>
 #include <typeindex>

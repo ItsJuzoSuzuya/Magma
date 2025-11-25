@@ -4,15 +4,18 @@
 #include "frame_info.hpp"
 #include "renderer.hpp"
 #include "swapchain.hpp"
+
+#if defined (MAGMA_WITH_EDITOR)
+#include "../engine/render/imgui_renderer.hpp"
+#include "../engine/editor_camera.hpp"
+#endif
+
 #include <memory>
 #include <vulkan/vulkan_core.h>
 
 namespace Magma {
 
 class Window;
-
-class ImGuiRenderer;
-class EditorCamera;
 
 class RenderSystem {
 public:

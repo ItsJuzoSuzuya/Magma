@@ -17,30 +17,31 @@ class RenderTargetInfo;
 
 class OffscreenRenderer : public Renderer {
 public:
-  // Constructor
-  OffscreenRenderer(RenderTargetInfo &info);
-  // Destructor
+  #if defined(MAGMA_WITH_EDITOR)
+    OffscreenRenderer(RenderTargetInfo &info);
+  #else
+    OffscreenRenderer(SwapChain &swapChain);
+  #endif
+
   ~OffscreenRenderer();
 
-  // Getters
   VkImage &getSceneImage() const;
-  #if defined(MAGMA_WITH_EDITOR)
-  ImVec2 getSceneSize() const;
-  ImTextureID getSceneTexture() const {
-    return textures[FrameInfo::frameIndex];
-  }
-  #endif
   Buffer *getCameraBuffer() override { return cameraBuffers[FrameInfo::frameIndex].get(); }
-  #if defined(MAGMA_WITH_EDITOR)
-  OffscreenTarget &target() { return *renderTarget; }
-  #else
-  SwapchainTarget &target() { return *renderTarget; }
-  #endif
   VkRenderPass getRenderPass() { return renderTarget->getRenderPass(); }
+
+  #if defined(MAGMA_WITH_EDITOR)
+    OffscreenTarget &target() { return *renderTarget; }
+  #else
+    SwapchainTarget &target() { return *renderTarget; }
+  #endif
 
   // Textures
   #if defined(MAGMA_WITH_EDITOR)
-  void createOffscreenTextures();
+    ImVec2 getSceneSize() const;
+    ImTextureID getSceneTexture() const {
+      return textures[FrameInfo::frameIndex];
+    }
+    void createOffscreenTextures();
   #endif
 
   // Rendering
@@ -49,22 +50,28 @@ public:
   void end() override;
 
   // Resize
-  void resize(VkExtent2D newExtent);
+  #if defined(MAGMA_WITH_EDITOR)
+    void resize(VkExtent2D newExtent);
+  #else
+    void resize(VkExtent2D newExtent, VkSwapchainKHR swapChain);
+  #endif
 
-  GameObject *pickAtPixel(uint32_t x, uint32_t y);
+  #if defined(MAGMA_WITH_EDITOR)
+    GameObject *pickAtPixel(uint32_t x, uint32_t y);
+  #endif
 
 private:
   #if defined(MAGMA_WITH_EDITOR)
-  // Textures for ImGui
-  std::vector<ImTextureID> textures;
+    // Textures for ImGui
+    std::vector<ImTextureID> textures;
   #endif
 
   // RenderTarget for picking Objects in the scene
 
   #if defined(MAGMA_WITH_EDITOR)
-  std::unique_ptr<OffscreenTarget> renderTarget;
+    std::unique_ptr<OffscreenTarget> renderTarget;
   #else
-  std::unique_ptr<SwapchainTarget> renderTarget;
+    std::unique_ptr<SwapchainTarget> renderTarget;
   #endif
 
   // Descriptors

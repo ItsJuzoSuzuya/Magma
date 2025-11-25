@@ -17,6 +17,7 @@
 #include "imgui_impl_vulkan.h"
 #endif
 
+#include <print>
 #include <GLFW/glfw3.h>
 #include <cassert>
 #include <memory>
@@ -29,10 +30,14 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   device = make_unique<Device>(window);
   swapChain = make_unique<SwapChain>(window.getExtent());
 
-  RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
-  offscreenInfo.extent.width /= 2;
-  offscreenInfo.extent.height /= 2;
-  offscreenRenderer = make_unique<OffscreenRenderer>(offscreenInfo);
+  #if defined(MAGMA_WITH_EDITOR)
+    RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
+    offscreenInfo.extent.width /= 2;
+    offscreenInfo.extent.height /= 2;
+    offscreenRenderer = make_unique<OffscreenRenderer>(offscreenInfo);
+  #else
+    offscreenRenderer = make_unique<OffscreenRenderer>(*swapChain);
+  #endif
 
 
   #if defined(MAGMA_WITH_EDITOR)

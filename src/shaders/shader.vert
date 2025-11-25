@@ -11,9 +11,13 @@ layout(binding = 0, std140) uniform CameraUBO {
 } ubo;
 
 // Out
+#if defined(MAGMA_WITH_EDITOR)
 layout(location = 0) flat out uint fragObjectID;
+#endif
 
 void main() {
   gl_Position = ubo.projView * push.model * vec4(inPosition, 1.0);
+  #if defined(MAGMA_WITH_EDITOR)
   fragObjectID = push.objectID;
+  #endif
 }

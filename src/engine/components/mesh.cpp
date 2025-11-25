@@ -5,6 +5,7 @@
 #include "../scene.hpp"
 #include "../scene_action.hpp"
 #include "component.hpp"
+#include "../core/window.hpp"
 
 #if defined(MAGMA_WITH_EDITOR)
 #include "imgui.h"

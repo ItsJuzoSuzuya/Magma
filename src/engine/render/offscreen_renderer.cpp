@@ -17,7 +17,7 @@
 using namespace std;
 namespace Magma {
 
-// Constructor
+#if defined(MAGMA_WITH_EDITOR)
 OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info)
     : Renderer() {
   cameraBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -43,6 +43,27 @@ OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info)
   createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
                  "src/shaders/shader.frag.spv");
 }
+#else
+OffscreenRenderer::OffscreenRenderer(SwapChain &swapChain) : Renderer() {
+  cameraBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+  for (uint32_t i = 0; i < cameraBuffers.size(); ++i){
+    cameraBuffers[i] = make_unique<Buffer>(
+        sizeof(CameraUBO), 1,
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT );
+    cameraBuffers[i]->map();
+  }
+  createDescriptorPool();
+  createDescriptorSetLayout();
+  Renderer::init(descriptorSetLayout->getDescriptorSetLayout());
+  createDescriptorSets();
+
+  renderTarget = std::make_unique<SwapchainTarget>(swapChain);
+
+  createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
+                 "src/shaders/shader.frag.spv");
+}
+#endif
 
 // Destructor
 OffscreenRenderer::~OffscreenRenderer() {
@@ -82,14 +103,17 @@ void OffscreenRenderer::begin() {
       FrameInfo::frameIndex >= SwapChain::MAX_FRAMES_IN_FLIGHT)
     throw runtime_error("Invalid frame index in FrameInfo!");
 
-  array<VkClearValue, 3> clearValues{};
+  const uint32_t colorAttachmentCount = renderTarget->getColorAttachmentCount();
+  vector<VkClearValue> clearValues(colorAttachmentCount + 1);
   clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
-  clearValues[1].color = {};
-  clearValues[1].color.uint32[0] = 0;
-  clearValues[1].color.uint32[1] = 0;
-  clearValues[1].color.uint32[2] = 0;
-  clearValues[1].color.uint32[3] = 0;
-  clearValues[2].depthStencil = {1.0f, 0};
+  #if defined(MAGMA_WITH_EDITOR)
+    clearValues[1].color = {};
+    clearValues[1].color.uint32[0] = 0;
+    clearValues[1].color.uint32[1] = 0;
+    clearValues[1].color.uint32[2] = 0;
+    clearValues[1].color.uint32[3] = 0;
+  #endif
+  clearValues[colorAttachmentCount].depthStencil = {1.0f, 0};
 
   VkRenderPassBeginInfo beginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
   beginInfo.renderPass = renderTarget->getRenderPass();
@@ -134,44 +158,52 @@ void OffscreenRenderer::end() {
 
   vkCmdEndRenderPass(FrameInfo::commandBuffer);
 
-  VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-  barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-  barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-  barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  barrier.image = getSceneImage();
-  barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-  barrier.subresourceRange.baseMipLevel = 0;
-  barrier.subresourceRange.levelCount = 1;
-  barrier.subresourceRange.baseArrayLayer = 0;
-  barrier.subresourceRange.layerCount = 1;
+  #if defined(MAGMA_WITH_EDITOR)
+    VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = getSceneImage();
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
 
-  vkCmdPipelineBarrier(FrameInfo::commandBuffer,
-                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
-                       nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(FrameInfo::commandBuffer,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrier);
+  #endif
 }
 
 // --- Resize ---
+#if defined(MAGMA_WITH_EDITOR)
 void OffscreenRenderer::resize(VkExtent2D newExtent) {
-
   Device::waitIdle();
 
-  #if defined(MAGMA_WITH_EDITOR)
   for (auto texture : textures)
     ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)texture);
-  #endif
 
   renderTarget->resize(newExtent);
   createPipeline(renderTarget.get());
 
-  #if defined(MAGMA_WITH_EDITOR)
   createOffscreenTextures();
-  #endif  
 }
+#else
+void OffscreenRenderer::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
+  Device::waitIdle();
 
+  renderTarget->resize(newExtent, swapChain);
+  createPipeline(renderTarget.get());
+}
+#endif
+
+
+#if defined(MAGMA_WITH_EDITOR)
 GameObject *OffscreenRenderer::pickAtPixel(uint32_t x, uint32_t y) {
   VkExtent2D extent = renderTarget->extent();
   if (x >= extent.width || y >= extent.height)
@@ -254,6 +286,7 @@ GameObject *OffscreenRenderer::pickAtPixel(uint32_t x, uint32_t y) {
 
   return nullptr;
 }
+#endif
 
 // --- Private --- //
 // --- Desciptors ---
