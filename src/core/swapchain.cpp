@@ -1,9 +1,9 @@
 #include "swapchain.hpp"
+#include "device.hpp"
 #include "frame_info.hpp"
 #include "queue_family_indices.hpp"
 #include "render_system.hpp"
 #include "render_target_info.hpp"
-#include "device.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -22,12 +22,11 @@ SwapChain::SwapChain(VkExtent2D extent) {
   createSyncObjects();
 }
 
-SwapChain::SwapChain(VkExtent2D extent,
-                     std::shared_ptr<SwapChain> oldSwapChain)
+SwapChain::SwapChain(VkExtent2D extent, std::shared_ptr<SwapChain> oldSwapChain)
     : oldSwapChain{oldSwapChain} {
   createSwapChain(extent);
   createSyncObjects();
-  oldSwapChain = nullptr;
+  this->oldSwapChain = nullptr;
 }
 
 // Destructor
@@ -42,18 +41,25 @@ SwapChain::~SwapChain() {
 VkResult SwapChain::acquireNextImage() {
   VkDevice device = Device::get().device();
 
-  // Wait for the fence for the current frame (we are going to reuse its command buffer)
+  // Wait for the fence for the current frame (we are going to reuse its command
+  // buffer)
   vkWaitForFences(device, 1, &inFlightFences[FrameInfo::frameIndex], VK_TRUE,
                   UINT64_MAX);
 
   // Acquire next image using per-frame semaphore
-  VkResult result = vkAcquireNextImageKHR(
-      device, swapChain, UINT64_MAX,
-      imageAvailableSemaphores[FrameInfo::frameIndex], VK_NULL_HANDLE,
-      &FrameInfo::imageIndex);
+  VkResult result =
+      vkAcquireNextImageKHR(device, swapChain, UINT64_MAX,
+                            imageAvailableSemaphores[FrameInfo::frameIndex],
+                            VK_NULL_HANDLE, &FrameInfo::imageIndex);
 
   if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
     return result;
+
+  if (renderInfo.imageCount == 0)
+    return VK_ERROR_OUT_OF_DATE_KHR;
+
+  if (FrameInfo::imageIndex >= renderInfo.imageCount)
+    return VK_ERROR_OUT_OF_DATE_KHR;
 
   // If that image is already in flight, wait for its fence
   if (imagesInFlight[FrameInfo::imageIndex] != VK_NULL_HANDLE) {
@@ -74,7 +80,8 @@ VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
   VkSemaphore waitSemaphores[] = {
-      imageAvailableSemaphores[FrameInfo::frameIndex]}; // wait on per-frame imageAvailable
+      imageAvailableSemaphores[FrameInfo::frameIndex]}; // wait on per-frame
+                                                        // imageAvailable
   VkPipelineStageFlags waitStages[] = {
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
   submitInfo.waitSemaphoreCount = 1;
@@ -85,7 +92,8 @@ VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
   submitInfo.pCommandBuffers = commandBuffer;
 
   VkSemaphore signalSemaphores[] = {
-      renderFinishedSemaphores[FrameInfo::imageIndex]}; // signal per-image semaphore
+      renderFinishedSemaphores[FrameInfo::imageIndex]}; // signal per-image
+                                                        // semaphore
   submitInfo.signalSemaphoreCount = 1;
   submitInfo.pSignalSemaphores = signalSemaphores;
 
@@ -157,11 +165,19 @@ void SwapChain::createSwapChain(VkExtent2D &extent) {
       VK_SUCCESS)
     throw std::runtime_error("Failed to create swap chain!");
 
+  uint32_t actualImageCount = 0;
+  if (vkGetSwapchainImagesKHR(device.device(), swapChain, &actualImageCount,
+                              nullptr) != VK_SUCCESS)
+    throw std::runtime_error("Failed to get swapchain image count!");
+
+  if (actualImageCount == 0)
+    throw std::runtime_error("Created swapchain has 0 images!");
+
   renderInfo = {
       .extent = chosenExtent,
       .colorFormat = surfaceFormat.format,
       .depthFormat = device.findDepthFormat(),
-      .imageCount = imageCount,
+      .imageCount = actualImageCount,
   };
 }
 
@@ -185,15 +201,13 @@ void SwapChain::createSyncObjects() {
   for (size_t i = 0; i < imageAvailableSemaphores.size(); i++) {
     if (vkCreateSemaphore(device, &semaphoreInfo, nullptr,
                           &imageAvailableSemaphores[i]) != VK_SUCCESS)
-      throw std::runtime_error(
-          "Failed to create imageAvailable semaphore!");
+      throw std::runtime_error("Failed to create imageAvailable semaphore!");
   }
 
   for (size_t i = 0; i < renderFinishedSemaphores.size(); i++) {
     if (vkCreateSemaphore(device, &semaphoreInfo, nullptr,
                           &renderFinishedSemaphores[i]) != VK_SUCCESS)
-      throw std::runtime_error(
-          "Failed to create renderFinished semaphore!");
+      throw std::runtime_error("Failed to create renderFinished semaphore!");
   }
 
   for (size_t i = 0; i < inFlightFences.size(); i++) {

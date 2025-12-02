@@ -1,6 +1,7 @@
 #include "offscreen_target.hpp"
 #include "../core/device.hpp"
 #include <array>
+#include <print>
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -10,10 +11,8 @@ namespace Magma {
 
 // Constructor
 OffscreenTarget::OffscreenTarget(const RenderTargetInfo &info)
-    : targetExtent{info.extent},
-      imageFormat{info.colorFormat},
-      depthImageFormat{info.depthFormat},
-      imageCount_{info.imageCount} {
+    : targetExtent{info.extent}, imageFormat{info.colorFormat},
+      depthImageFormat{info.depthFormat}, imageCount_{info.imageCount} {
   createImages();
   createIdImage();
   createRenderPass(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -26,11 +25,13 @@ OffscreenTarget::~OffscreenTarget() { cleanup(); }
 
 void OffscreenTarget::cleanup() {
   VkDevice device = Device::get().device();
+
   if (colorSampler != VK_NULL_HANDLE) {
     vkDestroySampler(device, colorSampler, nullptr);
     colorSampler = VK_NULL_HANDLE;
   }
 
+  destroyIdImages();
   destroyFramebuffers();
   destroyDepthResources();
   destroyRenderPass();
@@ -64,7 +65,6 @@ void OffscreenTarget::resize(VkExtent2D newExtent) {
   createDepthResources();
   createFramebuffers();
   createColorSampler();
-
 }
 
 // --- Private helpers ---
@@ -91,7 +91,8 @@ void OffscreenTarget::createImages() {
   imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
   for (uint32_t i = 0; i < imageCount_; ++i)
-    Device::get().createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    Device::get().createImageWithInfo(imageInfo,
+                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                       images[i], imageMemories[i]);
 
   createImageViews();
@@ -112,9 +113,10 @@ void OffscreenTarget::createImageViews() {
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
 
-    if (vkCreateImageView(device, &viewInfo, nullptr,
-                          &imageViews[i]) != VK_SUCCESS)
-      throw std::runtime_error("OffscreenRenderTarget: failed to create color image view");
+    if (vkCreateImageView(device, &viewInfo, nullptr, &imageViews[i]) !=
+        VK_SUCCESS)
+      throw std::runtime_error(
+          "OffscreenRenderTarget: failed to create color image view");
   }
 }
 
@@ -180,9 +182,8 @@ void OffscreenTarget::createRenderPass(VkImageLayout finalLayout) {
   dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
                              VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-  std::array<VkAttachmentDescription, 3> attachments{colorAttachment,
-                                                     idAttachment,
-                                                     depthAttachment};
+  std::array<VkAttachmentDescription, 3> attachments{
+      colorAttachment, idAttachment, depthAttachment};
 
   VkRenderPassCreateInfo rpInfo{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
   rpInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -193,9 +194,9 @@ void OffscreenTarget::createRenderPass(VkImageLayout finalLayout) {
   rpInfo.pDependencies = &dependency;
 
   VkDevice device = Device::get().device();
-  if (vkCreateRenderPass(device, &rpInfo, nullptr, &renderPass) !=
-      VK_SUCCESS)
-    throw std::runtime_error("OffscreenRenderTarget: failed to create render pass");
+  if (vkCreateRenderPass(device, &rpInfo, nullptr, &renderPass) != VK_SUCCESS)
+    throw std::runtime_error(
+        "OffscreenRenderTarget: failed to create render pass");
 }
 
 void OffscreenTarget::createDepthResources() {
@@ -236,7 +237,8 @@ void OffscreenTarget::createDepthResources() {
 
     if (vkCreateImageView(device.device(), &viewInfo, nullptr,
                           &depthImageViews[i]) != VK_SUCCESS) {
-      throw std::runtime_error("OffscreenRenderTarget: failed to create depth view");
+      throw std::runtime_error(
+          "OffscreenRenderTarget: failed to create depth view");
     }
   }
 }
@@ -258,8 +260,8 @@ void OffscreenTarget::createIdImage() {
   imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
   imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  Device::get().createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                    idImage, idImageMemory);
+  Device::get().createImageWithInfo(
+      imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, idImage, idImageMemory);
 
   VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
   viewInfo.image = idImage;
@@ -271,9 +273,10 @@ void OffscreenTarget::createIdImage() {
   viewInfo.subresourceRange.baseArrayLayer = 0;
   viewInfo.subresourceRange.layerCount = 1;
 
-  if(vkCreateImageView(Device::get().device(), &viewInfo, nullptr,
+  if (vkCreateImageView(Device::get().device(), &viewInfo, nullptr,
                         &idImageView) != VK_SUCCESS)
-    throw runtime_error("OffscreenRenderTarget: failed to create id image view");
+    throw runtime_error(
+        "OffscreenRenderTarget: failed to create id image view");
 }
 
 void OffscreenTarget::createFramebuffers() {
@@ -281,7 +284,8 @@ void OffscreenTarget::createFramebuffers() {
 
   framebuffers.resize(images.size());
   for (size_t i = 0; i < images.size(); ++i) {
-    std::array<VkImageView, 3> attachments{imageViews[i], idImageView, depthImageViews[i]};
+    std::array<VkImageView, 3> attachments{imageViews[i], idImageView,
+                                           depthImageViews[i]};
 
     VkFramebufferCreateInfo framebufferInfo{
         VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
@@ -294,7 +298,8 @@ void OffscreenTarget::createFramebuffers() {
 
     if (vkCreateFramebuffer(device, &framebufferInfo, nullptr,
                             &framebuffers[i]) != VK_SUCCESS)
-      throw std::runtime_error("OffscreenRenderTarget: failed to create framebuffer");
+      throw std::runtime_error(
+          "OffscreenRenderTarget: failed to create framebuffer");
   }
 }
 
@@ -318,8 +323,7 @@ void OffscreenTarget::createColorSampler() {
   info.unnormalizedCoordinates = VK_FALSE;
 
   VkDevice device = Device::get().device();
-  if (vkCreateSampler(device, &info, nullptr, &colorSampler) !=
-      VK_SUCCESS)
+  if (vkCreateSampler(device, &info, nullptr, &colorSampler) != VK_SUCCESS)
     throw std::runtime_error("OffscreenRenderTarget: failed to create sampler");
 }
 

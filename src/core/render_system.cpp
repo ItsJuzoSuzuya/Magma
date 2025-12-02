@@ -5,11 +5,11 @@
 #include "renderer.hpp"
 #include "swapchain.hpp"
 
-#if defined (MAGMA_WITH_EDITOR)
+#if defined(MAGMA_WITH_EDITOR)
 #include "../engine/widgets/dock_layout.hpp"
-#include "../engine/widgets/inspector.hpp"
 #include "../engine/widgets/game_editor.hpp"
 #include "../engine/widgets/game_view.hpp"
+#include "../engine/widgets/inspector.hpp"
 #include "../engine/widgets/runtime_control.hpp"
 #include "../engine/widgets/scene_tree.hpp"
 #include "imgui.h"
@@ -17,10 +17,10 @@
 #include "imgui_impl_vulkan.h"
 #endif
 
-#include <print>
 #include <GLFW/glfw3.h>
 #include <cassert>
 #include <memory>
+#include <print>
 
 using namespace std;
 namespace Magma {
@@ -30,51 +30,49 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   device = make_unique<Device>(window);
   swapChain = make_unique<SwapChain>(window.getExtent());
 
-  #if defined(MAGMA_WITH_EDITOR)
-    RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
-    offscreenInfo.extent.width /= 2;
-    offscreenInfo.extent.height /= 2;
-    offscreenRenderer = make_unique<OffscreenRenderer>(offscreenInfo);
-  #else
-    offscreenRenderer = make_unique<OffscreenRenderer>(*swapChain);
-  #endif
+#if defined(MAGMA_WITH_EDITOR)
+  RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
+  offscreenInfo.extent.width /= 2;
+  offscreenInfo.extent.height /= 2;
+  offscreenRenderer = make_unique<OffscreenRenderer>(offscreenInfo);
+#else
+  offscreenRenderer = make_unique<OffscreenRenderer>(*swapChain);
+#endif
 
+#if defined(MAGMA_WITH_EDITOR)
+  editorCamera = make_unique<EditorCamera>();
 
-  #if defined(MAGMA_WITH_EDITOR)
-    editorCamera = make_unique<EditorCamera>();
+  // Rendering ImGui
+  imguiRenderer = make_unique<ImGuiRenderer>(*swapChain);
 
-    // Rendering ImGui
-    imguiRenderer = make_unique<ImGuiRenderer>(*swapChain);
+  // Add widgets
+  imguiRenderer->addWidget(make_unique<RuntimeControl>());
+  imguiRenderer->addWidget(make_unique<SceneTree>());
+  imguiRenderer->addWidget(make_unique<Inspector>());
 
-    // Add widgets
-    imguiRenderer->addWidget(make_unique<RuntimeControl>());
-    imguiRenderer->addWidget(make_unique<SceneTree>());
-    imguiRenderer->addWidget(make_unique<Inspector>());
-
-    // Important: GameEditor must be added last so that its content size is
-    // calculated according to the other widgets
-    imguiRenderer->addWidget(
-        make_unique<GameEditor>(*offscreenRenderer.get(), editorCamera.get()));
-    imguiRenderer->addWidget(
-        make_unique<GameView>(*offscreenRenderer.get()));
-  #endif
+  // Important: GameEditor must be added last so that its content size is
+  // calculated according to the other widgets
+  imguiRenderer->addWidget(
+      make_unique<GameEditor>(*offscreenRenderer.get(), editorCamera.get()));
+  imguiRenderer->addWidget(make_unique<GameView>(*offscreenRenderer.get()));
+#endif
 
   createCommandBuffers();
 }
 
 // Destructor
 RenderSystem::~RenderSystem() {
-  #if defined(MAGMA_WITH_EDITOR)
-    Device::waitIdle();
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-  #endif
+#if defined(MAGMA_WITH_EDITOR)
+  Device::waitIdle();
+  ImGui_ImplVulkan_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext();
+#endif
 }
 
 // --- Public ---
 // Getters
-#if defined (MAGMA_WITH_EDITOR)
+#if defined(MAGMA_WITH_EDITOR)
 ImGui_ImplVulkan_InitInfo RenderSystem::getImGuiInitInfo() {
   ImGui_ImplVulkan_InitInfo init_info = {};
   device->populateImGuiInitInfo(&init_info);
@@ -99,30 +97,30 @@ void RenderSystem::renderFrame() {
 
   deltaTime = glfwGetTime() - lastTime;
   lastTime = glfwGetTime();
-  //calculateFPS(deltaTime);
+  // calculateFPS(deltaTime);
 
-  #if defined(MAGMA_WITH_EDITOR)
+#if defined(MAGMA_WITH_EDITOR)
   if (firstFrame)
     offscreenRenderer->createOffscreenTextures();
-  #endif
+#endif
 
   if (beginFrame()) {
     offscreenRenderer->begin();
     offscreenRenderer->record();
 
-    #if defined(MAGMA_WITH_EDITOR)
-      editorCamera->onUpdate();
-      editorCamera->onRender(*offscreenRenderer);
-    #endif
+#if defined(MAGMA_WITH_EDITOR)
+    editorCamera->onUpdate();
+    editorCamera->onRender(*offscreenRenderer);
+#endif
 
     Scene::onRender(*offscreenRenderer);
     offscreenRenderer->end();
 
-    #if defined(MAGMA_WITH_EDITOR)
-      imguiRenderer->begin();
-      imguiRenderer->record();
-      imguiRenderer->end();
-    #endif
+#if defined(MAGMA_WITH_EDITOR)
+    imguiRenderer->begin();
+    imguiRenderer->record();
+    imguiRenderer->end();
+#endif
 
     endFrame();
   }
@@ -148,13 +146,7 @@ void RenderSystem::createCommandBuffers() {
 }
 
 // Swap chain
-void RenderSystem::recreateSwapChain() {
-  auto extent = window.getExtent();
-  while (extent.width == 0 || extent.height == 0) {
-    extent = window.getExtent();
-    glfwWaitEvents();
-  }
-
+void RenderSystem::recreateSwapChain(VkExtent2D extent) {
   Device::waitIdle();
 
   shared_ptr<SwapChain> oldSwapChain = std::move(swapChain);
@@ -163,11 +155,11 @@ void RenderSystem::recreateSwapChain() {
 
 // Rendering
 bool RenderSystem::beginFrame() {
-  // Start ImGui frame
-  #if defined(MAGMA_WITH_EDITOR)
-    imguiRenderer->newFrame();
-    imguiRenderer->preFrame();
-  #endif
+// Start ImGui frame
+#if defined(MAGMA_WITH_EDITOR)
+  imguiRenderer->newFrame();
+  imguiRenderer->preFrame();
+#endif
 
   // Check if the swap chain needs to be recreated
   auto result = swapChain->acquireNextImage();
@@ -209,17 +201,24 @@ void RenderSystem::endFrame() {
 
 // Resize
 void RenderSystem::onWindowResized() {
-  window.resetWindowResizedFlag();
-  recreateSwapChain();
-  #if defined(MAGMA_WITH_EDITOR)
-    imguiRenderer->resize(window.getExtent(), swapChain->getSwapChain());
-  #endif
+  auto extent = window.getExtent();
+  while (extent.width == 0 || extent.height == 0) {
+    extent = window.getExtent();
+    glfwWaitEvents();
+  }
 
-  #if defined(MAGMA_WITH_EDITOR)
-    offscreenRenderer->resize(window.getExtent());
-  #else
-    offscreenRenderer->resize(window.getExtent(), swapChain->getSwapChain());
-  #endif
+  window.resetWindowResizedFlag();
+  recreateSwapChain(extent);
+
+#if defined(MAGMA_WITH_EDITOR)
+  imguiRenderer->resize(window.getExtent(), swapChain->getSwapChain());
+#endif
+
+#if defined(MAGMA_WITH_EDITOR)
+  offscreenRenderer->resize(window.getExtent());
+#else
+  offscreenRenderer->resize(extent, swapChain->getSwapChain());
+#endif
 }
 
 // ImGui Dockspace

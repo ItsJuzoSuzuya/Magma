@@ -1,11 +1,11 @@
 #include "imgui_renderer.hpp"
-#include "imgui_impl_vulkan.h"
-#include "swapchain_target.hpp"
 #include "../../core/frame_info.hpp"
 #include "../widgets/dock_layout.hpp"
 #include "../widgets/ui_context.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
+#include "swapchain_target.hpp"
 #include <array>
 #include <vulkan/vulkan_core.h>
 
@@ -13,7 +13,7 @@ using namespace std;
 namespace Magma {
 
 // Constructor
-ImGuiRenderer::ImGuiRenderer(SwapChain &swapChain): Renderer() {
+ImGuiRenderer::ImGuiRenderer(SwapChain &swapChain) : Renderer() {
   createDescriptorPool();
   createDescriptorSetLayout();
   Renderer::init(descriptorSetLayout->getDescriptorSetLayout());
@@ -93,9 +93,10 @@ void ImGuiRenderer::preFrame() {
 
     layout.finish();
 
-  // After finishing, fetch node and set flags
+    // After finishing, fetch node and set flags
     if (UIContext::TopBarDockId != 0) {
-      if (ImGuiDockNode *node = ImGui::DockBuilderGetNode(UIContext::TopBarDockId)) 
+      if (ImGuiDockNode *node =
+              ImGui::DockBuilderGetNode(UIContext::TopBarDockId))
         node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar |
                             ImGuiDockNodeFlags_NoWindowMenuButton |
                             ImGuiDockNodeFlags_NoCloseButton;
@@ -104,7 +105,7 @@ void ImGuiRenderer::preFrame() {
   }
 
   // Run pre-frame hooks
-  for (auto &widget : widgets) 
+  for (auto &widget : widgets)
     widget->preFrame();
 }
 
@@ -151,6 +152,12 @@ void ImGuiRenderer::end() {
   ImGui::Render();
   ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
                                   FrameInfo::commandBuffer);
+  ImGuiIO &io = ImGui::GetIO();
+  if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+    ImGui::UpdatePlatformWindows();
+    ImGui::RenderPlatformWindowsDefault();
+  }
+
   vkCmdEndRenderPass(FrameInfo::commandBuffer);
 }
 
@@ -175,8 +182,9 @@ void ImGuiRenderer::createDescriptorPool() {
 
 void ImGuiRenderer::createDescriptorSetLayout() {
   descriptorSetLayout = DescriptorSetLayout::Builder()
-        .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-        .build();
+                            .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                        VK_SHADER_STAGE_VERTEX_BIT)
+                            .build();
 }
 
 } // namespace Magma

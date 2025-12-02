@@ -1,6 +1,7 @@
 #include "swapchain_target.hpp"
 #include "../core/device.hpp"
 #include <array>
+#include <print>
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -27,32 +28,27 @@ SwapchainTarget::~SwapchainTarget() { cleanup(); }
 void SwapchainTarget::cleanup() {
   VkDevice device = Device::get().device();
 
-  destroyFramebuffers();
   destroyDepthResources();
+  destroyFramebuffers();
   destroyRenderPass();
 
   for (auto v : imageViews) {
     if (v != VK_NULL_HANDLE)
       vkDestroyImageView(device, v, nullptr);
   }
-  imageViews.clear();
 
   // Note: swapchain images themselves are owned by the swapchain and must not
   // be destroyed here.
 }
 
 // Resize (Swapchain)
-void SwapchainTarget::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
+bool SwapchainTarget::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
   if (newExtent.width == 0 || newExtent.height == 0)
-    return;
-  if (newExtent.width == targetExtent.width &&
-      newExtent.height == targetExtent.height)
-    return;
+    return false;
 
-  VkDevice device = Device::get().device();
-  vkDeviceWaitIdle(device);
+  Device::waitIdle();
+
   cleanup();
-
   targetExtent = newExtent;
 
   createImages(swapChain);
@@ -60,6 +56,7 @@ void SwapchainTarget::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
   createRenderPass(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
   createDepthResources();
   createFramebuffers();
+  return true;
 }
 
 // --- Private helpers ---
@@ -68,8 +65,7 @@ void SwapchainTarget::createImages(VkSwapchainKHR swapChain) {
   VkDevice device = Device::get().device();
   vkGetSwapchainImagesKHR(device, swapChain, &imageCount_, nullptr);
   images.resize(imageCount_);
-  vkGetSwapchainImagesKHR(device, swapChain, &imageCount_,
-                          images.data());
+  vkGetSwapchainImagesKHR(device, swapChain, &imageCount_, images.data());
 }
 
 void SwapchainTarget::createImageViews() {
@@ -87,9 +83,10 @@ void SwapchainTarget::createImageViews() {
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
 
-    if (vkCreateImageView(device, &viewInfo, nullptr,
-                          &imageViews[i]) != VK_SUCCESS)
-      throw std::runtime_error("SwapchainTarget: failed to create color image view");
+    if (vkCreateImageView(device, &viewInfo, nullptr, &imageViews[i]) !=
+        VK_SUCCESS)
+      throw std::runtime_error(
+          "SwapchainTarget: failed to create color image view");
   }
 }
 
@@ -152,8 +149,7 @@ void SwapchainTarget::createRenderPass(VkImageLayout finalLayout) {
   rpInfo.pDependencies = &dependency;
 
   VkDevice device = Device::get().device();
-  if (vkCreateRenderPass(device, &rpInfo, nullptr, &renderPass) !=
-      VK_SUCCESS)
+  if (vkCreateRenderPass(device, &rpInfo, nullptr, &renderPass) != VK_SUCCESS)
     throw std::runtime_error("SwapchainTarget: failed to create render pass");
 }
 
@@ -180,7 +176,7 @@ void SwapchainTarget::createDepthResources() {
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ,
+    device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                depthImages[i], depthImageMemories[i]);
 
     VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
@@ -256,4 +252,3 @@ void SwapchainTarget::destroyRenderPass() {
 }
 
 } // namespace Magma
-

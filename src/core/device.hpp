@@ -83,7 +83,6 @@ public:
   VkFormat findDepthFormat();
 
   // Sync
-  VkFence fence;
   static void waitIdle() { vkDeviceWaitIdle(get().device_); }
 
 private:
@@ -135,6 +134,10 @@ private:
   // Command Pool
   VkCommandPool commandPool;
   void createCommandPool();
+
+  // Fence
+  VkFence fence;
+  void createFence();
 
   // Queue Families
   QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);

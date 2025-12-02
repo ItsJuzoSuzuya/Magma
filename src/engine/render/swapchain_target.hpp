@@ -19,14 +19,20 @@ public:
   VkExtent2D extent() const override { return targetExtent; }
 
   // Swapchain-backed targets do not own color images; they expose them.
-  VkImage &getColorImage(int index) override { return images.at(static_cast<size_t>(index)); }
-  VkImageView getColorImageView(int index) const override { return imageViews.at(static_cast<size_t>(index)); }
-  VkSampler getColorSampler() const override { return VK_NULL_HANDLE; } // no sampler for swapchain
+  VkImage &getColorImage(int index) override {
+    return images.at(static_cast<size_t>(index));
+  }
+  VkImageView getColorImageView(int index) const override {
+    return imageViews.at(static_cast<size_t>(index));
+  }
+  VkSampler getColorSampler() const override {
+    return VK_NULL_HANDLE;
+  } // no sampler for swapchain
   VkFormat getColorFormat() const override { return imageFormat; }
   VkFormat getDepthFormat() const override { return depthImageFormat; }
 
   // Resize signature for swapchain
-  void resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) override;
+  bool resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) override;
   void cleanup() override;
 
 private:

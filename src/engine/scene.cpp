@@ -1,6 +1,6 @@
 #include "scene.hpp"
-#include "../core/renderer.hpp"
 #include "../core/device.hpp"
+#include "../core/renderer.hpp"
 #include "components/transform.hpp"
 #include "gameobject.hpp"
 #include "scene_action.hpp"
@@ -19,12 +19,13 @@ namespace Magma {
 Scene::Scene() {
   if (activeScene == nullptr)
     setActive();
-  
+
   auto &camera = GameObject::create("Main Camera");
   camera.addComponent<Transform>();
   camera.addComponent<Camera>();
   Camera *camComp = camera.getComponent<Camera>();
-  camComp->setPerspectiveProjection(glm::radians(60.0f), 16.0f/9.0f, 0.1f, 100.0f);
+  camComp->setPerspectiveProjection(glm::radians(60.0f), 16.0f / 9.0f, 0.1f,
+                                    100.0f);
   Scene::setActiveCamera(camComp);
 }
 
@@ -36,27 +37,33 @@ Scene::~Scene() {
 
 // --- Public --- //
 
-
-GameObject *Scene::findGameObjectById(GameObject::id_t id){
+GameObject *Scene::findGameObjectById(GameObject::id_t id) {
   if (activeScene == nullptr)
     return nullptr;
 
-  std::function<GameObject*(GameObject*)> findFrom = [&](GameObject* node)->GameObject*{
-      if (!node) return nullptr;
-      if (node->id == id) return node;
-      auto children = node->getChildren();
-      for (auto *c : children) {
-        if (auto r = findFrom(c)) return r;
-      }
+  std::function<GameObject *(GameObject *)> findFrom =
+      [&](GameObject *node) -> GameObject * {
+    if (!node)
       return nullptr;
-    };
-
-    for (const auto &g : activeScene->gameObjects) {
-      if (!g) continue;
-      if (g->id == id) return g.get();
-      if (auto r = findFrom(g.get())) return r;
+    if (node->id == id)
+      return node;
+    auto children = node->getChildren();
+    for (auto *c : children) {
+      if (auto r = findFrom(c))
+        return r;
     }
     return nullptr;
+  };
+
+  for (const auto &g : activeScene->gameObjects) {
+    if (!g)
+      continue;
+    if (g->id == id)
+      return g.get();
+    if (auto r = findFrom(g.get()))
+      return r;
+  }
+  return nullptr;
 }
 
 // --- GameObject management ---

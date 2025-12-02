@@ -7,6 +7,7 @@
 #include <cstring>
 #include <iostream>
 #include <ostream>
+#include <print>
 #include <set>
 #include <vulkan/vulkan_core.h>
 
@@ -62,6 +63,8 @@ Device::Device(Window &window) {
   pickPhysicalDevice();
   createLogicalDevice();
   createCommandPool();
+  createFence();
+
   instance_ = this;
 }
 
@@ -77,6 +80,7 @@ Device::~Device() {
 
   vkDestroySurfaceKHR(instance, surface_, nullptr);
   vkDestroyInstance(instance, nullptr);
+  instance_ = nullptr;
 }
 
 //--- Public ---
@@ -341,16 +345,11 @@ void Device::submitCommands(VkCommandBuffer &commandBuffer) {
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = &commandBuffer;
 
-  VkFenceCreateInfo fenceInfo{};
-  fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-
-  if (vkCreateFence(device_, &fenceInfo, nullptr, &fence) != VK_SUCCESS)
-    throw runtime_error("Failed to create fence!");
-
   if (vkQueueSubmit(graphicsQueue(), 1, &submitInfo, fence) != VK_SUCCESS)
     throw runtime_error("Failed to submit command buffer!");
 
   vkWaitForFences(device_, 1, &fence, VK_TRUE, UINT64_MAX);
+  vkResetFences(device_, 1, &fence);
 }
 
 void Device::endSingleTimeCommands(VkCommandBuffer &commandBuffer) {
@@ -638,6 +637,16 @@ void Device::createCommandPool() {
   if (vkCreateCommandPool(device_, &poolInfo, nullptr, &commandPool) !=
       VK_SUCCESS)
     throw runtime_error("Failed to create command pool!");
+}
+
+// Fence
+
+void Device::createFence() {
+  VkFenceCreateInfo fenceInfo{};
+  fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+
+  if (vkCreateFence(device_, &fenceInfo, nullptr, &fence) != VK_SUCCESS)
+    throw runtime_error("Failed to create fence!");
 }
 
 // Queue Families

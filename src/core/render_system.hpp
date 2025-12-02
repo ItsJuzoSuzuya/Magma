@@ -5,9 +5,9 @@
 #include "renderer.hpp"
 #include "swapchain.hpp"
 
-#if defined (MAGMA_WITH_EDITOR)
-#include "../engine/render/imgui_renderer.hpp"
+#if defined(MAGMA_WITH_EDITOR)
 #include "../engine/editor_camera.hpp"
+#include "../engine/render/imgui_renderer.hpp"
 #endif
 
 #include <memory>
@@ -22,11 +22,11 @@ public:
   RenderSystem(Window &window);
   ~RenderSystem();
 
-  // Getters
-  #if defined (MAGMA_WITH_EDITOR)
-    #include "imgui_impl_vulkan.h"
-    ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
-  #endif
+// Getters
+#if defined(MAGMA_WITH_EDITOR)
+#include "imgui_impl_vulkan.h"
+  ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
+#endif
   SwapChain &getSwapChain() { return *swapChain; }
 
   void renderFrame();
@@ -38,7 +38,7 @@ private:
 
   // SwapChain
   std::unique_ptr<SwapChain> swapChain = nullptr;
-  void recreateSwapChain();
+  void recreateSwapChain(VkExtent2D extent);
 
   // Renderering
   std::unique_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
@@ -54,23 +54,22 @@ private:
   VkCommandBuffer imageAcquireCommandBuffer = VK_NULL_HANDLE;
   void createCommandBuffers();
 
-  // ImGui Dockspace
-  #if defined(MAGMA_WITH_EDITOR)
+// ImGui Dockspace
+#if defined(MAGMA_WITH_EDITOR)
   void createDockspace(ImGuiID &dockspace_id, const ImVec2 &size);
-  #endif
-
+#endif
 
   // Frame info
   FrameInfo frameInfo;
   bool firstFrame = true;
 
-  // Editor 
-  #if defined (MAGMA_WITH_EDITOR)
+// Editor
+#if defined(MAGMA_WITH_EDITOR)
   std::unique_ptr<ImGuiRenderer> imguiRenderer = nullptr;
   std::unique_ptr<EditorCamera> editorCamera = nullptr;
-  #endif
+#endif
 
-  // FPS 
+  // FPS
   double lastTime = 0.0f;
   double deltaTime = 0.0f;
   void calculateFPS(float deltaTime);

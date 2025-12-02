@@ -20,7 +20,9 @@ public:
   }
   VkExtent2D extent() const override { return targetExtent; }
 
-  VkImage &getColorImage(int index) override { return images.at(static_cast<size_t>(index)); }
+  VkImage &getColorImage(int index) override {
+    return images.at(static_cast<size_t>(index));
+  }
   VkImageView getColorImageView(int index) const override {
     return imageViews.at(static_cast<size_t>(index));
   }
