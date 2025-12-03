@@ -31,15 +31,15 @@ public:
   void setPerspectiveProjection(float fov, float aspect, float near, float far);
 
   // Accessors
-  Transform *getTransform() { return transform.get(); }
-  Camera *getCamera() { return camera.get(); }
+  Transform *getTransform() { return transform; }
+  Camera *getCamera() { return camera; }
   const glm::mat4 &getProjection() const { return camera->getProjection(); }
   const glm::mat4 &getView() const { return camera->getView(); }
 
 private:
   GameObject *cameraObject = nullptr;
-  std::unique_ptr<Transform> transform;
-  std::unique_ptr<Camera> camera;
+  Transform* transform = nullptr;
+  Camera* camera = nullptr;
 };
 
 } // namespace Magma
