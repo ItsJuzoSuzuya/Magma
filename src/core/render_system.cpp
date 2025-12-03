@@ -67,10 +67,12 @@ RenderSystem::~RenderSystem() {
 
   if (offscreenRenderer)
     offscreenRenderer.reset();
+
+  ImGui_ImplVulkan_Shutdown();
+
   if (imguiRenderer)
     imguiRenderer.reset();
 
-  ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
 #endif
