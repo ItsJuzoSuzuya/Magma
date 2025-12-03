@@ -64,6 +64,12 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
 RenderSystem::~RenderSystem() {
 #if defined(MAGMA_WITH_EDITOR)
   Device::waitIdle();
+
+  if (offscreenRenderer)
+    offscreenRenderer.reset();
+  if (imguiRenderer)
+    imguiRenderer.reset();
+
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();

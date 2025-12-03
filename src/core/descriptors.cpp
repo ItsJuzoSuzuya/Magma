@@ -99,6 +99,7 @@ DescriptorPool::DescriptorPool(
 DescriptorPool::~DescriptorPool() {
   VkDevice device = Device::get().device();
   vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+  descriptorPool = nullptr;
 }
 
 bool DescriptorPool::allocateDescriptor(VkDescriptorSetLayout setLayout,
