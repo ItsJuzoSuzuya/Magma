@@ -1,4 +1,5 @@
 #include "game_editor.hpp"
+#include "../time.hpp"
 #include "../render/offscreen_renderer.hpp"
 #include "../components/transform.hpp"
 #include "imgui.h"
@@ -49,12 +50,14 @@ void GameEditor::draw() {
   }
 
   if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
-    if (ImGui::IsKeyPressed(ImGuiKey_A)) editorCamera->moveRight(-0.1f);
-    if (ImGui::IsKeyPressed(ImGuiKey_D)) editorCamera->moveRight(0.1f);
-    if (ImGui::IsKeyPressed(ImGuiKey_W)) editorCamera->moveForward(0.1f);
-    if (ImGui::IsKeyPressed(ImGuiKey_S)) editorCamera->moveForward(-0.1f);
-    if (ImGui::IsKeyPressed(ImGuiKey_Space)) editorCamera->moveUp(0.1f);
-    if (ImGui::IsKeyPressed(ImGuiKey_LeftShift)) editorCamera->moveUp(-0.1f);
+    const float cameraSpeed = 1.5f * Time::getDeltaTime();
+
+    if (ImGui::IsKeyDown(ImGuiKey_D)) editorCamera->moveRight(cameraSpeed);
+    if (ImGui::IsKeyDown(ImGuiKey_A)) editorCamera->moveRight(-cameraSpeed);
+    if (ImGui::IsKeyDown(ImGuiKey_W)) editorCamera->moveForward(cameraSpeed);
+    if (ImGui::IsKeyDown(ImGuiKey_S)) editorCamera->moveForward(-cameraSpeed);
+    if (ImGui::IsKeyDown(ImGuiKey_Space)) editorCamera->moveUp(cameraSpeed);
+    if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) editorCamera->moveUp(-cameraSpeed);
   }
 
   ImVec2 imgSize = offscreenRenderer.getSceneSize();

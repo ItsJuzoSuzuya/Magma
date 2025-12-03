@@ -1,4 +1,5 @@
 #include "render_system.hpp"
+#include "../engine/time.hpp"
 #include "../core/window.hpp"
 #include "../engine/scene.hpp"
 #include "device.hpp"
@@ -103,9 +104,7 @@ void RenderSystem::renderFrame() {
   // Create textures that will be displayed in an ImGui Image
   // Scene will be rendered to these textures in the offscreen pass
 
-  deltaTime = glfwGetTime() - lastTime;
-  lastTime = glfwGetTime();
-  // calculateFPS(deltaTime);
+  Time::update(glfwGetTime());
 
 #if defined(MAGMA_WITH_EDITOR)
   if (firstFrame)
@@ -245,21 +244,6 @@ void RenderSystem::createDockspace(ImGuiID &dockspace_id, const ImVec2 &size) {
   dockLayout.dockWindow("Inspector", dock_id_right);
 
   dockLayout.finish();
-}
-
-void RenderSystem::calculateFPS(float deltaTime) {
-  static int frameCount = 0;
-  static float elapsedTime = 0.0f;
-
-  frameCount++;
-  elapsedTime += deltaTime;
-
-  if (elapsedTime >= 1.0f) {
-    float fps = static_cast<float>(frameCount) / elapsedTime;
-    println("FPS: {:.2f}", fps);
-    frameCount = 0;
-    elapsedTime = 0.0f;
-  }
 }
 #endif
 
