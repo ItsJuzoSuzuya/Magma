@@ -1,8 +1,6 @@
 #include "editor_camera.hpp"
 #include "../../core/renderer.hpp"
 #include "gameobject.hpp"
-#include "scene.hpp"
-#include <print>
 
 using namespace std;
 namespace Magma {
@@ -10,12 +8,9 @@ namespace Magma {
 EditorCamera::EditorCamera() {
   // Create a transform and a camera bound to it
   cameraObject = new GameObject(UINT32_MAX, "Editor Camera");
-  cameraObject->addComponent<Transform>();
-  cameraObject->addComponent<Camera>();
-  auto *camera = cameraObject->getComponent<Camera>();
+  transform = make_unique<Transform>(cameraObject);
+  camera = make_unique<Camera>(cameraObject);
   camera->setPerspectiveProjection(glm::radians(90.f), 16.f / 9.f, 0.1f, 100.f);
-  Scene::setActiveCamera(camera);
-
 }
 
 void EditorCamera::onUpdate() {
