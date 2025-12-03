@@ -7,6 +7,7 @@
 #include "ui_context.hpp"
 #include <algorithm>
 #include <glm/fwd.hpp>
+#include <print>
 
 using namespace std;
 namespace Magma {

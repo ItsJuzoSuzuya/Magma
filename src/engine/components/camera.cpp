@@ -95,6 +95,13 @@ bool Camera::canSee(const glm::vec3 &position) const {
 void Camera::pushCameraDataToGPU(Buffer *uboBuffer) {
     CameraUBO ubo{};
     ubo.projectionView = getProjection() * getView();
+    std::println("P-V Matrix:");
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            std::print("{:.3} ", ubo.projectionView[i][j]);
+        }
+        std::println();
+    }
     uboBuffer->writeToBuffer((void *)&ubo);
     uboBuffer->flush();
 }
