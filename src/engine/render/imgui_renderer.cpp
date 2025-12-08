@@ -115,16 +115,33 @@ void ImGuiRenderer::begin() {
   clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
   clearValues[1].depthStencil = {1.0f, 0};
 
-  VkRenderPassBeginInfo beginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-  beginInfo.renderPass = renderTarget->getRenderPass();
-  beginInfo.framebuffer = renderTarget->getFrameBuffer(FrameInfo::imageIndex);
-  beginInfo.renderArea.offset = {0, 0};
-  beginInfo.renderArea.extent = renderTarget->extent();
-  beginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-  beginInfo.pClearValues = clearValues.data();
+  // Dynamic rendering attachments
+  VkRenderingAttachmentInfo color{};
+  color.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  color.imageView = renderTarget->getColorImageView(FrameInfo::imageIndex);
+  color.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  color.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  color.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  color.clearValue = clearValues[0];
 
-  vkCmdBeginRenderPass(FrameInfo::commandBuffer, &beginInfo,
-                       VK_SUBPASS_CONTENTS_INLINE);
+  VkRenderingAttachmentInfo depth{};
+  depth.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  depth.imageView = renderTarget->getDepthImageView(FrameInfo::imageIndex);
+  depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  depth.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  depth.clearValue = clearValues[1];
+
+  VkRenderingInfo renderingInfo{};
+  renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+  renderingInfo.renderArea.offset = {0, 0};
+  renderingInfo.renderArea.extent = renderTarget->extent();
+  renderingInfo.colorAttachmentCount = 1;
+  renderingInfo.pColorAttachments = &color;
+  renderingInfo.pDepthAttachment = &depth;
+  renderingInfo.layerCount = 1;
+
+  vkCmdBeginRendering(FrameInfo::commandBuffer, &renderingInfo);
 
   VkViewport viewport = {};
   viewport.x = 0;
@@ -146,9 +163,7 @@ void ImGuiRenderer::record() {
 
   for (auto &widget : widgets)
     widget->draw();
-}
 
-void ImGuiRenderer::end() {
   ImGui::Render();
   ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
                                   FrameInfo::commandBuffer);
@@ -157,9 +172,9 @@ void ImGuiRenderer::end() {
     ImGui::UpdatePlatformWindows();
     ImGui::RenderPlatformWindowsDefault();
   }
-
-  vkCmdEndRenderPass(FrameInfo::commandBuffer);
 }
+
+void ImGuiRenderer::end() { vkCmdEndRendering(FrameInfo::commandBuffer); }
 
 // Resize
 void ImGuiRenderer::resize(VkExtent2D extent, VkSwapchainKHR swapChain) {

@@ -13,7 +13,6 @@ public:
   // Getters
   VkDescriptorPool getDescriptorPool() const;
   SwapchainTarget &target() { return *renderTarget; }
-  VkRenderPass getRenderPass() { return renderTarget->getRenderPass(); }
 
   // Widget management
   void addWidget(std::unique_ptr<Widget> widget);

@@ -47,6 +47,7 @@ private:
 #else
   std::unique_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
 #endif
+
   bool beginFrame();
   void endFrame();
 
@@ -73,10 +74,5 @@ private:
   std::unique_ptr<ImGuiRenderer> imguiRenderer = nullptr;
   std::unique_ptr<EditorCamera> editorCamera = nullptr;
 #endif
-
-  // FPS
-  double lastTime = 0.0f;
-  double deltaTime = 0.0f;
-  void calculateFPS(float deltaTime);
 };
 } // namespace Magma
