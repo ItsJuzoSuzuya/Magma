@@ -36,6 +36,7 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
   offscreenInfo.extent.width /= 2;
   offscreenInfo.extent.height /= 2;
+  offscreenInfo.imageCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
   offscreenRendererEditor = make_unique<OffscreenRenderer>(offscreenInfo);
   offscreenRendererGame = make_unique<OffscreenRenderer>(offscreenInfo);
 

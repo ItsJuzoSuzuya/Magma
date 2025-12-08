@@ -109,14 +109,13 @@ void GameEditor::draw() {
     uint32_t pixelX = static_cast<uint32_t>(localX);
     uint32_t pixelY = static_cast<uint32_t>(localY);
 
-    if (imgSize.x > 0 && imgSize.y > 0) {
-      GameObject *picked = offscreenRenderer.pickAtPixel(pixelX, pixelY);
+    if (imgSize.x > 0 && imgSize.y > 0)
+      offscreenRenderer.requestPick(pixelX, pixelY);
+  }
 
-      if (picked) {
-        beginDrag(picked, mousePos, imageMin, imgSize);
-        Inspector::setContext(picked);
-      }
-    }
+  if (auto picked = offscreenRenderer.pollPickResult()) {
+    Inspector::setContext(picked);
+    beginDrag(picked, ImGui::GetIO().MousePos, imageMin, imgSize);
   }
 
   if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {

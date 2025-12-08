@@ -91,6 +91,20 @@ void OffscreenRenderer::createOffscreenTextures() {
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   }
 }
+
+// Picking: enqueue request and poll result
+void OffscreenRenderer::requestPick(uint32_t x, uint32_t y) {
+  pendingPick.hasRequest = true;
+  pendingPick.x = x;
+  pendingPick.y = y;
+  // result will be produced after offscreen render ends (in servicePendingPick)
+}
+
+GameObject *OffscreenRenderer::pollPickResult() {
+  GameObject *out = pendingPick.result;
+  pendingPick.result = nullptr;
+  return out;
+}
 #endif
 
 static int currentImageIndex() { return FrameInfo::imageIndex; }
@@ -268,6 +282,9 @@ void OffscreenRenderer::end() {
         VK_IMAGE_ASPECT_COLOR_BIT);
     idColorLayouts[idx] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   }
+
+  // Safe point: service any pending pick request now (no render pass active)
+  servicePendingPick();
 #endif
 }
 
@@ -314,12 +331,24 @@ GameObject *OffscreenRenderer::pickAtPixel(uint32_t x, uint32_t y) {
   VkCommandBuffer commandBuffer = Device::get().beginSingleTimeCommands();
   VkImage idImage = renderTarget->getIdImage();
 
-  Device::transitionImageLayout(
-      idImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT,
-      VK_IMAGE_ASPECT_COLOR_BIT);
+  // Transition ID image for readback (from shader read-only to transfer src)
+  VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+  barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image = idImage;
+  barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 1;
+  barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+  barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                       VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                       nullptr, 1, &barrier);
 
   VkBufferImageCopy region{};
   region.bufferOffset = 0;
@@ -335,11 +364,24 @@ GameObject *OffscreenRenderer::pickAtPixel(uint32_t x, uint32_t y) {
   Device::get().copyImageToBuffer(commandBuffer, stagingBuffer.getBuffer(),
                                   idImage, region);
 
-  Device::transitionImageLayout(
-      idImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_TRANSFER_READ_BIT,
-      VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+  // Transition back to shader read-only
+  VkImageMemoryBarrier barrier2{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+  barrier2.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+  barrier2.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  barrier2.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier2.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier2.image = idImage;
+  barrier2.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  barrier2.subresourceRange.baseMipLevel = 0;
+  barrier2.subresourceRange.levelCount = 1;
+  barrier2.subresourceRange.baseArrayLayer = 0;
+  barrier2.subresourceRange.layerCount = 1;
+  barrier2.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+  barrier2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
+                       nullptr, 1, &barrier2);
 
   Device::get().endSingleTimeCommands(commandBuffer);
 
@@ -356,6 +398,16 @@ GameObject *OffscreenRenderer::pickAtPixel(uint32_t x, uint32_t y) {
         static_cast<GameObject::id_t>(objectId));
 
   return nullptr;
+}
+
+void OffscreenRenderer::servicePendingPick() {
+  if (!pendingPick.hasRequest)
+    return;
+
+  // Execute GPU readback now (no dynamic rendering active on FrameInfo CB)
+  GameObject *picked = pickAtPixel(pendingPick.x, pendingPick.y);
+  pendingPick.result = picked;
+  pendingPick.hasRequest = false;
 }
 #endif
 

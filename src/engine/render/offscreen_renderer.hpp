@@ -42,6 +42,10 @@ public:
     return textures[FrameInfo::frameIndex];
   }
   void createOffscreenTextures();
+
+  // Picking API (deferred to safe point)
+  void requestPick(uint32_t x, uint32_t y);
+  GameObject *pollPickResult();
 #endif
 
   // Rendering
@@ -87,6 +91,15 @@ private:
   std::vector<VkImageLayout> sceneColorLayouts; // main color image layout
 #if defined(MAGMA_WITH_EDITOR)
   std::vector<VkImageLayout> idColorLayouts; // ID image layout
+
+  // Deferred pick request state
+  struct PendingPick {
+    bool hasRequest = false;
+    uint32_t x = 0, y = 0;
+    GameObject *result = nullptr;
+  } pendingPick;
+
+  void servicePendingPick(); // executes after offscreen pass ends
 #endif
 };
 
