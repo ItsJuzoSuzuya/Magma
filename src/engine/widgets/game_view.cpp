@@ -12,11 +12,13 @@ static ImVec2 fit16x9(const ImVec2 &avail) {
   float targetH = avail.x * 9.0f / 16.0f;
   float targetW = avail.y * 16.0f / 9.0f;
 
-  ImVec2 size = avail;
+  ImVec2 size;
   if (targetH <= avail.y) {
-    size = ImVec2(avail.x, targetH);
+    size.x = floorf(avail.x);
+    size.y = floorf(targetH);
   } else {
-    size = ImVec2(targetW, avail.y);
+    size.x = floorf(targetW);
+    size.y = floorf(avail.y);
   }
 
   size.x = (float)ImMax(1, (int)size.x);
@@ -28,7 +30,21 @@ static ImVec2 fit16x9(const ImVec2 &avail) {
 void GameView::preFrame() {
   UIContext::ensureInit();
   ImGui::SetNextWindowClass(&UIContext::GameViewDockClass);
-  ImGui::Begin(name());
+
+  bool open = ImGui::Begin(name());
+  if (open) {
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+    ImVec2 desired = fit16x9(avail);
+
+    ImVec2 current = offscreenRenderer.getSceneSize();
+    bool needsResize = ((int)desired.x != (int)current.x) ||
+                       ((int)desired.y != (int)current.y);
+
+    if (needsResize) {
+      VkExtent2D newExtent{(uint32_t)desired.x, (uint32_t)desired.y};
+      offscreenRenderer.resize(newExtent);
+    }
+  }
   ImGui::End();
 }
 

@@ -15,8 +15,6 @@ using namespace std;
 namespace Magma {
 
 static ImVec2 fit16x9(const ImVec2 &avail) {
-  // Maintain 16:9 inside the available region
-  // width/height = 16/9 => height = width * 9/16
   float targetH = avail.x * 9.0f / 16.0f;
   float targetW = avail.y * 16.0f / 9.0f;
 
