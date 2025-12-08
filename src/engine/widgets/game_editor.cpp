@@ -7,6 +7,7 @@
 #include "inspector.hpp"
 #include "ui_context.hpp"
 #include <algorithm>
+#include <cmath>
 #include <glm/fwd.hpp>
 #include <print>
 
@@ -19,11 +20,13 @@ static ImVec2 fit16x9(const ImVec2 &avail) {
   float targetH = avail.x * 9.0f / 16.0f;
   float targetW = avail.y * 16.0f / 9.0f;
 
-  ImVec2 size = avail;
+  ImVec2 size;
   if (targetH <= avail.y) {
-    size = ImVec2(avail.x, targetH);
+    size.x = floorf(avail.x);
+    size.y = floorf(targetH);
   } else {
-    size = ImVec2(targetW, avail.y);
+    size.x = floorf(targetW);
+    size.y = floorf(avail.y);
   }
 
   // Clamp to at least 1x1
@@ -87,7 +90,9 @@ void GameEditor::draw() {
       editorCamera->moveUp(-cameraSpeed);
   }
 
-  ImVec2 imgSize = offscreenRenderer.getSceneSize();
+  ImVec2 avail = ImGui::GetContentRegionAvail();
+  ImVec2 imgSize = fit16x9(avail);
+
   ImGui::Image(offscreenRenderer.getSceneTexture(), imgSize);
 
   ImVec2 imageMin = ImGui::GetItemRectMin();
