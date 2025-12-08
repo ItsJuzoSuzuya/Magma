@@ -37,8 +37,13 @@ void EditorCamera::moveUp(float speed) {
   transform->position += transform->up() * speed;
 }
 
-void EditorCamera::setPerspectiveProjection(float fov, float aspect, float near, float far) {
+void EditorCamera::setPerspectiveProjection(float fov, float aspect, float near,
+                                            float far) {
   camera->setPerspectiveProjection(fov, aspect, near, far);
+}
+
+void EditorCamera::setAspectRatio(float aspect) {
+  camera->setAspectRatio(aspect);
 }
 
 } // namespace Magma

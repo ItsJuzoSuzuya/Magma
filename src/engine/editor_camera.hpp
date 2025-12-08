@@ -1,7 +1,6 @@
 #pragma once
-#include "components/transform.hpp"
 #include "components/camera.hpp"
-#include <memory>
+#include "components/transform.hpp"
 
 namespace Magma {
 
@@ -29,6 +28,7 @@ public:
 
   // Perspective config
   void setPerspectiveProjection(float fov, float aspect, float near, float far);
+  void setAspectRatio(float aspect);
 
   // Accessors
   Transform *getTransform() { return transform; }
@@ -38,8 +38,8 @@ public:
 
 private:
   GameObject *cameraObject = nullptr;
-  Transform* transform = nullptr;
-  Camera* camera = nullptr;
+  Transform *transform = nullptr;
+  Camera *camera = nullptr;
 };
 
 } // namespace Magma

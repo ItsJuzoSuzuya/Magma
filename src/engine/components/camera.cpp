@@ -1,8 +1,8 @@
 #include "camera.hpp"
-#include "transform.hpp"
-#include "../core/renderer.hpp"
 #include "../core/buffer.hpp"
+#include "../core/renderer.hpp"
 #include "../gameobject.hpp"
+#include "transform.hpp"
 #include <array>
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float3.hpp>
@@ -21,13 +21,27 @@ Camera::Camera(GameObject *owner)
 
 void Camera::setPerspectiveProjection(float fov, float aspect, float near,
                                       float far) {
+  this->fov = glm::clamp(fov, 0.01f, glm::radians(179.f));
+  aspectRatio = aspect;
+  nearPlane = near;
+  farPlane = far;
+
+  calculateProjectionMatrix();
+}
+
+void Camera::calculateProjectionMatrix() {
   float tanHalfFov = tan(fov / 2.f);
   projectionMatrix = glm::mat4(0.f);
-  projectionMatrix[0][0] = 1.f / (aspect * tanHalfFov);
+  projectionMatrix[0][0] = 1.f / (aspectRatio * tanHalfFov);
   projectionMatrix[1][1] = 1.f / tanHalfFov;
-  projectionMatrix[2][2] = far / (far - near);
+  projectionMatrix[2][2] = farPlane / (farPlane - nearPlane);
   projectionMatrix[2][3] = 1.f;
-  projectionMatrix[3][2] = -(far * near) / (far - near);
+  projectionMatrix[3][2] = -(farPlane * nearPlane) / (farPlane - nearPlane);
+}
+
+void Camera::setAspectRatio(float aspect) {
+  aspectRatio = aspect;
+  calculateProjectionMatrix();
 }
 
 void Camera::onUpdate() {
@@ -37,8 +51,7 @@ void Camera::onUpdate() {
   setView(ownerTransform->position, ownerTransform->rotation);
 }
 
-void Camera::setView(const glm::vec3 &position,
-                         const glm::vec3 &rotation) {
+void Camera::setView(const glm::vec3 &position, const glm::vec3 &rotation) {
   const float c1 = glm::cos(rotation.y);
   const float s1 = glm::sin(rotation.y);
   const float c2 = glm::cos(rotation.x);
@@ -93,10 +106,10 @@ bool Camera::canSee(const glm::vec3 &position) const {
 }
 
 void Camera::pushCameraDataToGPU(Buffer *uboBuffer) {
-    CameraUBO ubo{};
-    ubo.projectionView = getProjection() * getView();
-    uboBuffer->writeToBuffer((void *)&ubo);
-    uboBuffer->flush();
+  CameraUBO ubo{};
+  ubo.projectionView = getProjection() * getView();
+  uboBuffer->writeToBuffer((void *)&ubo);
+  uboBuffer->flush();
 }
 
 // --- Lifecycle ---
@@ -104,4 +117,4 @@ void Camera::onRender(Renderer &renderer) {
   pushCameraDataToGPU(renderer.getCameraBuffer());
 }
 
-} // namespace magma
+} // namespace Magma
