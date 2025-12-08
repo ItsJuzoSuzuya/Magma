@@ -111,7 +111,6 @@ void Pipeline::createGraphicsPipeline(const std::string &vertFilepath,
   renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
 
   pipelineInfo.pNext = &renderingInfo;
-  pipelineInfo.flags = VK_PIPELINE_CREATE_RENDERING_BIT;
 
   // Validate
   assert(renderingInfo.colorAttachmentCount > 0 ||
