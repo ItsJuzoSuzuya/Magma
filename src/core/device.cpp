@@ -603,6 +603,7 @@ void Device::createLogicalDevice() {
   VkPhysicalDeviceVulkan13Features vulkan13Features = {};
   vulkan13Features.sType =
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+  vulkan13Features.dynamicRendering = VK_TRUE;
 
   VkDeviceCreateInfo createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

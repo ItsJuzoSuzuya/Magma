@@ -15,9 +15,7 @@ OffscreenTarget::OffscreenTarget(const RenderTargetInfo &info)
       depthImageFormat{info.depthFormat}, imageCount_{info.imageCount} {
   createImages();
   createIdImage();
-  createRenderPass(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   createDepthResources();
-  createFramebuffers();
   createColorSampler();
 }
 
@@ -32,9 +30,7 @@ void OffscreenTarget::cleanup() {
   }
 
   destroyIdImages();
-  destroyFramebuffers();
   destroyDepthResources();
-  destroyRenderPass();
 
   for (auto v : imageViews) {
     if (v != VK_NULL_HANDLE)
@@ -53,17 +49,14 @@ void OffscreenTarget::resize(VkExtent2D newExtent) {
       newExtent.height == targetExtent.height)
     return;
 
-  VkDevice device = Device::get().device();
-  vkDeviceWaitIdle(device);
+  Device::waitIdle();
   cleanup();
 
   targetExtent = newExtent;
 
   createImages();
   createIdImage();
-  createRenderPass(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   createDepthResources();
-  createFramebuffers();
   createColorSampler();
 }
 
@@ -118,85 +111,6 @@ void OffscreenTarget::createImageViews() {
       throw std::runtime_error(
           "OffscreenRenderTarget: failed to create color image view");
   }
-}
-
-void OffscreenTarget::createRenderPass(VkImageLayout finalLayout) {
-  VkAttachmentDescription colorAttachment{};
-  colorAttachment.format = imageFormat;
-  colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-  colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  colorAttachment.finalLayout = finalLayout;
-
-  VkAttachmentReference colorRef{};
-  colorRef.attachment = 0;
-  colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-  VkAttachmentDescription idAttachment{};
-  idAttachment.format = idImageFormat;
-  idAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-  idAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  idAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  idAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  idAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  idAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  idAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-  VkAttachmentReference idRef{};
-  idRef.attachment = 1;
-  idRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-  VkAttachmentDescription depthAttachment{};
-  depthAttachment.format = depthImageFormat;
-  depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-  depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  depthAttachment.finalLayout =
-      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-  VkAttachmentReference depthRef{};
-  depthRef.attachment = 2;
-  depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-  array<VkAttachmentReference, 2> colorRefs = {colorRef, idRef};
-  VkSubpassDescription subpass{};
-  subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  subpass.colorAttachmentCount = static_cast<uint32_t>(colorRefs.size());
-  subpass.pColorAttachments = colorRefs.data();
-  subpass.pDepthStencilAttachment = &depthRef;
-
-  VkSubpassDependency dependency{};
-  dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-  dependency.dstSubpass = 0;
-  dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-                            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-  dependency.srcAccessMask = 0;
-  dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-                            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
-                             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-  std::array<VkAttachmentDescription, 3> attachments{
-      colorAttachment, idAttachment, depthAttachment};
-
-  VkRenderPassCreateInfo rpInfo{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-  rpInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-  rpInfo.pAttachments = attachments.data();
-  rpInfo.subpassCount = 1;
-  rpInfo.pSubpasses = &subpass;
-  rpInfo.dependencyCount = 1;
-  rpInfo.pDependencies = &dependency;
-
-  VkDevice device = Device::get().device();
-  if (vkCreateRenderPass(device, &rpInfo, nullptr, &renderPass) != VK_SUCCESS)
-    throw std::runtime_error(
-        "OffscreenRenderTarget: failed to create render pass");
 }
 
 void OffscreenTarget::createDepthResources() {
@@ -279,30 +193,6 @@ void OffscreenTarget::createIdImage() {
         "OffscreenRenderTarget: failed to create id image view");
 }
 
-void OffscreenTarget::createFramebuffers() {
-  VkDevice device = Device::get().device();
-
-  framebuffers.resize(images.size());
-  for (size_t i = 0; i < images.size(); ++i) {
-    std::array<VkImageView, 3> attachments{imageViews[i], idImageView,
-                                           depthImageViews[i]};
-
-    VkFramebufferCreateInfo framebufferInfo{
-        VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-    framebufferInfo.renderPass = renderPass;
-    framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-    framebufferInfo.pAttachments = attachments.data();
-    framebufferInfo.width = targetExtent.width;
-    framebufferInfo.height = targetExtent.height;
-    framebufferInfo.layers = 1;
-
-    if (vkCreateFramebuffer(device, &framebufferInfo, nullptr,
-                            &framebuffers[i]) != VK_SUCCESS)
-      throw std::runtime_error(
-          "OffscreenRenderTarget: failed to create framebuffer");
-  }
-}
-
 void OffscreenTarget::createColorSampler() {
   if (colorSampler != VK_NULL_HANDLE)
     return;
@@ -369,23 +259,6 @@ void OffscreenTarget::destroyDepthResources() {
   depthImages.clear();
   depthImageViews.clear();
   depthImageMemories.clear();
-}
-
-void OffscreenTarget::destroyFramebuffers() {
-  VkDevice device = Device::get().device();
-  for (auto fb : framebuffers) {
-    if (fb != VK_NULL_HANDLE)
-      vkDestroyFramebuffer(device, fb, nullptr);
-  }
-  framebuffers.clear();
-}
-
-void OffscreenTarget::destroyRenderPass() {
-  VkDevice device = Device::get().device();
-  if (renderPass != VK_NULL_HANDLE) {
-    vkDestroyRenderPass(device, renderPass, nullptr);
-    renderPass = VK_NULL_HANDLE;
-  }
 }
 
 } // namespace Magma

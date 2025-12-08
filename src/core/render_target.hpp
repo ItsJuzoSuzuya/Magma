@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <vulkan/vulkan_core.h>
 
 namespace Magma {
@@ -12,8 +13,6 @@ public:
   RenderTarget &operator=(const RenderTarget &) = delete;
 
   // Common Interface
-  virtual VkRenderPass getRenderPass() const = 0;
-  virtual VkFramebuffer getFrameBuffer(int index) const = 0;
   virtual VkExtent2D extent() const = 0;
 
   // Offscreen-only helpers (default: no sampler / no image)
@@ -32,6 +31,8 @@ public:
   }
 
   virtual void cleanup() = 0;
+
+  virtual uint32_t imageCount() const = 0;
 
 protected:
   RenderTarget() = default;

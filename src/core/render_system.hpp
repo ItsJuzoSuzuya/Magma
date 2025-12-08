@@ -40,8 +40,13 @@ private:
   std::unique_ptr<SwapChain> swapChain = nullptr;
   void recreateSwapChain(VkExtent2D extent);
 
-  // Renderering
+// Renderering
+#if defined(MAGMA_WITH_EDITOR)
+  std::unique_ptr<OffscreenRenderer> offscreenRendererEditor = nullptr;
+  std::unique_ptr<OffscreenRenderer> offscreenRendererGame = nullptr;
+#else
   std::unique_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
+#endif
   bool beginFrame();
   void endFrame();
 

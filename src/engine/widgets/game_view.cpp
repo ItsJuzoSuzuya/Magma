@@ -28,21 +28,7 @@ static ImVec2 fit16x9(const ImVec2 &avail) {
 void GameView::preFrame() {
   UIContext::ensureInit();
   ImGui::SetNextWindowClass(&UIContext::GameViewDockClass);
-  bool open = ImGui::Begin(name());
-  if (open) {
-    ImVec2 avail = ImGui::GetContentRegionAvail();
-    ImVec2 desired = fit16x9(avail);
-
-    ImVec2 current = offscreenRenderer.getSceneSize();
-    bool needsResize = ((int)desired.x != (int)current.x) ||
-                       ((int)desired.y != (int)current.y);
-
-    if (needsResize) {
-      VkExtent2D newExtent{(uint32_t)desired.x, (uint32_t)desired.y};
-      offscreenRenderer.resize(newExtent);
-    }
-  }
-
+  ImGui::Begin(name());
   ImGui::End();
 }
 

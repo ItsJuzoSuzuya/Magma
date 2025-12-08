@@ -14,10 +14,6 @@ public:
   ~OffscreenTarget() override;
 
   // RenderTarget interface
-  VkRenderPass getRenderPass() const override { return renderPass; }
-  VkFramebuffer getFrameBuffer(int index) const override {
-    return framebuffers.at(static_cast<size_t>(index));
-  }
   VkExtent2D extent() const override { return targetExtent; }
 
   VkImage &getColorImage(int index) override {
@@ -31,17 +27,18 @@ public:
   uint32_t getColorAttachmentCount() const override { return 2; }
 
   VkFormat getDepthFormat() const override { return depthImageFormat; }
+  VkImageView getDepthImageView(int index) const {
+    return depthImageViews.at(static_cast<size_t>(index));
+  }
 
   VkImage &getIdImage() { return idImage; }
+  VkImageView getIdImageView() const { return idImageView; }
+  uint32_t imageCount() const override { return imageCount_; }
 
   void resize(VkExtent2D newExtent) override;
   void cleanup() override;
 
 private:
-  // Rendering resources
-  VkRenderPass renderPass = VK_NULL_HANDLE;
-  void createRenderPass(VkImageLayout finalLayout);
-
   // Color images (offscreen-owned)
   uint32_t imageCount_ = 0;
   std::vector<VkImage> images;
@@ -65,10 +62,6 @@ private:
   VkFormat idImageFormat = VK_FORMAT_R32_UINT;
   void createIdImage();
 
-  // Framebuffers
-  std::vector<VkFramebuffer> framebuffers;
-  void createFramebuffers();
-
   // Sampler for sampling the color image in shaders / ImGui
   VkSampler colorSampler{VK_NULL_HANDLE};
   void createColorSampler();
@@ -80,7 +73,5 @@ private:
   void destroyIdImages();
   void destroyColorResources();
   void destroyDepthResources();
-  void destroyFramebuffers();
-  void destroyRenderPass();
 };
 } // namespace Magma

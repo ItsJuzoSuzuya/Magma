@@ -1,7 +1,7 @@
 #include "render_system.hpp"
-#include "../engine/time.hpp"
 #include "../core/window.hpp"
 #include "../engine/scene.hpp"
+#include "../engine/time.hpp"
 #include "device.hpp"
 #include "renderer.hpp"
 #include "swapchain.hpp"
@@ -35,7 +35,8 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
   offscreenInfo.extent.width /= 2;
   offscreenInfo.extent.height /= 2;
-  offscreenRenderer = make_unique<OffscreenRenderer>(offscreenInfo);
+  offscreenRendererEditor = make_unique<OffscreenRenderer>(offscreenInfo);
+  offscreenRendererGame = make_unique<OffscreenRenderer>(offscreenInfo);
 #else
   offscreenRenderer = make_unique<OffscreenRenderer>(*swapChain);
 #endif
@@ -53,9 +54,9 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
 
   // Important: GameEditor must be added last so that its content size is
   // calculated according to the other widgets
-  imguiRenderer->addWidget(
-      make_unique<GameEditor>(*offscreenRenderer.get(), editorCamera.get()));
-  imguiRenderer->addWidget(make_unique<GameView>(*offscreenRenderer.get()));
+  imguiRenderer->addWidget(make_unique<GameEditor>(
+      *offscreenRendererEditor.get(), editorCamera.get()));
+  imguiRenderer->addWidget(make_unique<GameView>(*offscreenRendererGame.get()));
 #endif
 
   createCommandBuffers();
@@ -66,8 +67,10 @@ RenderSystem::~RenderSystem() {
 #if defined(MAGMA_WITH_EDITOR)
   Device::waitIdle();
 
-  if (offscreenRenderer)
-    offscreenRenderer.reset();
+  if (offscreenRendererEditor)
+    offscreenRendererEditor.reset();
+  if (offscreenRendererGame)
+    offscreenRendererGame.reset();
 
   ImGui_ImplVulkan_Shutdown();
 
@@ -76,6 +79,9 @@ RenderSystem::~RenderSystem() {
 
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
+#else
+  if (offscreenRenderer)
+    offscreenRenderer.reset();
 #endif
 }
 

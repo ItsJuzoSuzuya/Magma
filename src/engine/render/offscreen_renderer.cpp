@@ -3,7 +3,6 @@
 #include "../../core/frame_info.hpp"
 #include "../components/camera.hpp"
 #include "../scene.hpp"
-#include "swapchain_target.hpp"
 #include <print>
 
 #if defined(MAGMA_WITH_EDITOR)
@@ -92,12 +91,7 @@ void OffscreenRenderer::createOffscreenTextures() {
 }
 #endif
 
-static int currentFramebufferIndex() {
-#if defined(MAGMA_WITH_EDITOR)
-  return FrameInfo::frameIndex;
-#endif
-  return FrameInfo::imageIndex;
-}
+static int currentImageIndex() { return FrameInfo::imageIndex; }
 
 // Rendering helpers
 void OffscreenRenderer::begin() {
@@ -119,17 +113,54 @@ void OffscreenRenderer::begin() {
 #endif
   clearValues[colorAttachmentCount].depthStencil = {1.0f, 0};
 
-  VkRenderPassBeginInfo beginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-  beginInfo.renderPass = renderTarget->getRenderPass();
-  beginInfo.framebuffer =
-      renderTarget->getFrameBuffer(currentFramebufferIndex());
-  beginInfo.renderArea.offset = {0, 0};
-  beginInfo.renderArea.extent = renderTarget->extent();
-  beginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-  beginInfo.pClearValues = clearValues.data();
+  VkRenderingAttachmentInfo color0 = {};
+  color0.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  color0.imageView = renderTarget->getColorImageView(currentImageIndex());
+  color0.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  color0.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  color0.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  color0.clearValue = clearValues[0];
 
-  vkCmdBeginRenderPass(FrameInfo::commandBuffer, &beginInfo,
-                       VK_SUBPASS_CONTENTS_INLINE);
+  VkRenderingAttachmentInfo color1{};
+#if defined(MAGMA_WITH_EDITOR)
+  color1.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  color1.imageView =
+      static_cast<OffscreenTarget *>(renderTarget.get())->getIdImageView();
+  color1.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  color1.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  color1.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  color1.clearValue = clearValues[1];
+#endif
+
+  VkRenderingAttachmentInfo depth = {};
+  depth.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  depth.imageView = static_cast<OffscreenTarget *>(renderTarget.get())
+                        ->getDepthImageView(currentImageIndex());
+  depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  depth.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  depth.clearValue = clearValues[colorAttachmentCount];
+
+  std::array<VkRenderingAttachmentInfo, 2> colors{};
+  colors[0] = color0;
+#if defined(MAGMA_WITH_EDITOR)
+  colors[1] = color1;
+#endif
+
+  VkRenderingInfo renderingInfo = {};
+  renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+  renderingInfo.renderArea.offset = {0, 0};
+  renderingInfo.renderArea.extent = renderTarget->extent();
+#if defined(MAGMA_WITH_EDITOR)
+  renderingInfo.colorAttachmentCount = 2;
+#else
+  renderingInfo.colorAttachmentCount = 1;
+#endif
+  renderingInfo.pColorAttachments = colors.data();
+  renderingInfo.pDepthAttachment = &depth;
+  renderingInfo.layerCount = 1;
+
+  vkCmdBeginRendering(FrameInfo::commandBuffer, &renderingInfo);
 
   VkViewport viewport = {};
   viewport.x = 0;
@@ -161,7 +192,7 @@ void OffscreenRenderer::end() {
       FrameInfo::frameIndex >= SwapChain::MAX_FRAMES_IN_FLIGHT)
     throw runtime_error("Invalid frame index in FrameInfo!");
 
-  vkCmdEndRenderPass(FrameInfo::commandBuffer);
+  vkCmdEndRendering(FrameInfo::commandBuffer);
 
 #if defined(MAGMA_WITH_EDITOR)
   VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};

@@ -16,7 +16,7 @@ namespace Magma {
 
 Pipeline::Pipeline(const std::string &vertFilepath,
                    const std::string &fragFilepath,
-                   const PipelineConfigInfo &configInfo){
+                   const PipelineConfigInfo &configInfo) {
   createGraphicsPipeline(vertFilepath, fragFilepath, configInfo);
 }
 
@@ -37,8 +37,6 @@ void Pipeline::createGraphicsPipeline(const std::string &vertFilepath,
                                       const PipelineConfigInfo &configInfo) {
   assert(configInfo.pipelineLayout != VK_NULL_HANDLE &&
          "Cannot create graphics pipeline. Invalid pipeline layout!");
-  assert(configInfo.renderPass != VK_NULL_HANDLE &&
-         "Cannot create graphics pipeline. Invalid render pass!");
 
   std::vector<char> vertCode = readFile(vertFilepath);
   std::vector<char> fragCode = readFile(fragFilepath);
@@ -76,6 +74,12 @@ void Pipeline::createGraphicsPipeline(const std::string &vertFilepath,
   vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
   vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
+  VkPipelineRenderingCreateInfo pipelineRenderingInfo = {};
+  pipelineRenderingInfo.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+  pipelineRenderingInfo.colorAttachmentCount =
+      static_cast<uint32_t>(configInfo.colorBlendAttachments.size());
+
   VkGraphicsPipelineCreateInfo pipelineInfo = {};
   pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
   pipelineInfo.stageCount = 2;
@@ -88,10 +92,30 @@ void Pipeline::createGraphicsPipeline(const std::string &vertFilepath,
   pipelineInfo.pDepthStencilState = &configInfo.depthStencilInfo;
   pipelineInfo.pColorBlendState = &configInfo.colorBlendInfo;
   pipelineInfo.pDynamicState = &configInfo.dynamicStateInfo;
-
   pipelineInfo.layout = configInfo.pipelineLayout;
-  pipelineInfo.renderPass = configInfo.renderPass;
-  pipelineInfo.subpass = configInfo.subpass;
+
+  // No render pass (using dynamic rendering)
+  pipelineInfo.renderPass = VK_NULL_HANDLE;
+  pipelineInfo.subpass = 0;
+
+  // Provide formats via VkPipelineRenderingCreateInfo
+  VkPipelineRenderingCreateInfo renderingInfo{};
+  renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+  renderingInfo.colorAttachmentCount =
+      static_cast<uint32_t>(configInfo.colorAttachmentFormats.size());
+  renderingInfo.pColorAttachmentFormats =
+      configInfo.colorAttachmentFormats.empty()
+          ? nullptr
+          : configInfo.colorAttachmentFormats.data();
+  renderingInfo.depthAttachmentFormat = configInfo.depthFormat;
+  renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+
+  pipelineInfo.pNext = &renderingInfo;
+  pipelineInfo.flags = VK_PIPELINE_CREATE_RENDERING_BIT;
+
+  // Validate
+  assert(renderingInfo.colorAttachmentCount > 0 ||
+         renderingInfo.depthAttachmentFormat != VK_FORMAT_UNDEFINED);
 
   pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
   pipelineInfo.basePipelineIndex = -1;
@@ -99,9 +123,8 @@ void Pipeline::createGraphicsPipeline(const std::string &vertFilepath,
   pipelineInfo.pNext = nullptr;
 
   VkDevice device = Device::get().device();
-  if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1,
-                                &pipelineInfo, nullptr,
-                                &graphicsPipeline) != VK_SUCCESS)
+  if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo,
+                                nullptr, &graphicsPipeline) != VK_SUCCESS)
     throw std::runtime_error("Failed to create graphics pipeline!");
 }
 
@@ -129,8 +152,8 @@ void Pipeline::createShaderModule(const std::vector<char> &code,
   createInfo.pCode = reinterpret_cast<const uint32_t *>(code.data());
 
   VkDevice device = Device::get().device();
-  if (vkCreateShaderModule(device, &createInfo, nullptr,
-                           shaderModule) != VK_SUCCESS)
+  if (vkCreateShaderModule(device, &createInfo, nullptr, shaderModule) !=
+      VK_SUCCESS)
     throw std::runtime_error("Failed to create shader module!");
 }
 
@@ -202,6 +225,10 @@ void Pipeline::defaultPipelineConfig(PipelineConfigInfo &configInfo) {
       VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
   configInfo.colorBlendInfo.logicOpEnable = VK_FALSE;
   configInfo.colorBlendInfo.attachmentCount = 1;
-  configInfo.colorBlendInfo.pAttachments = configInfo.colorBlendAttachments.data();
+  configInfo.colorBlendInfo.pAttachments =
+      configInfo.colorBlendAttachments.data();
+
+  configInfo.colorAttachmentFormats.clear();
+  configInfo.depthFormat = VK_FORMAT_D32_SFLOAT;
 }
 } // namespace Magma

@@ -24,14 +24,14 @@ struct PipelineConfigInfo {
   std::vector<VkDynamicState> dynamicStates;
   VkPipelineDynamicStateCreateInfo dynamicStateInfo;
   VkPipelineLayout pipelineLayout = nullptr;
-  VkRenderPass renderPass = nullptr;
-  uint32_t subpass = 0;
+
+  std::vector<VkFormat> colorAttachmentFormats;
+  VkFormat depthFormat = VK_FORMAT_UNDEFINED;
 };
 
 class Pipeline {
 public:
-  Pipeline(const std::string &vertFilepath,
-           const std::string &fragFilepath,
+  Pipeline(const std::string &vertFilepath, const std::string &fragFilepath,
            const PipelineConfigInfo &configInfo);
   ~Pipeline();
 
