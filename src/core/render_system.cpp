@@ -242,13 +242,11 @@ void RenderSystem::onWindowResized() {
   recreateSwapChain(extent);
 
 #if defined(MAGMA_WITH_EDITOR)
-  imguiRenderer->resize(window.getExtent(), swapChain->getSwapChain());
-#endif
-
-#if defined(MAGMA_WITH_EDITOR)
-  imguiRenderer->resize(window.getExtent(), swapChain->getSwapChain());
+  imguiRenderer->resize(swapChain->getRenderInfo().extent,
+                        swapChain->getSwapChain());
 #else
-  offscreenRenderer->resize(extent, swapChain->getSwapChain());
+  offscreenRenderer->resize(swapChain->getRenderInfo().extent,
+                            swapChain->getSwapChain());
 #endif
 }
 
