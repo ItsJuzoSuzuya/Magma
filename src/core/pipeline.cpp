@@ -74,12 +74,6 @@ void Pipeline::createGraphicsPipeline(const std::string &vertFilepath,
   vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
   vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
-  VkPipelineRenderingCreateInfo pipelineRenderingInfo = {};
-  pipelineRenderingInfo.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-  pipelineRenderingInfo.colorAttachmentCount =
-      static_cast<uint32_t>(configInfo.colorBlendAttachments.size());
-
   VkGraphicsPipelineCreateInfo pipelineInfo = {};
   pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
   pipelineInfo.stageCount = 2;
@@ -118,8 +112,6 @@ void Pipeline::createGraphicsPipeline(const std::string &vertFilepath,
 
   pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
   pipelineInfo.basePipelineIndex = -1;
-
-  pipelineInfo.pNext = nullptr;
 
   VkDevice device = Device::get().device();
   if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo,

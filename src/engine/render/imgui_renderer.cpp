@@ -1,4 +1,5 @@
 #include "imgui_renderer.hpp"
+#include "../../core/device.hpp"
 #include "../../core/frame_info.hpp"
 #include "../widgets/dock_layout.hpp"
 #include "../widgets/ui_context.hpp"
@@ -7,6 +8,7 @@
 #include "imgui_impl_vulkan.h"
 #include "swapchain_target.hpp"
 #include <array>
+#include <print>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -111,6 +113,33 @@ void ImGuiRenderer::preFrame() {
 
 // Rendering
 void ImGuiRenderer::begin() {
+  println("ImGuiRenderer::begin() -> Transitioning swapchain image to "
+          "COLOR_ATTACHMENT_OPTIMAL");
+  // Transition swapchain color image to COLOR_ATTACHMENT_OPTIMAL
+  const uint32_t idx = FrameInfo::imageIndex;
+  VkImage swapImage = renderTarget->getColorImage(idx);
+  VkImageLayout current = colorLayouts[idx];
+
+  if (current != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+    VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkAccessFlags srcAccess = 0;
+
+    if (current == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+      srcStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+      srcAccess = 0;
+    } else if (current == VK_IMAGE_LAYOUT_UNDEFINED) {
+      srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+      srcAccess = 0;
+    }
+
+    Device::transitionImageLayout(
+        swapImage, current, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, srcStage,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, srcAccess,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    colorLayouts[idx] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  }
+
   std::array<VkClearValue, 2> clearValues{};
   clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
   clearValues[1].depthStencil = {1.0f, 0};
@@ -174,7 +203,23 @@ void ImGuiRenderer::record() {
   }
 }
 
-void ImGuiRenderer::end() { vkCmdEndRendering(FrameInfo::commandBuffer); }
+void ImGuiRenderer::end() {
+  vkCmdEndRendering(FrameInfo::commandBuffer);
+
+  println("ImGuiRenderer::end() -> Transitioning swapchain image to PRESENT");
+  // Transition swapchain image to PRESENT for presentation
+  const uint32_t idx = FrameInfo::imageIndex;
+  VkImage swapImage = renderTarget->getColorImage(idx);
+
+  Device::transitionImageLayout(
+      swapImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_IMAGE_ASPECT_COLOR_BIT);
+
+  colorLayouts[idx] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+}
 
 // Resize
 void ImGuiRenderer::resize(VkExtent2D extent, VkSwapchainKHR swapChain) {

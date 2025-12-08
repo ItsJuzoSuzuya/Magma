@@ -101,6 +101,51 @@ void OffscreenRenderer::begin() {
       FrameInfo::frameIndex >= SwapChain::MAX_FRAMES_IN_FLIGHT)
     throw runtime_error("Invalid frame index in FrameInfo!");
 
+  const uint32_t idx = currentImageIndex();
+
+  // Transition scene color image to COLOR_ATTACHMENT_OPTIMAL
+  VkImage sceneColor = renderTarget->getColorImage(idx);
+  VkImageLayout curSceneLayout = sceneColorLayouts[idx];
+  if (curSceneLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+    println("OffscreenRenderer::begin() -> Transitioning images to "
+            "COLOR_ATTACHMENT_OPTIMAL");
+    VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkAccessFlags srcAccess = 0;
+    if (curSceneLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+      srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+      srcAccess = VK_ACCESS_SHADER_READ_BIT;
+    }
+
+    Device::transitionImageLayout(
+        sceneColor, curSceneLayout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        srcStage, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, srcAccess,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    sceneColorLayouts[idx] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  }
+
+#if defined(MAGMA_WITH_EDITOR)
+  // Transition ID image to COLOR_ATTACHMENT_OPTIMAL
+  VkImage idImage =
+      static_cast<OffscreenTarget *>(renderTarget.get())->getIdImage();
+  VkImageLayout curIdLayout = idColorLayouts[idx];
+  if (curIdLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+    VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkAccessFlags srcAccess = 0;
+    if (curIdLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+      srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+      srcAccess = VK_ACCESS_SHADER_READ_BIT;
+    }
+
+    Device::transitionImageLayout(
+        idImage, curIdLayout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        srcStage, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, srcAccess,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    idColorLayouts[idx] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  }
+#endif
+
   const uint32_t colorAttachmentCount = renderTarget->getColorAttachmentCount();
   vector<VkClearValue> clearValues(colorAttachmentCount + 1);
   clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
@@ -195,24 +240,38 @@ void OffscreenRenderer::end() {
   vkCmdEndRendering(FrameInfo::commandBuffer);
 
 #if defined(MAGMA_WITH_EDITOR)
-  VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-  barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-  barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-  barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  barrier.image = getSceneImage();
-  barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-  barrier.subresourceRange.baseMipLevel = 0;
-  barrier.subresourceRange.levelCount = 1;
-  barrier.subresourceRange.baseArrayLayer = 0;
-  barrier.subresourceRange.layerCount = 1;
+  println("OffscreenRenderer::end() -> Transitioning scene images to "
+          "SHADER_READ_ONLY_OPTIMAL");
+  const uint32_t idx = currentImageIndex();
 
-  vkCmdPipelineBarrier(FrameInfo::commandBuffer,
-                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
-                       nullptr, 1, &barrier);
+  // Transition scene color to SHADER_READ_ONLY for ImGui sampling
+  {
+    VkImage sceneColor = renderTarget->getColorImage(idx);
+    Device::transitionImageLayout(
+        sceneColor, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_ASPECT_COLOR_BIT);
+    sceneColorLayouts[idx] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  }
+
+  // Transition ID image to SHADER_READ_ONLY (used for readback barriers)
+  {
+    println("OffscreenRenderer::end() -> Transitioning ID image to "
+            "SHADER_READ_ONLY_OPTIMAL");
+    VkImage idImage =
+        static_cast<OffscreenTarget *>(renderTarget.get())->getIdImage();
+    Device::transitionImageLayout(
+        idImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_ASPECT_COLOR_BIT);
+    idColorLayouts[idx] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  }
 #endif
 }
 

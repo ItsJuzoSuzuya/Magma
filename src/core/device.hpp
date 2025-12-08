@@ -68,10 +68,11 @@ public:
                          VkImage image, VkBufferImageCopy region);
 
   // Image Layout Transition
-  void transitionImageLayout(VkImage image, VkImageLayout oldLayout,
-                             VkImageLayout newLayout);
-  void transitionDepthImage(VkCommandBuffer commandBuffer, VkImage image,
-                            VkImageLayout oldLayout, VkImageLayout newLayout);
+  static void transitionImageLayout(
+      VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout,
+      VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage,
+      VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
+      VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT);
 
   // Command Buffers
   VkCommandBuffer allocateCommandBuffer(VkCommandBufferLevel level);

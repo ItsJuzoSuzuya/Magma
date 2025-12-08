@@ -146,10 +146,6 @@ void RenderSystem::renderFrame() {
     imguiRenderer->begin();
     imguiRenderer->record();
     imguiRenderer->end();
-
-    imguiRenderer->begin();
-    imguiRenderer->record();
-    imguiRenderer->end();
 #else
     offscreenRenderer->begin();
     offscreenRenderer->record();

@@ -82,6 +82,12 @@ private:
   // Camera Buffer
   std::vector<std::unique_ptr<Buffer>> cameraBuffers;
   void createCameraBuffer();
+
+  // Image layout tracking (per-frame images)
+  std::vector<VkImageLayout> sceneColorLayouts; // main color image layout
+#if defined(MAGMA_WITH_EDITOR)
+  std::vector<VkImageLayout> idColorLayouts; // ID image layout
+#endif
 };
 
 } // namespace Magma

@@ -43,6 +43,9 @@ private:
   // Widgets
   std::vector<std::unique_ptr<Widget>> widgets;
   bool dockBuilt = false;
+
+  // Layout tracking for swapchain color images
+  std::vector<VkImageLayout> colorLayouts; // per-swapchain-image layout state
 };
 
 } // namespace Magma
