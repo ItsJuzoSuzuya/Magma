@@ -107,7 +107,11 @@ GameObject *OffscreenRenderer::pollPickResult() {
 }
 #endif
 
+#if defined(MAGMA_WITH_EDITOR)
+static int currentImageIndex() { return FrameInfo::frameIndex; }
+#else
 static int currentImageIndex() { return FrameInfo::imageIndex; }
+#endif
 
 // Rendering helpers
 void OffscreenRenderer::begin() {
