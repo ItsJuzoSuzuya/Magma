@@ -41,6 +41,7 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   offscreenRendererGame = make_unique<OffscreenRenderer>(offscreenInfo);
 
   editorCamera = make_unique<EditorCamera>();
+  offscreenRendererEditor->setActiveCamera(editorCamera->getCamera());
 
   // Rendering ImGui
   imguiRenderer = make_unique<ImGuiRenderer>(*swapChain);
@@ -138,6 +139,11 @@ void RenderSystem::renderFrame() {
     Scene::onRender(*offscreenRendererEditor);
     offscreenRendererEditor->end();
 
+    {
+      Camera *mainCam = Scene::getActiveCamera();
+      offscreenRendererGame->setActiveCamera(
+          mainCam ? mainCam : editorCamera->getCamera());
+    }
     offscreenRendererGame->begin();
     offscreenRendererGame->record();
     Scene::onRender(*offscreenRendererGame);

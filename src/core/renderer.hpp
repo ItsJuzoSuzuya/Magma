@@ -1,4 +1,5 @@
 #pragma once
+#include "../engine/components/camera.hpp"
 #include "descriptors.hpp"
 #include "pipeline.hpp"
 #include "render_target.hpp"
@@ -31,6 +32,8 @@ public:
   VkPipelineLayout getPipelineLayout() { return pipelineLayout; }
   virtual Buffer *getCameraBuffer() { return nullptr; }
 
+  virtual Camera *getActiveCamera() { return nullptr; }
+
   // Rendering
   virtual void begin() = 0;
   virtual void record() = 0;
@@ -42,8 +45,10 @@ public:
 protected:
   // Pipeline
   std::unique_ptr<Pipeline> pipeline;
-  void createPipeline(RenderTarget *renderTarget, const std::string &vertFile = "src/shaders/shader.vert.spv",
-                      const std::string &fragFile = "src/shaders/shader.frag.spv");
+  void
+  createPipeline(RenderTarget *renderTarget,
+                 const std::string &vertFile = "src/shaders/shader.vert.spv",
+                 const std::string &fragFile = "src/shaders/shader.frag.spv");
 
   // Descriptor Pool
   std::unique_ptr<DescriptorPool> descriptorPool;

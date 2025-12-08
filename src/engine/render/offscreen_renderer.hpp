@@ -29,6 +29,9 @@ public:
     return cameraBuffers[FrameInfo::frameIndex].get();
   }
 
+  void setActiveCamera(Camera *camera) { activeCamera = camera; }
+  Camera *getActiveCamera() override { return activeCamera; }
+
 #if defined(MAGMA_WITH_EDITOR)
   OffscreenTarget &target() { return *renderTarget; }
 #else
@@ -86,6 +89,8 @@ private:
   // Camera Buffer
   std::vector<std::unique_ptr<Buffer>> cameraBuffers;
   void createCameraBuffer();
+
+  Camera *activeCamera = nullptr;
 
   // Image layout tracking (per-frame images)
   std::vector<VkImageLayout> sceneColorLayouts; // main color image layout

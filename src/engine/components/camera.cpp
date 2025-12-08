@@ -2,6 +2,7 @@
 #include "../core/buffer.hpp"
 #include "../core/renderer.hpp"
 #include "../gameobject.hpp"
+#include "../scene.hpp"
 #include "transform.hpp"
 #include <array>
 #include <glm/ext/matrix_float4x4.hpp>
@@ -114,6 +115,13 @@ void Camera::pushCameraDataToGPU(Buffer *uboBuffer) {
 
 // --- Lifecycle ---
 void Camera::onRender(Renderer &renderer) {
+  Camera *active = renderer.getActiveCamera();
+  if (active != this)
+    return;
+
+  if (ownerTransform)
+    setView(ownerTransform->position, ownerTransform->rotation);
+
   pushCameraDataToGPU(renderer.getCameraBuffer());
 }
 
