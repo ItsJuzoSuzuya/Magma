@@ -31,14 +31,13 @@ OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info) : Renderer() {
   Renderer::init(descriptorSetLayout->getDescriptorSetLayout());
   createDescriptorSets();
 
-#if defined(MAGMA_WITH_EDITOR)
   renderTarget = make_unique<OffscreenTarget>(info);
-#else
-  renderTarget = make_unique<SwapchainTarget>(swapChain);
-#endif
-
   createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
                  "src/shaders/shader.frag.spv");
+
+  sceneColorLayouts.assign(renderTarget->imageCount(),
+                           VK_IMAGE_LAYOUT_UNDEFINED);
+  idColorLayouts.assign(renderTarget->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 #else
 OffscreenRenderer::OffscreenRenderer(SwapChain &swapChain) : Renderer() {
@@ -58,6 +57,9 @@ OffscreenRenderer::OffscreenRenderer(SwapChain &swapChain) : Renderer() {
 
   createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
                  "src/shaders/shader.frag.spv");
+
+  sceneColorLayouts.assign(renderTarget->imageCount(),
+                           VK_IMAGE_LAYOUT_UNDEFINED);
 }
 #endif
 
@@ -107,8 +109,6 @@ void OffscreenRenderer::begin() {
   VkImage sceneColor = renderTarget->getColorImage(idx);
   VkImageLayout curSceneLayout = sceneColorLayouts[idx];
   if (curSceneLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-    println("OffscreenRenderer::begin() -> Transitioning images to "
-            "COLOR_ATTACHMENT_OPTIMAL");
     VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     VkAccessFlags srcAccess = 0;
     if (curSceneLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
@@ -240,8 +240,6 @@ void OffscreenRenderer::end() {
   vkCmdEndRendering(FrameInfo::commandBuffer);
 
 #if defined(MAGMA_WITH_EDITOR)
-  println("OffscreenRenderer::end() -> Transitioning scene images to "
-          "SHADER_READ_ONLY_OPTIMAL");
   const uint32_t idx = currentImageIndex();
 
   // Transition scene color to SHADER_READ_ONLY for ImGui sampling
@@ -259,8 +257,6 @@ void OffscreenRenderer::end() {
 
   // Transition ID image to SHADER_READ_ONLY (used for readback barriers)
   {
-    println("OffscreenRenderer::end() -> Transitioning ID image to "
-            "SHADER_READ_ONLY_OPTIMAL");
     VkImage idImage =
         static_cast<OffscreenTarget *>(renderTarget.get())->getIdImage();
     Device::transitionImageLayout(
@@ -287,6 +283,11 @@ void OffscreenRenderer::resize(VkExtent2D newExtent) {
   createPipeline(renderTarget.get());
 
   createOffscreenTextures();
+
+  sceneColorLayouts.assign(renderTarget->imageCount(),
+                           VK_IMAGE_LAYOUT_UNDEFINED);
+  idColorLayouts.assign(renderTarget->imageCount(),
+                        VK_IMAGE_LAYOUT_UNDEFINED);
 }
 #else
 void OffscreenRenderer::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
@@ -294,6 +295,9 @@ void OffscreenRenderer::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
 
   renderTarget->resize(newExtent, swapChain);
   createPipeline(renderTarget.get());
+
+  sceneColorLayouts.assign(renderTarget->imageCount(),
+                           VK_IMAGE_LAYOUT_UNDEFINED);
 }
 #endif
 

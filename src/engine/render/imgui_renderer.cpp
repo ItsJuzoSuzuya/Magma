@@ -23,6 +23,8 @@ ImGuiRenderer::ImGuiRenderer(SwapChain &swapChain) : Renderer() {
   renderTarget = make_unique<SwapchainTarget>(swapChain);
   createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
                  "src/shaders/imgui.frag.spv");
+
+  colorLayouts.assign(renderTarget->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
 // --- Public ---
@@ -113,8 +115,6 @@ void ImGuiRenderer::preFrame() {
 
 // Rendering
 void ImGuiRenderer::begin() {
-  println("ImGuiRenderer::begin() -> Transitioning swapchain image to "
-          "COLOR_ATTACHMENT_OPTIMAL");
   // Transition swapchain color image to COLOR_ATTACHMENT_OPTIMAL
   const uint32_t idx = FrameInfo::imageIndex;
   VkImage swapImage = renderTarget->getColorImage(idx);
@@ -206,7 +206,6 @@ void ImGuiRenderer::record() {
 void ImGuiRenderer::end() {
   vkCmdEndRendering(FrameInfo::commandBuffer);
 
-  println("ImGuiRenderer::end() -> Transitioning swapchain image to PRESENT");
   // Transition swapchain image to PRESENT for presentation
   const uint32_t idx = FrameInfo::imageIndex;
   VkImage swapImage = renderTarget->getColorImage(idx);
@@ -226,6 +225,8 @@ void ImGuiRenderer::resize(VkExtent2D extent, VkSwapchainKHR swapChain) {
   renderTarget->resize(extent, swapChain);
   createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
                  "src/shaders/imgui.frag.spv");
+
+  colorLayouts.assign(renderTarget->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
 // --- Private ---
