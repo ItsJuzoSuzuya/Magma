@@ -1,6 +1,7 @@
 #include "scene_menu.hpp"
-#include "../scene.hpp"
 #include "../scene_action.hpp"
+#include "../components/camera.hpp"
+#include "../components/transform.hpp"
 #include "../gameobject.hpp"
 #include "imgui.h"
 
@@ -28,6 +29,11 @@ void SceneMenu::draw() {
       ImGui::Separator();
       if (ImGui::MenuItem("Add Entity"))
         GameObject::create();
+      if (ImGui::MenuItem("Add Camera")) {
+        auto &obj = GameObject::create("Camera");
+        obj.addComponent<Transform>();
+        obj.addComponent<Camera>();
+      }
     }
 
     ImGui::EndPopup();

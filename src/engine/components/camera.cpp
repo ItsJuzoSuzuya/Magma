@@ -3,6 +3,7 @@
 #include "../core/renderer.hpp"
 #include "../gameobject.hpp"
 #include "../scene.hpp"
+#include "imgui.h"
 #include "transform.hpp"
 #include <array>
 #include <glm/ext/matrix_float4x4.hpp>
@@ -124,5 +125,20 @@ void Camera::onRender(Renderer &renderer) {
 
   pushCameraDataToGPU(renderer.getCameraBuffer());
 }
+
+#if defined(MAGMA_WITH_EDITOR)
+void Camera::onInspector() {
+  Camera *activeCamera = Scene::getActiveCamera();
+  bool isActive = (activeCamera == this);
+  if(ImGui::Checkbox("Active Camera", &isActive)) {
+    if(isActive) 
+      Scene::setActiveCamera(this);
+    else 
+      Scene::setActiveCamera(nullptr);
+  }
+}
+#endif
+
+
 
 } // namespace Magma

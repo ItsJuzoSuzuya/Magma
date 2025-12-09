@@ -35,7 +35,7 @@ public:
 
 #if defined(MAGMA_WITH_EDITOR)
   // Inspector
-  void onInspector() override {};
+  void onInspector() override;
   const char *inspectorName() const override { return "Camera"; }
   const float inspectorHeight() const override { return 150.0f; }
 #endif
