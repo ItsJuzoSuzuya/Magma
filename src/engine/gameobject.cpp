@@ -1,6 +1,7 @@
 #include "gameobject.hpp"
 #include "components/mesh.hpp"
 #include "scene.hpp"
+#include <algorithm>
 
 #if defined(MAGMA_WITH_EDITOR)
 #include "imgui.h"
@@ -31,6 +32,16 @@ void GameObject::destroy() {
   #if defined(MAGMA_WITH_EDITOR)
     Inspector::setContext(nullptr);
   #endif
+}
+
+void GameObject::removeChild(GameObject *child) {
+  if (!child) return;
+  auto it = std::remove_if(children.begin(), children.end(),
+                           [&](const auto &c) { return c.get() == child; });
+
+  if (it == children.end()) return;
+
+  children.erase(it, children.end());
 }
 
 // Factory methods

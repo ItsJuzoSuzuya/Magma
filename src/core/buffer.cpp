@@ -1,4 +1,5 @@
 #include "buffer.hpp"
+#include "deletion_queue.hpp"
 #include "device.hpp"
 #include "render_system.hpp"
 #include <cassert>
@@ -25,16 +26,24 @@ Buffer::Buffer(VkDeviceSize instanceSize,
 // Destructor
 
 Buffer::~Buffer() { 
-  Device::waitIdle();
   cleanUp();
 }
 
 void Buffer::cleanUp() {
+  if (buffer == VK_NULL_HANDLE && bufferMemory == VK_NULL_HANDLE)
+    return;
+
   unmap();
 
-  VkDevice device = Device::get().device();
-  vkDestroyBuffer(device, buffer, nullptr);
-  vkFreeMemory(device, bufferMemory, nullptr);
+  VkBuffer buf = buffer;
+  VkDeviceMemory mem = bufferMemory;
+  buffer = VK_NULL_HANDLE;
+  bufferMemory = VK_NULL_HANDLE;
+
+  DeletionQueue::push([buf, mem](VkDevice device) {
+    vkDestroyBuffer(device, buf, nullptr);
+    vkFreeMemory(device, mem, nullptr);
+  });
 }
 // --- Public ---
 // Descriptor Info

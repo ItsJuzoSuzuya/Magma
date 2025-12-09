@@ -56,7 +56,7 @@ void RuntimeControl::drawButtons() {
   ImGui::SetCursorPosX(ImGui::GetCursorPosX() + startX);
 
   if (showPlay) {
-    if (ImGui::Button(ICON_PLAY, ImVec2(size, size))) 
+    if (ImGui::Button(ICON_PLAY, ImVec2(size, size)))
       state = RunState::Running;
     ImGui::SameLine(0, spacing);
   }
@@ -69,7 +69,7 @@ void RuntimeControl::drawButtons() {
   }
 
   if (showStop) {
-    if (ImGui::Button(ICON_STOP, ImVec2(size, size))) 
+    if (ImGui::Button(ICON_STOP, ImVec2(size, size)))
       state = RunState::Stopped;
   }
 }

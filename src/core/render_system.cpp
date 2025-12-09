@@ -2,6 +2,7 @@
 #include "../engine/time.hpp"
 #include "../core/window.hpp"
 #include "../engine/scene.hpp"
+#include "deletion_queue.hpp"
 #include "device.hpp"
 #include "renderer.hpp"
 #include "swapchain.hpp"
@@ -65,6 +66,7 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
 RenderSystem::~RenderSystem() {
 #if defined(MAGMA_WITH_EDITOR)
   Device::waitIdle();
+  DeletionQueue::flushAll();
 
   if (offscreenRenderer)
     offscreenRenderer.reset();
@@ -204,6 +206,7 @@ void RenderSystem::endFrame() {
 
   FrameInfo::advanceFrame();
   Scene::current()->processDeferredActions();
+  DeletionQueue::flushForFrame(FrameInfo::frameIndex);
 }
 
 // Resize

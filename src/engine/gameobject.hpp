@@ -38,6 +38,7 @@ public:
   // Destructor
   ~GameObject();
   void destroy();
+  void removeChild(GameObject *child);
 
   // Factory methods
   static GameObject &create();

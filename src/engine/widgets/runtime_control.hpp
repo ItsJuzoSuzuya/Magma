@@ -34,6 +34,8 @@ public:
   
 private:
   inline static RunState state = Stopped;
+  void beginPlaySession();
+  void endPlaySession();
 
   void drawButtons();
 };

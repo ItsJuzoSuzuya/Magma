@@ -14,11 +14,7 @@ public:
         return;
 
       if (auto parent = obj->parent) {
-        auto siblings = parent->getChildren();
-        siblings.erase(
-            std::remove_if(siblings.begin(), siblings.end(),
-                           [&](const auto &child) { return child == obj; }),
-            siblings.end());
+        parent->removeChild(obj);
       } else if (auto scene = Scene::current()) {
         auto &gameObjects = scene->getGameObjects();
         gameObjects.erase(

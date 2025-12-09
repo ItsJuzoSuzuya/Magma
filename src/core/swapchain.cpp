@@ -80,8 +80,8 @@ VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
   VkSemaphore waitSemaphores[] = {
-      imageAvailableSemaphores[FrameInfo::frameIndex]}; // wait on per-frame
-                                                        // imageAvailable
+      imageAvailableSemaphores[FrameInfo::frameIndex]}; 
+
   VkPipelineStageFlags waitStages[] = {
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
   submitInfo.waitSemaphoreCount = 1;
@@ -92,8 +92,8 @@ VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
   submitInfo.pCommandBuffers = commandBuffer;
 
   VkSemaphore signalSemaphores[] = {
-      renderFinishedSemaphores[FrameInfo::imageIndex]}; // signal per-image
-                                                        // semaphore
+      renderFinishedSemaphores[FrameInfo::imageIndex]}; 
+
   submitInfo.signalSemaphoreCount = 1;
   submitInfo.pSignalSemaphores = signalSemaphores;
 
