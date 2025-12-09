@@ -21,6 +21,7 @@ public:
   Camera(GameObject *owner);
 
   void setPerspectiveProjection(float fov, float aspect, float near, float far);
+  void setFOV(float fov);
   void setAspectRatio(float aspect);
 
   const glm::mat4 &getProjection() const { return projectionMatrix; }

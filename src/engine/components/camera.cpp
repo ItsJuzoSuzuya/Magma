@@ -41,6 +41,11 @@ void Camera::calculateProjectionMatrix() {
   projectionMatrix[3][2] = -(farPlane * nearPlane) / (farPlane - nearPlane);
 }
 
+void Camera::setFOV(float fov) {
+  this->fov = glm::clamp(fov, 0.01f, glm::radians(179.f));
+  calculateProjectionMatrix();
+}
+
 void Camera::setAspectRatio(float aspect) {
   aspectRatio = aspect;
   calculateProjectionMatrix();
@@ -135,6 +140,13 @@ void Camera::onInspector() {
       Scene::setActiveCamera(this);
     else 
       Scene::setActiveCamera(nullptr);
+  }
+
+  ImGui::Separator();
+  ImGui::Text("Projection Settings");
+  float fovDegrees = glm::degrees(fov);
+  if (ImGui::SliderFloat("FOV", &fovDegrees, 1.f, 179.f)) {
+    setFOV(glm::radians(fovDegrees));
   }
 }
 #endif

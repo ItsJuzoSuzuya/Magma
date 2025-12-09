@@ -2,13 +2,16 @@
 #include "../../core/buffer.hpp"
 #include "../../core/frame_info.hpp"
 #include "../../core/renderer.hpp"
-#include "offscreen_target.hpp"
 
 #if defined(MAGMA_WITH_EDITOR)
+#include "offscreen_target.hpp"
 #include "imgui.h"
+#include <cstdint>
+#else
+#include "swapchain_target.hpp"
 #endif
 
-#include <cstdint>
+
 
 namespace Magma {
 

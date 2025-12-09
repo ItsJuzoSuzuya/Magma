@@ -3,12 +3,11 @@
 #include "../../core/frame_info.hpp"
 #include "../components/camera.hpp"
 #include "../scene.hpp"
-#include <print>
 
 #if defined(MAGMA_WITH_EDITOR)
+#include "offscreen_target.hpp"
 #include "../../core/render_target_info.hpp"
 #include "imgui_impl_vulkan.h"
-#include "offscreen_target.hpp"
 #endif
 
 #include <vulkan/vulkan_core.h>
@@ -76,6 +75,7 @@ OffscreenRenderer::~OffscreenRenderer() {
 VkImage &OffscreenRenderer::getSceneImage() const {
   return renderTarget->getColorImage(FrameInfo::frameIndex);
 }
+
 #if defined(MAGMA_WITH_EDITOR)
 ImVec2 OffscreenRenderer::getSceneSize() const {
   return ImVec2(static_cast<float>(renderTarget->extent().width),
@@ -197,8 +197,7 @@ void OffscreenRenderer::begin() {
 
   VkRenderingAttachmentInfo depth = {};
   depth.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-  depth.imageView = static_cast<OffscreenTarget *>(renderTarget.get())
-                        ->getDepthImageView(currentImageIndex());
+  depth.imageView = renderTarget->getDepthImageView(currentImageIndex());
   depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
   depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   depth.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -289,6 +288,20 @@ void OffscreenRenderer::end() {
 
   // Safe point: service any pending pick request now (no render pass active)
   servicePendingPick();
+#else
+  const uint32_t idx = currentImageIndex();
+
+  // Transition scene color to PRESENT_SRC for swapchain presentation
+  {
+    VkImage sceneColor = renderTarget->getColorImage(idx);
+    Device::transitionImageLayout(
+        sceneColor, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_IMAGE_ASPECT_COLOR_BIT);
+    sceneColorLayouts[idx] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  }
 #endif
 }
 
