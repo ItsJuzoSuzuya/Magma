@@ -166,6 +166,11 @@ void RenderSystem::renderFrame() {
       imguiRenderer->end();
     }
 #else
+    // Offscreen
+    {
+      Camera *mainCam = Scene::getActiveCamera();
+      offscreenRenderer->setActiveCamera(mainCam);
+    }
     offscreenRenderer->begin();
     offscreenRenderer->record();
     Scene::onRender(*offscreenRenderer);
