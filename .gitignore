@@ -2,3 +2,4 @@ build
 .cache
 imgui.ini
 .idea
+src/shaders/*.spv
