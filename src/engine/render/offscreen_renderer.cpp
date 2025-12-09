@@ -4,6 +4,7 @@
 #include "../components/camera.hpp"
 #include "../scene.hpp"
 #include "render_context.hpp"
+#include <cstdint>
 
 #if defined(MAGMA_WITH_EDITOR)
 #include "offscreen_target.hpp"
@@ -17,7 +18,10 @@ using namespace std;
 namespace Magma {
 
 #if defined(MAGMA_WITH_EDITOR)
-OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info, RenderContext *renderContext) : Renderer(), renderContext{renderContext} { 
+OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info, RenderContext *renderContext): Renderer(), renderContext{renderContext} { 
+  rendererId = nextRendererId;
+  nextRendererId++;
+
   VkDescriptorSetLayout layout =
       renderContext->getLayout(LayoutKey::Camera);
   Renderer::init(layout);
@@ -33,6 +37,9 @@ OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info, RenderContext *rend
 }
 #else
 OffscreenRenderer::OffscreenRenderer(SwapChain &swapChain, RenderContext *renderContext) : Renderer(), renderContext{renderContext} {
+  rendererId = nextRendererId;
+  nextRendererId++;
+
   VkDescriptorSetLayout layout =
       renderContext->getLayout(LayoutKey::Camera);
   Renderer::init(layout);
@@ -232,10 +239,12 @@ void OffscreenRenderer::record() {
   if (!set.has_value())
     throw runtime_error("No descriptor set found for OffscreenRenderer!");
 
+  uint32_t offset = rendererId * renderContext->cameraSliceSize();
+
   vkCmdBindDescriptorSets(FrameInfo::commandBuffer,
                           VK_PIPELINE_BIND_POINT_GRAPHICS, getPipelineLayout(),
-                          0, 1, &set.value(), 0,
-                          nullptr);
+                          0, 1, &set.value(), 1, 
+                          &offset);
 }
 
 void OffscreenRenderer::end() {

@@ -1,4 +1,3 @@
-#pragma once
 #include "swapchain_target.hpp"
 #include "../core/device.hpp"
 #include <array>

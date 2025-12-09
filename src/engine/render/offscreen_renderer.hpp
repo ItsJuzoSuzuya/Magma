@@ -3,6 +3,7 @@
 #include "../../core/renderer.hpp"
 #include "render_context.hpp"
 #include "../components/camera.hpp"
+#include <atomic>
 
 #if defined(MAGMA_WITH_EDITOR)
 #include "offscreen_target.hpp"
@@ -83,6 +84,9 @@ private:
   RenderContext *renderContext = nullptr;
 
   Camera *activeCamera = nullptr;
+
+  inline static std::atomic<uint32_t> nextRendererId{0};
+  uint32_t rendererId = 0;
 
   // Image layout tracking (per-frame images)
   std::vector<VkImageLayout> sceneColorLayouts; // main color image layout

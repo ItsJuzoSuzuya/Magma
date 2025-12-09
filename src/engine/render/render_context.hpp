@@ -10,7 +10,7 @@
 
 namespace Magma {
 
-enum LayoutKey {
+enum class LayoutKey {
   Camera = 0,
   PointLight = 1,
 };
@@ -32,6 +32,7 @@ public:
 
   VkDescriptorSetLayout getLayout(LayoutKey key) const;
   PerFrameCamera &cameras() { return cameraPF; }
+  uint32_t cameraSliceSize() const { return cameraPF.sliceSize; }
 
   // Set Management
   void createDescriptorSets(LayoutKey key);
