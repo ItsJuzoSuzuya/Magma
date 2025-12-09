@@ -39,6 +39,7 @@ private:
   // SwapChain
   std::unique_ptr<SwapChain> swapChain = nullptr;
   void recreateSwapChain(VkExtent2D extent);
+  VkFormat imguiColorFormat = VK_FORMAT_UNDEFINED;
 
 // Renderering
 #if defined(MAGMA_WITH_EDITOR)

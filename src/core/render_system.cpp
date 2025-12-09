@@ -66,10 +66,9 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
 
 // Destructor
 RenderSystem::~RenderSystem() {
-#if defined(MAGMA_WITH_EDITOR)
-  Device::waitIdle();
-  DeletionQueue::flushAll();
+Device::waitIdle();
 
+#if defined(MAGMA_WITH_EDITOR)
   if (offscreenRendererEditor)
     offscreenRendererEditor.reset();
   if (offscreenRendererGame)
@@ -86,6 +85,8 @@ RenderSystem::~RenderSystem() {
   if (offscreenRenderer)
     offscreenRenderer.reset();
 #endif
+
+DeletionQueue::flushAll();
 }
 
 // --- Public ---
@@ -97,16 +98,18 @@ ImGui_ImplVulkan_InitInfo RenderSystem::getImGuiInitInfo() {
   init_info.ApiVersion = VK_API_VERSION_1_3;
   init_info.DescriptorPool = imguiRenderer->getDescriptorPool();
   init_info.DescriptorPoolSize = 0;
-  init_info.Subpass = 0;
 
   init_info.RenderPass = VK_NULL_HANDLE;
+  init_info.Subpass = 0;
+
+  imguiColorFormat = swapChain->getRenderInfo().colorFormat;
+
   init_info.UseDynamicRendering = true;
   init_info.PipelineRenderingCreateInfo = {};
   init_info.PipelineRenderingCreateInfo.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
+      VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
   init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-  VkFormat colorFormat = swapChain->getRenderInfo().colorFormat;
-  init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &colorFormat;
+  init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &imguiColorFormat ;
   init_info.PipelineRenderingCreateInfo.depthAttachmentFormat =
       swapChain->getRenderInfo().depthFormat;
   init_info.PipelineRenderingCreateInfo.stencilAttachmentFormat =
