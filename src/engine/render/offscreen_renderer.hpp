@@ -2,6 +2,7 @@
 #include "../../core/frame_info.hpp"
 #include "../../core/renderer.hpp"
 #include "render_context.hpp"
+#include "../components/camera.hpp"
 
 #if defined(MAGMA_WITH_EDITOR)
 #include "offscreen_target.hpp"

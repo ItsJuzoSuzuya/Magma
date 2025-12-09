@@ -1,4 +1,3 @@
-#pragma once
 #include "swapchain.hpp"
 #include "device.hpp"
 #include "frame_info.hpp"

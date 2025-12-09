@@ -6,7 +6,7 @@
 #include <utility>
 #include <vulkan/vulkan_core.h>
 #include "../../core/swapchain.hpp"
-#include "../../engine/components/camera.hpp"
+#include "../components/camera.hpp"
 
 using namespace std;
 namespace Magma {
