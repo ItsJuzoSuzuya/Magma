@@ -1,4 +1,5 @@
 #include "imgui_renderer.hpp"
+#include "../../core/device.hpp"
 #include "../../core/frame_info.hpp"
 #include "../widgets/dock_layout.hpp"
 #include "../widgets/ui_context.hpp"
@@ -7,6 +8,7 @@
 #include "imgui_impl_vulkan.h"
 #include "swapchain_target.hpp"
 #include <array>
+#include <print>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -21,6 +23,8 @@ ImGuiRenderer::ImGuiRenderer(SwapChain &swapChain) : Renderer() {
   renderTarget = make_unique<SwapchainTarget>(swapChain);
   createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
                  "src/shaders/imgui.frag.spv");
+
+  colorLayouts.assign(renderTarget->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
 // --- Public ---
@@ -111,20 +115,62 @@ void ImGuiRenderer::preFrame() {
 
 // Rendering
 void ImGuiRenderer::begin() {
+  // Transition swapchain color image to COLOR_ATTACHMENT_OPTIMAL
+  const uint32_t idx = FrameInfo::imageIndex;
+  VkImage swapImage = renderTarget->getColorImage(idx);
+  VkImageLayout current = colorLayouts[idx];
+
+  if (current != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+    VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkAccessFlags srcAccess = 0;
+
+    if (current == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+      srcStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+      srcAccess = 0;
+    } else if (current == VK_IMAGE_LAYOUT_UNDEFINED) {
+      srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+      srcAccess = 0;
+    }
+
+    Device::transitionImageLayout(
+        swapImage, current, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, srcStage,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, srcAccess,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    colorLayouts[idx] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  }
+
   std::array<VkClearValue, 2> clearValues{};
   clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
   clearValues[1].depthStencil = {1.0f, 0};
 
-  VkRenderPassBeginInfo beginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-  beginInfo.renderPass = renderTarget->getRenderPass();
-  beginInfo.framebuffer = renderTarget->getFrameBuffer(FrameInfo::imageIndex);
-  beginInfo.renderArea.offset = {0, 0};
-  beginInfo.renderArea.extent = renderTarget->extent();
-  beginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-  beginInfo.pClearValues = clearValues.data();
+  // Dynamic rendering attachments
+  VkRenderingAttachmentInfo color{};
+  color.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  color.imageView = renderTarget->getColorImageView(FrameInfo::imageIndex);
+  color.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  color.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  color.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  color.clearValue = clearValues[0];
 
-  vkCmdBeginRenderPass(FrameInfo::commandBuffer, &beginInfo,
-                       VK_SUBPASS_CONTENTS_INLINE);
+  VkRenderingAttachmentInfo depth{};
+  depth.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  depth.imageView = renderTarget->getDepthImageView(FrameInfo::imageIndex);
+  depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  depth.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  depth.clearValue = clearValues[1];
+
+  VkRenderingInfo renderingInfo{};
+  renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+  renderingInfo.renderArea.offset = {0, 0};
+  renderingInfo.renderArea.extent = renderTarget->extent();
+  renderingInfo.colorAttachmentCount = 1;
+  renderingInfo.pColorAttachments = &color;
+  renderingInfo.pDepthAttachment = &depth;
+  renderingInfo.layerCount = 1;
+
+  vkCmdBeginRendering(FrameInfo::commandBuffer, &renderingInfo);
 
   VkViewport viewport = {};
   viewport.x = 0;
@@ -146,9 +192,7 @@ void ImGuiRenderer::record() {
 
   for (auto &widget : widgets)
     widget->draw();
-}
 
-void ImGuiRenderer::end() {
   ImGui::Render();
   ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
                                   FrameInfo::commandBuffer);
@@ -157,8 +201,23 @@ void ImGuiRenderer::end() {
     ImGui::UpdatePlatformWindows();
     ImGui::RenderPlatformWindowsDefault();
   }
+}
 
-  vkCmdEndRenderPass(FrameInfo::commandBuffer);
+void ImGuiRenderer::end() {
+  vkCmdEndRendering(FrameInfo::commandBuffer);
+
+  // Transition swapchain image to PRESENT for presentation
+  const uint32_t idx = FrameInfo::imageIndex;
+  VkImage swapImage = renderTarget->getColorImage(idx);
+
+  Device::transitionImageLayout(
+      swapImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_IMAGE_ASPECT_COLOR_BIT);
+
+  colorLayouts[idx] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 }
 
 // Resize
@@ -166,6 +225,8 @@ void ImGuiRenderer::resize(VkExtent2D extent, VkSwapchainKHR swapChain) {
   renderTarget->resize(extent, swapChain);
   createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
                  "src/shaders/imgui.frag.spv");
+
+  colorLayouts.assign(renderTarget->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
 // --- Private ---

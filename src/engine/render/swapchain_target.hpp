@@ -12,10 +12,6 @@ public:
   ~SwapchainTarget() override;
 
   // RenderTarget interface
-  VkRenderPass getRenderPass() const override { return renderPass; }
-  VkFramebuffer getFrameBuffer(int index) const override {
-    return framebuffers.at(static_cast<size_t>(index));
-  }
   VkExtent2D extent() const override { return targetExtent; }
 
   // Swapchain-backed targets do not own color images; they expose them.
@@ -30,15 +26,18 @@ public:
   } // no sampler for swapchain
   VkFormat getColorFormat() const override { return imageFormat; }
   VkFormat getDepthFormat() const override { return depthImageFormat; }
+  VkImageView getDepthImageView(int index) const {
+    return depthImageViews.at(static_cast<size_t>(index));
+  }
 
   // Resize signature for swapchain
   bool resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) override;
   void cleanup() override;
 
-private:
-  // Render pass
-  VkRenderPass renderPass = VK_NULL_HANDLE;
+  uint32_t imageCount() const override { return imageCount_; }
+  uint32_t getColorAttachmentCount() const override { return 1; }
 
+private:
   // Swapchain images (owned by swapchain) - we keep views
   uint32_t imageCount_ = 0;
   std::vector<VkImage> images;
@@ -51,22 +50,15 @@ private:
   std::vector<VkImageView> depthImageViews;
   VkFormat depthImageFormat = VK_FORMAT_D32_SFLOAT;
 
-  // Framebuffers
-  std::vector<VkFramebuffer> framebuffers;
-
   // Extent
   VkExtent2D targetExtent{};
 
   // Internal helpers (adapted)
   void createImages(VkSwapchainKHR swapChain);
   void createImageViews();
-  void createRenderPass(VkImageLayout finalLayout);
   void createDepthResources();
-  void createFramebuffers();
 
   // Destruction helpers
   void destroyDepthResources();
-  void destroyFramebuffers();
-  void destroyRenderPass();
 };
 } // namespace Magma

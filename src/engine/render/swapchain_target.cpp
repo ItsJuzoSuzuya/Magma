@@ -18,9 +18,7 @@ SwapchainTarget::SwapchainTarget(SwapChain &swapChain) {
 
   createImages(swapChain.getSwapChain());
   createImageViews();
-  createRenderPass(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
   createDepthResources();
-  createFramebuffers();
 }
 
 SwapchainTarget::~SwapchainTarget() { cleanup(); }
@@ -29,8 +27,6 @@ void SwapchainTarget::cleanup() {
   VkDevice device = Device::get().device();
 
   destroyDepthResources();
-  destroyFramebuffers();
-  destroyRenderPass();
 
   for (auto v : imageViews) {
     if (v != VK_NULL_HANDLE)
@@ -53,9 +49,7 @@ bool SwapchainTarget::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
 
   createImages(swapChain);
   createImageViews();
-  createRenderPass(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
   createDepthResources();
-  createFramebuffers();
   return true;
 }
 
@@ -88,69 +82,6 @@ void SwapchainTarget::createImageViews() {
       throw std::runtime_error(
           "SwapchainTarget: failed to create color image view");
   }
-}
-
-void SwapchainTarget::createRenderPass(VkImageLayout finalLayout) {
-  VkAttachmentDescription colorAttachment{};
-  colorAttachment.format = imageFormat;
-  colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-  colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  colorAttachment.finalLayout = finalLayout;
-
-  VkAttachmentReference colorRef{};
-  colorRef.attachment = 0;
-  colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-  VkAttachmentDescription depthAttachment{};
-  depthAttachment.format = depthImageFormat;
-  depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-  depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  depthAttachment.finalLayout =
-      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-  VkAttachmentReference depthRef{};
-  depthRef.attachment = 1;
-  depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-  VkSubpassDescription subpass{};
-  subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  subpass.colorAttachmentCount = 1;
-  subpass.pColorAttachments = &colorRef;
-  subpass.pDepthStencilAttachment = &depthRef;
-
-  VkSubpassDependency dependency{};
-  dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-  dependency.dstSubpass = 0;
-  dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-                            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-  dependency.srcAccessMask = 0;
-  dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-                            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
-                             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-  std::array<VkAttachmentDescription, 2> attachments{colorAttachment,
-                                                     depthAttachment};
-
-  VkRenderPassCreateInfo rpInfo{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-  rpInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-  rpInfo.pAttachments = attachments.data();
-  rpInfo.subpassCount = 1;
-  rpInfo.pSubpasses = &subpass;
-  rpInfo.dependencyCount = 1;
-  rpInfo.pDependencies = &dependency;
-
-  VkDevice device = Device::get().device();
-  if (vkCreateRenderPass(device, &rpInfo, nullptr, &renderPass) != VK_SUCCESS)
-    throw std::runtime_error("SwapchainTarget: failed to create render pass");
 }
 
 void SwapchainTarget::createDepthResources() {
@@ -196,28 +127,6 @@ void SwapchainTarget::createDepthResources() {
   }
 }
 
-void SwapchainTarget::createFramebuffers() {
-  VkDevice device = Device::get().device();
-
-  framebuffers.resize(images.size());
-  for (size_t i = 0; i < images.size(); ++i) {
-    std::array<VkImageView, 2> attachments{imageViews[i], depthImageViews[i]};
-
-    VkFramebufferCreateInfo framebufferInfo{
-        VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-    framebufferInfo.renderPass = renderPass;
-    framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-    framebufferInfo.pAttachments = attachments.data();
-    framebufferInfo.width = targetExtent.width;
-    framebufferInfo.height = targetExtent.height;
-    framebufferInfo.layers = 1;
-
-    if (vkCreateFramebuffer(device, &framebufferInfo, nullptr,
-                            &framebuffers[i]) != VK_SUCCESS)
-      throw std::runtime_error("SwapchainTarget: failed to create framebuffer");
-  }
-}
-
 // Destruction helpers
 void SwapchainTarget::destroyDepthResources() {
   VkDevice device = Device::get().device();
@@ -232,23 +141,6 @@ void SwapchainTarget::destroyDepthResources() {
   depthImages.clear();
   depthImageViews.clear();
   depthImageMemories.clear();
-}
-
-void SwapchainTarget::destroyFramebuffers() {
-  VkDevice device = Device::get().device();
-  for (auto fb : framebuffers) {
-    if (fb != VK_NULL_HANDLE)
-      vkDestroyFramebuffer(device, fb, nullptr);
-  }
-  framebuffers.clear();
-}
-
-void SwapchainTarget::destroyRenderPass() {
-  VkDevice device = Device::get().device();
-  if (renderPass != VK_NULL_HANDLE) {
-    vkDestroyRenderPass(device, renderPass, nullptr);
-    renderPass = VK_NULL_HANDLE;
-  }
 }
 
 } // namespace Magma

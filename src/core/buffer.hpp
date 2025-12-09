@@ -29,10 +29,6 @@ public:
   VkResult map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
   void writeToBuffer(void *data, VkDeviceSize size = VK_WHOLE_SIZE,
                      VkDeviceSize offset = 0);
-  void getDepthBufferData(VkCommandBuffer &commandBuffer, const VkImage &image,
-                          const VkExtent2D &extent,
-                          std::vector<float> &depthData,
-                          VkDeviceSize offset = 0);
   void flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 
 private:
@@ -41,7 +37,7 @@ private:
   VkDeviceMemory bufferMemory = VK_NULL_HANDLE;
   void *mappedMemory = nullptr;
 
-  // Buffer properties 
+  // Buffer properties
   VkDeviceSize bufferSize;
   VkDeviceSize alignmentSize;
   VkDeviceSize getAlignment(VkDeviceSize instanceSize,

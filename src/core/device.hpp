@@ -68,10 +68,11 @@ public:
                          VkImage image, VkBufferImageCopy region);
 
   // Image Layout Transition
-  void transitionImageLayout(VkImage image, VkImageLayout oldLayout,
-                             VkImageLayout newLayout);
-  void transitionDepthImage(VkCommandBuffer commandBuffer, VkImage image,
-                            VkImageLayout oldLayout, VkImageLayout newLayout);
+  static void transitionImageLayout(
+      VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout,
+      VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage,
+      VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
+      VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT);
 
   // Command Buffers
   VkCommandBuffer allocateCommandBuffer(VkCommandBufferLevel level);
@@ -122,7 +123,8 @@ private:
   // Device Extensions
   const std::vector<const char *> deviceExtensions = {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_EXT_MULTI_DRAW_EXTENSION_NAME,
-      VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME};
+      VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
+      VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME};
   bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 
   // Logical Device

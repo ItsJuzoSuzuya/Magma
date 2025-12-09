@@ -26,8 +26,11 @@ public:
 
   // --- Global access ---
   static Scene *current() { return activeScene; }
-  static void setActiveCamera(Camera *camera){ activeCamera = camera; }
   void setActive() { activeScene = this; }
+
+  static void setActiveCamera(Camera *camera) { activeCamera = camera; }
+  static Camera *getActiveCamera() { return activeCamera; }
+
   std::vector<std::unique_ptr<GameObject>> &getGameObjects() {
     return gameObjects;
   }
@@ -39,13 +42,13 @@ public:
   GameObject &addGameObject(std::unique_ptr<GameObject> gameObject);
   void removeGameObject(GameObject *gameObject);
 
-  // --- Scene operations ---
-  /**
-   * Draw the scene hierarchy in a tree structure
-   * */
-  #if defined(MAGMA_WITH_EDITOR)
+// --- Scene operations ---
+/**
+ * Draw the scene hierarchy in a tree structure
+ * */
+#if defined(MAGMA_WITH_EDITOR)
   static void drawTree();
-  #endif
+#endif
 
   /**
    * Render GameObjects recursively

@@ -3,7 +3,6 @@
 #include "../../core/frame_info.hpp"
 #include "../components/camera.hpp"
 #include "../scene.hpp"
-#include "swapchain_target.hpp"
 #include <print>
 
 #if defined(MAGMA_WITH_EDITOR)
@@ -32,14 +31,13 @@ OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info) : Renderer() {
   Renderer::init(descriptorSetLayout->getDescriptorSetLayout());
   createDescriptorSets();
 
-#if defined(MAGMA_WITH_EDITOR)
   renderTarget = make_unique<OffscreenTarget>(info);
-#else
-  renderTarget = make_unique<SwapchainTarget>(swapChain);
-#endif
-
   createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
                  "src/shaders/shader.frag.spv");
+
+  sceneColorLayouts.assign(renderTarget->imageCount(),
+                           VK_IMAGE_LAYOUT_UNDEFINED);
+  idColorLayouts.assign(renderTarget->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 #else
 OffscreenRenderer::OffscreenRenderer(SwapChain &swapChain) : Renderer() {
@@ -59,6 +57,9 @@ OffscreenRenderer::OffscreenRenderer(SwapChain &swapChain) : Renderer() {
 
   createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
                  "src/shaders/shader.frag.spv");
+
+  sceneColorLayouts.assign(renderTarget->imageCount(),
+                           VK_IMAGE_LAYOUT_UNDEFINED);
 }
 #endif
 
@@ -90,14 +91,27 @@ void OffscreenRenderer::createOffscreenTextures() {
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   }
 }
+
+// Picking: enqueue request and poll result
+void OffscreenRenderer::requestPick(uint32_t x, uint32_t y) {
+  pendingPick.hasRequest = true;
+  pendingPick.x = x;
+  pendingPick.y = y;
+  // result will be produced after offscreen render ends (in servicePendingPick)
+}
+
+GameObject *OffscreenRenderer::pollPickResult() {
+  GameObject *out = pendingPick.result;
+  pendingPick.result = nullptr;
+  return out;
+}
 #endif
 
-static int currentFramebufferIndex() {
 #if defined(MAGMA_WITH_EDITOR)
-  return FrameInfo::frameIndex;
+static int currentImageIndex() { return FrameInfo::frameIndex; }
+#else
+static int currentImageIndex() { return FrameInfo::imageIndex; }
 #endif
-  return FrameInfo::imageIndex;
-}
 
 // Rendering helpers
 void OffscreenRenderer::begin() {
@@ -106,6 +120,49 @@ void OffscreenRenderer::begin() {
   if (FrameInfo::frameIndex < 0 ||
       FrameInfo::frameIndex >= SwapChain::MAX_FRAMES_IN_FLIGHT)
     throw runtime_error("Invalid frame index in FrameInfo!");
+
+  const uint32_t idx = currentImageIndex();
+
+  // Transition scene color image to COLOR_ATTACHMENT_OPTIMAL
+  VkImage sceneColor = renderTarget->getColorImage(idx);
+  VkImageLayout curSceneLayout = sceneColorLayouts[idx];
+  if (curSceneLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+    VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkAccessFlags srcAccess = 0;
+    if (curSceneLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+      srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+      srcAccess = VK_ACCESS_SHADER_READ_BIT;
+    }
+
+    Device::transitionImageLayout(
+        sceneColor, curSceneLayout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        srcStage, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, srcAccess,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    sceneColorLayouts[idx] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  }
+
+#if defined(MAGMA_WITH_EDITOR)
+  // Transition ID image to COLOR_ATTACHMENT_OPTIMAL
+  VkImage idImage =
+      static_cast<OffscreenTarget *>(renderTarget.get())->getIdImage();
+  VkImageLayout curIdLayout = idColorLayouts[idx];
+  if (curIdLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+    VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkAccessFlags srcAccess = 0;
+    if (curIdLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+      srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+      srcAccess = VK_ACCESS_SHADER_READ_BIT;
+    }
+
+    Device::transitionImageLayout(
+        idImage, curIdLayout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        srcStage, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, srcAccess,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    idColorLayouts[idx] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  }
+#endif
 
   const uint32_t colorAttachmentCount = renderTarget->getColorAttachmentCount();
   vector<VkClearValue> clearValues(colorAttachmentCount + 1);
@@ -119,17 +176,54 @@ void OffscreenRenderer::begin() {
 #endif
   clearValues[colorAttachmentCount].depthStencil = {1.0f, 0};
 
-  VkRenderPassBeginInfo beginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-  beginInfo.renderPass = renderTarget->getRenderPass();
-  beginInfo.framebuffer =
-      renderTarget->getFrameBuffer(currentFramebufferIndex());
-  beginInfo.renderArea.offset = {0, 0};
-  beginInfo.renderArea.extent = renderTarget->extent();
-  beginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-  beginInfo.pClearValues = clearValues.data();
+  VkRenderingAttachmentInfo color0 = {};
+  color0.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  color0.imageView = renderTarget->getColorImageView(currentImageIndex());
+  color0.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  color0.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  color0.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  color0.clearValue = clearValues[0];
 
-  vkCmdBeginRenderPass(FrameInfo::commandBuffer, &beginInfo,
-                       VK_SUBPASS_CONTENTS_INLINE);
+  VkRenderingAttachmentInfo color1{};
+#if defined(MAGMA_WITH_EDITOR)
+  color1.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  color1.imageView =
+      static_cast<OffscreenTarget *>(renderTarget.get())->getIdImageView();
+  color1.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  color1.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  color1.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  color1.clearValue = clearValues[1];
+#endif
+
+  VkRenderingAttachmentInfo depth = {};
+  depth.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  depth.imageView = static_cast<OffscreenTarget *>(renderTarget.get())
+                        ->getDepthImageView(currentImageIndex());
+  depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  depth.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  depth.clearValue = clearValues[colorAttachmentCount];
+
+  std::array<VkRenderingAttachmentInfo, 2> colors{};
+  colors[0] = color0;
+#if defined(MAGMA_WITH_EDITOR)
+  colors[1] = color1;
+#endif
+
+  VkRenderingInfo renderingInfo = {};
+  renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+  renderingInfo.renderArea.offset = {0, 0};
+  renderingInfo.renderArea.extent = renderTarget->extent();
+#if defined(MAGMA_WITH_EDITOR)
+  renderingInfo.colorAttachmentCount = 2;
+#else
+  renderingInfo.colorAttachmentCount = 1;
+#endif
+  renderingInfo.pColorAttachments = colors.data();
+  renderingInfo.pDepthAttachment = &depth;
+  renderingInfo.layerCount = 1;
+
+  vkCmdBeginRendering(FrameInfo::commandBuffer, &renderingInfo);
 
   VkViewport viewport = {};
   viewport.x = 0;
@@ -161,27 +255,40 @@ void OffscreenRenderer::end() {
       FrameInfo::frameIndex >= SwapChain::MAX_FRAMES_IN_FLIGHT)
     throw runtime_error("Invalid frame index in FrameInfo!");
 
-  vkCmdEndRenderPass(FrameInfo::commandBuffer);
+  vkCmdEndRendering(FrameInfo::commandBuffer);
 
 #if defined(MAGMA_WITH_EDITOR)
-  VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-  barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-  barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-  barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  barrier.image = getSceneImage();
-  barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-  barrier.subresourceRange.baseMipLevel = 0;
-  barrier.subresourceRange.levelCount = 1;
-  barrier.subresourceRange.baseArrayLayer = 0;
-  barrier.subresourceRange.layerCount = 1;
+  const uint32_t idx = currentImageIndex();
 
-  vkCmdPipelineBarrier(FrameInfo::commandBuffer,
-                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
-                       nullptr, 1, &barrier);
+  // Transition scene color to SHADER_READ_ONLY for ImGui sampling
+  {
+    VkImage sceneColor = renderTarget->getColorImage(idx);
+    Device::transitionImageLayout(
+        sceneColor, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_ASPECT_COLOR_BIT);
+    sceneColorLayouts[idx] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  }
+
+  // Transition ID image to SHADER_READ_ONLY (used for readback barriers)
+  {
+    VkImage idImage =
+        static_cast<OffscreenTarget *>(renderTarget.get())->getIdImage();
+    Device::transitionImageLayout(
+        idImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_ASPECT_COLOR_BIT);
+    idColorLayouts[idx] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  }
+
+  // Safe point: service any pending pick request now (no render pass active)
+  servicePendingPick();
 #endif
 }
 
@@ -197,6 +304,10 @@ void OffscreenRenderer::resize(VkExtent2D newExtent) {
   createPipeline(renderTarget.get());
 
   createOffscreenTextures();
+
+  sceneColorLayouts.assign(renderTarget->imageCount(),
+                           VK_IMAGE_LAYOUT_UNDEFINED);
+  idColorLayouts.assign(renderTarget->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 #else
 void OffscreenRenderer::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
@@ -204,6 +315,9 @@ void OffscreenRenderer::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
 
   renderTarget->resize(newExtent, swapChain);
   createPipeline(renderTarget.get());
+
+  sceneColorLayouts.assign(renderTarget->imageCount(),
+                           VK_IMAGE_LAYOUT_UNDEFINED);
 }
 #endif
 
@@ -221,6 +335,7 @@ GameObject *OffscreenRenderer::pickAtPixel(uint32_t x, uint32_t y) {
   VkCommandBuffer commandBuffer = Device::get().beginSingleTimeCommands();
   VkImage idImage = renderTarget->getIdImage();
 
+  // Transition ID image for readback (from shader read-only to transfer src)
   VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
   barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -253,6 +368,7 @@ GameObject *OffscreenRenderer::pickAtPixel(uint32_t x, uint32_t y) {
   Device::get().copyImageToBuffer(commandBuffer, stagingBuffer.getBuffer(),
                                   idImage, region);
 
+  // Transition back to shader read-only
   VkImageMemoryBarrier barrier2{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
   barrier2.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
   barrier2.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -286,6 +402,16 @@ GameObject *OffscreenRenderer::pickAtPixel(uint32_t x, uint32_t y) {
         static_cast<GameObject::id_t>(objectId));
 
   return nullptr;
+}
+
+void OffscreenRenderer::servicePendingPick() {
+  if (!pendingPick.hasRequest)
+    return;
+
+  // Execute GPU readback now (no dynamic rendering active on FrameInfo CB)
+  GameObject *picked = pickAtPixel(pendingPick.x, pendingPick.y);
+  pendingPick.result = picked;
+  pendingPick.hasRequest = false;
 }
 #endif
 

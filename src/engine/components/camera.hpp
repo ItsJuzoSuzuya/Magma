@@ -16,11 +16,12 @@ struct CameraUBO {
   glm::mat4 projectionView{1.f};
 };
 
-class Camera: public Component {
+class Camera : public Component {
 public:
   Camera(GameObject *owner);
 
   void setPerspectiveProjection(float fov, float aspect, float near, float far);
+  void setAspectRatio(float aspect);
 
   const glm::mat4 &getProjection() const { return projectionMatrix; }
   const glm::mat4 &getView() const { return viewMatrix; }
@@ -32,21 +33,27 @@ public:
   void onUpdate() override;
   void onRender(Renderer &renderer) override;
 
-  #if defined(MAGMA_WITH_EDITOR)
+#if defined(MAGMA_WITH_EDITOR)
   // Inspector
   void onInspector() override {};
   const char *inspectorName() const override { return "Camera"; }
   const float inspectorHeight() const override { return 150.0f; }
-  #endif
+#endif
 
 private:
   Transform *ownerTransform = nullptr;
 
+  float fov;
+  float aspectRatio;
+  float nearPlane;
+  float farPlane;
+
   glm::mat4 projectionMatrix{1.f};
+  void calculateProjectionMatrix();
 
   glm::mat4 viewMatrix{1.f};
   void setView(const glm::vec3 &position, const glm::vec3 &rotaion);
 
   void pushCameraDataToGPU(Buffer *uboBuffer);
 };
-} // namespace magma
+} // namespace Magma

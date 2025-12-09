@@ -20,7 +20,6 @@ Renderer::~Renderer() {
   pipeline = nullptr;
 }
 
-
 // --- Private --- //
 // Pipeline Layout
 void Renderer::createPipelineLayout(VkDescriptorSetLayout descriptorSetLayout) {
@@ -44,7 +43,8 @@ void Renderer::createPipelineLayout(VkDescriptorSetLayout descriptorSetLayout) {
     throw runtime_error("Failed to create pipeline layout!");
 }
 
-void Renderer::createPipeline(RenderTarget* renderTarget, const std::string &vertFile,
+void Renderer::createPipeline(RenderTarget *renderTarget,
+                              const std::string &vertFile,
                               const std::string &fragFile) {
   assert(pipelineLayout != nullptr &&
          "Cannot create pipeline before pipeline layout!");
@@ -53,15 +53,15 @@ void Renderer::createPipeline(RenderTarget* renderTarget, const std::string &ver
 
   PipelineConfigInfo pipelineConfigInfo = {};
   Pipeline::defaultPipelineConfig(pipelineConfigInfo);
-  pipelineConfigInfo.renderPass = renderTarget->getRenderPass();
   pipelineConfigInfo.pipelineLayout = pipelineLayout;
 
   uint32_t colorAttachmentCount = renderTarget->getColorAttachmentCount();
-  if(pipelineConfigInfo.colorBlendAttachments.size() < colorAttachmentCount) {
-    auto first = pipelineConfigInfo.colorBlendAttachments.empty() ?
-                 VkPipelineColorBlendAttachmentState{} :
-                 pipelineConfigInfo.colorBlendAttachments[0];
-    pipelineConfigInfo.colorBlendAttachments.resize(colorAttachmentCount, first);
+  if (pipelineConfigInfo.colorBlendAttachments.size() < colorAttachmentCount) {
+    auto first = pipelineConfigInfo.colorBlendAttachments.empty()
+                     ? VkPipelineColorBlendAttachmentState{}
+                     : pipelineConfigInfo.colorBlendAttachments[0];
+    pipelineConfigInfo.colorBlendAttachments.resize(colorAttachmentCount,
+                                                    first);
     pipelineConfigInfo.colorBlendInfo.attachmentCount =
         static_cast<uint32_t>(pipelineConfigInfo.colorBlendAttachments.size());
     pipelineConfigInfo.colorBlendInfo.pAttachments =
@@ -73,8 +73,18 @@ void Renderer::createPipeline(RenderTarget* renderTarget, const std::string &ver
         pipelineConfigInfo.colorBlendAttachments.data();
   }
 
-  pipeline =
-      make_unique<Pipeline>(vertFile, fragFile, pipelineConfigInfo);
+  pipelineConfigInfo.colorAttachmentFormats.clear();
+  for (uint32_t i = 0; i < colorAttachmentCount; ++i) {
+    if (i == 0) {
+      pipelineConfigInfo.colorAttachmentFormats.push_back(
+          renderTarget->getColorFormat());
+    } else {
+      pipelineConfigInfo.colorAttachmentFormats.push_back(VK_FORMAT_R32_UINT);
+    }
+  }
+  pipelineConfigInfo.depthFormat = renderTarget->getDepthFormat();
+
+  pipeline = make_unique<Pipeline>(vertFile, fragFile, pipelineConfigInfo);
 }
 
 } // namespace Magma

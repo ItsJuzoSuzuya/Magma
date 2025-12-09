@@ -13,7 +13,6 @@ public:
   // Getters
   VkDescriptorPool getDescriptorPool() const;
   SwapchainTarget &target() { return *renderTarget; }
-  VkRenderPass getRenderPass() { return renderTarget->getRenderPass(); }
 
   // Widget management
   void addWidget(std::unique_ptr<Widget> widget);
@@ -44,6 +43,9 @@ private:
   // Widgets
   std::vector<std::unique_ptr<Widget>> widgets;
   bool dockBuilt = false;
+
+  // Layout tracking for swapchain color images
+  std::vector<VkImageLayout> colorLayouts; // per-swapchain-image layout state
 };
 
 } // namespace Magma
