@@ -134,27 +134,34 @@ void RenderSystem::renderFrame() {
 
   if (beginFrame()) {
 #if defined(MAGMA_WITH_EDITOR)
-    offscreenRendererEditor->begin();
-    offscreenRendererEditor->record();
-    editorCamera->onUpdate();
-    editorCamera->onRender(*offscreenRendererEditor);
-    Scene::onRender(*offscreenRendererEditor);
-    offscreenRendererEditor->end();
+    // Offscreen Editor 
+    {
+      offscreenRendererEditor->begin();
+      offscreenRendererEditor->record();
+      editorCamera->onUpdate();
+      editorCamera->onRender(*offscreenRendererEditor);
+      Scene::onRender(*offscreenRendererEditor);
+      offscreenRendererEditor->end();
+    }
 
+    // Offscreen Game
     {
       Camera *mainCam = Scene::getActiveCamera();
       offscreenRendererGame->setActiveCamera(
           mainCam ? mainCam : editorCamera->getCamera());
-    }
-    offscreenRendererGame->begin();
-    offscreenRendererGame->record();
-    Scene::onRender(*offscreenRendererGame);
-    offscreenRendererGame->end();
 
-    // ImGui pass (dynamic rendering to swapchain)
-    imguiRenderer->begin();
-    imguiRenderer->record();
-    imguiRenderer->end();
+      offscreenRendererGame->begin();
+      offscreenRendererGame->record();
+      Scene::onRender(*offscreenRendererGame);
+      offscreenRendererGame->end();
+    }
+
+    // ImGui frame
+    {
+      imguiRenderer->begin();
+      imguiRenderer->record();
+      imguiRenderer->end();
+    }
 #else
     offscreenRenderer->begin();
     offscreenRenderer->record();

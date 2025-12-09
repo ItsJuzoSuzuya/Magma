@@ -1,12 +1,10 @@
 #include "buffer.hpp"
 #include "deletion_queue.hpp"
 #include "device.hpp"
-#include "render_system.hpp"
 #include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <glm/common.hpp>
-#include <vector>
 #include <vulkan/vulkan_core.h>
 using namespace std;
 namespace Magma {

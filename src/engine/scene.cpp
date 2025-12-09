@@ -29,7 +29,6 @@ Scene::Scene() {
   Scene::setActiveCamera(camComp);
 }
 
-// Destructor
 Scene::~Scene() {
   Device::waitIdle();
 
@@ -69,6 +68,7 @@ GameObject *Scene::findGameObjectById(GameObject::id_t id) {
 }
 
 // --- GameObject management ---
+
 GameObject &Scene::addGameObject(unique_ptr<GameObject> gameObject) {
   assert(gameObject != nullptr &&
          "GameObject cannot be null when adding to scene");
