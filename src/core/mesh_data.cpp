@@ -1,3 +1,4 @@
+#pragma once
 #include "mesh_data.hpp"
 #include <sys/types.h>
 #include <vulkan/vulkan_core.h>

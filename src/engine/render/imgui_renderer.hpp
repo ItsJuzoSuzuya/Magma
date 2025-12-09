@@ -37,8 +37,10 @@ private:
   std::unique_ptr<SwapchainTarget> renderTarget;
 
   // Descriptor Pool
-  void createDescriptorPool() override;
-  void createDescriptorSetLayout() override;
+  std::unique_ptr<DescriptorPool> descriptorPool;
+  std::unique_ptr<DescriptorSetLayout> descriptorSetLayout;
+  void createDescriptorPool();
+  void createDescriptorSetLayout() ;
 
   // Widgets
   std::vector<std::unique_ptr<Widget>> widgets;

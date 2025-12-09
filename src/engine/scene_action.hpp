@@ -1,3 +1,4 @@
+#pragma once
 #include "components/mesh.hpp"
 #include "gameobject.hpp"
 #include "scene.hpp"

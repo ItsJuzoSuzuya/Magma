@@ -1,5 +1,6 @@
 #pragma once
 #include "../engine/render/offscreen_renderer.hpp"
+#include "../engine/render/render_context.hpp"
 #include "device.hpp"
 #include "frame_info.hpp"
 #include "renderer.hpp"
@@ -42,6 +43,7 @@ private:
   VkFormat imguiColorFormat = VK_FORMAT_UNDEFINED;
 
 // Renderering
+std::unique_ptr<RenderContext> renderContext = nullptr;
 #if defined(MAGMA_WITH_EDITOR)
   std::unique_ptr<OffscreenRenderer> offscreenRendererEditor = nullptr;
   std::unique_ptr<OffscreenRenderer> offscreenRendererGame = nullptr;

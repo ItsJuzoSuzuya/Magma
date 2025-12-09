@@ -50,12 +50,6 @@ protected:
                  const std::string &vertFile = "src/shaders/shader.vert.spv",
                  const std::string &fragFile = "src/shaders/shader.frag.spv");
 
-  // Descriptor Pool
-  std::unique_ptr<DescriptorPool> descriptorPool;
-  std::unique_ptr<DescriptorSetLayout> descriptorSetLayout;
-  virtual void createDescriptorPool() = 0;
-  virtual void createDescriptorSetLayout() = 0;
-
 private:
   // Pipeline Layout
   VkPipelineLayout pipelineLayout;

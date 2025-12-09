@@ -54,6 +54,7 @@ set(SOURCES
     src/engine/components/mesh.cpp
     src/engine/components/camera.cpp
     # renderers
+    src/engine/render/render_context.cpp
     src/engine/render/offscreen_renderer.cpp
     src/engine/render/offscreen_target.cpp
     src/engine/render/swapchain_target.cpp

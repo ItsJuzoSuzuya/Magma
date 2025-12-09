@@ -3,6 +3,7 @@
 #include "../../core/frame_info.hpp"
 #include "../components/camera.hpp"
 #include "../scene.hpp"
+#include "render_context.hpp"
 
 #if defined(MAGMA_WITH_EDITOR)
 #include "offscreen_target.hpp"
@@ -16,19 +17,11 @@ using namespace std;
 namespace Magma {
 
 #if defined(MAGMA_WITH_EDITOR)
-OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info) : Renderer() {
-  cameraBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-  for (uint32_t i = 0; i < cameraBuffers.size(); ++i) {
-    cameraBuffers[i] = make_unique<Buffer>(sizeof(CameraUBO), 1,
-                                           VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-    cameraBuffers[i]->map();
-  }
-
-  createDescriptorPool();
-  createDescriptorSetLayout();
-  Renderer::init(descriptorSetLayout->getDescriptorSetLayout());
-  createDescriptorSets();
+OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info, RenderContext *renderContext) : Renderer(), renderContext{renderContext} { 
+  VkDescriptorSetLayout layout =
+      renderContext->getLayout(LayoutKey::Camera);
+  Renderer::init(layout);
+  renderContext->createDescriptorSets(LayoutKey::Camera);
 
   renderTarget = make_unique<OffscreenTarget>(info);
   createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
@@ -39,18 +32,11 @@ OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info) : Renderer() {
   idColorLayouts.assign(renderTarget->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 #else
-OffscreenRenderer::OffscreenRenderer(SwapChain &swapChain) : Renderer() {
-  cameraBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-  for (uint32_t i = 0; i < cameraBuffers.size(); ++i) {
-    cameraBuffers[i] = make_unique<Buffer>(sizeof(CameraUBO), 1,
-                                           VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-    cameraBuffers[i]->map();
-  }
-  createDescriptorPool();
-  createDescriptorSetLayout();
-  Renderer::init(descriptorSetLayout->getDescriptorSetLayout());
-  createDescriptorSets();
+OffscreenRenderer::OffscreenRenderer(SwapChain &swapChain, RenderContext *renderContext) : Renderer(), renderContext{renderContext} {
+  VkDescriptorSetLayout layout =
+      renderContext->getLayout(LayoutKey::Camera);
+  Renderer::init(layout);
+  renderContext->createDescriptorSets(LayoutKey::Camera);
 
   renderTarget = std::make_unique<SwapchainTarget>(swapChain);
 
@@ -241,9 +227,14 @@ void OffscreenRenderer::begin() {
 
 void OffscreenRenderer::record() {
   pipeline->bind(FrameInfo::commandBuffer);
+  auto set = renderContext->getDescriptorSet(LayoutKey::Camera, currentImageIndex());
+
+  if (!set.has_value())
+    throw runtime_error("No descriptor set found for OffscreenRenderer!");
+
   vkCmdBindDescriptorSets(FrameInfo::commandBuffer,
                           VK_PIPELINE_BIND_POINT_GRAPHICS, getPipelineLayout(),
-                          0, 1, &descriptorSets[FrameInfo::frameIndex], 0,
+                          0, 1, &set.value(), 0,
                           nullptr);
 }
 
@@ -427,33 +418,5 @@ void OffscreenRenderer::servicePendingPick() {
   pendingPick.hasRequest = false;
 }
 #endif
-
-// --- Private --- //
-// --- Desciptors ---
-void OffscreenRenderer::createDescriptorPool() {
-  descriptorPool = DescriptorPool::Builder()
-                       .setMaxSets(2 * SwapChain::MAX_FRAMES_IN_FLIGHT)
-                       .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                    2 * SwapChain::MAX_FRAMES_IN_FLIGHT)
-                       .build();
-}
-
-void OffscreenRenderer::createDescriptorSetLayout() {
-  descriptorSetLayout = DescriptorSetLayout::Builder()
-                            .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                        VK_SHADER_STAGE_VERTEX_BIT)
-                            .build();
-}
-
-void OffscreenRenderer::createDescriptorSets() {
-  descriptorSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-  for (size_t i = 0; i < static_cast<uint32_t>(descriptorSets.size()); i++) {
-    VkDescriptorBufferInfo cameraBufferInfo =
-        cameraBuffers[i]->descriptorInfo();
-    DescriptorWriter(*descriptorSetLayout, *descriptorPool)
-        .writeBuffer(0, &cameraBufferInfo)
-        .build(descriptorSets[i]);
-  }
-}
 
 } // namespace Magma

@@ -1,7 +1,7 @@
 #pragma once
-#include "../../core/buffer.hpp"
 #include "../../core/frame_info.hpp"
 #include "../../core/renderer.hpp"
+#include "render_context.hpp"
 
 #if defined(MAGMA_WITH_EDITOR)
 #include "offscreen_target.hpp"
@@ -11,8 +11,6 @@
 #include "swapchain_target.hpp"
 #endif
 
-
-
 namespace Magma {
 
 class RenderTargetInfo;
@@ -20,17 +18,14 @@ class RenderTargetInfo;
 class OffscreenRenderer : public Renderer {
 public:
 #if defined(MAGMA_WITH_EDITOR)
-  OffscreenRenderer(RenderTargetInfo &info);
+  OffscreenRenderer(RenderTargetInfo &info, RenderContext *renderContext);
 #else
-  OffscreenRenderer(SwapChain &swapChain);
+  OffscreenRenderer(SwapChain &swapChain, RenderContext *renderContext);
 #endif
 
   ~OffscreenRenderer();
 
   VkImage &getSceneImage() const;
-  Buffer *getCameraBuffer() override {
-    return cameraBuffers[FrameInfo::frameIndex].get();
-  }
 
   void setActiveCamera(Camera *camera) { activeCamera = camera; }
   Camera *getActiveCamera() override { return activeCamera; }
@@ -83,15 +78,8 @@ private:
   std::unique_ptr<SwapchainTarget> renderTarget;
 #endif
 
-  // Descriptors
-  std::vector<VkDescriptorSet> descriptorSets;
-  void createDescriptorPool() override;
-  void createDescriptorSetLayout() override;
-  void createDescriptorSets();
-
-  // Camera Buffer
-  std::vector<std::unique_ptr<Buffer>> cameraBuffers;
-  void createCameraBuffer();
+  // Render context
+  RenderContext *renderContext = nullptr;
 
   Camera *activeCamera = nullptr;
 
