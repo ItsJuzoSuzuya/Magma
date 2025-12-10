@@ -128,7 +128,9 @@ void Camera::onRender(Renderer &renderer) {
   if (ownerTransform)
     setView(ownerTransform->position, ownerTransform->rotation);
 
-  pushCameraDataToGPU(renderer.getCameraBuffer());
+  CameraUBO ubo{};
+  ubo.projectionView = getProjection() * getView();
+  renderer.uploadCameraUBO(ubo);
 }
 
 #if defined(MAGMA_WITH_EDITOR)

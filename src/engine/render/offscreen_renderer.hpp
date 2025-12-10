@@ -59,13 +59,12 @@ public:
 // Resize
 #if defined(MAGMA_WITH_EDITOR)
   void resize(VkExtent2D newExtent);
+  GameObject *pickAtPixel(uint32_t x, uint32_t y);
 #else
   void resize(VkExtent2D newExtent, VkSwapchainKHR swapChain);
 #endif
 
-#if defined(MAGMA_WITH_EDITOR)
-  GameObject *pickAtPixel(uint32_t x, uint32_t y);
-#endif
+void uploadCameraUBO(const CameraUBO &ubo) override;
 
 private:
 #if defined(MAGMA_WITH_EDITOR)

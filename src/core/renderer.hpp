@@ -10,7 +10,6 @@
 namespace Magma {
 
 class Window;
-class Buffer;
 
 struct RendererType {
   enum Onscreen { SwapChain };
@@ -30,8 +29,6 @@ public:
 
   // Getters
   VkPipelineLayout getPipelineLayout() { return pipelineLayout; }
-  virtual Buffer *getCameraBuffer() { return nullptr; }
-
   virtual Camera *getActiveCamera() { return nullptr; }
 
   // Rendering
@@ -41,6 +38,8 @@ public:
 
   // Final rendering
   void endFrame();
+
+  virtual void uploadCameraUBO(const CameraUBO &ubo) {}
 
 protected:
   // Pipeline

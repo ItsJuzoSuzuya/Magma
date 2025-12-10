@@ -73,6 +73,7 @@ RenderSystem::~RenderSystem() {
 Device::waitIdle();
 
 #if defined(MAGMA_WITH_EDITOR)
+  renderContext.reset();
   if (offscreenRendererEditor)
     offscreenRendererEditor.reset();
   if (offscreenRendererGame)

@@ -86,15 +86,18 @@ void RenderContext::createPerFrameBuffers(uint32_t sliceCount){
   cameraPF.cameraBuffer->map();
 }
 
-void RenderContext::writeDescriptorSet(LayoutKey key, uint32_t frameIndex){
-DescriptorKey dsKey{key, frameIndex};
+void RenderContext::writeDescriptorSet(LayoutKey key, uint32_t frameIndex) {
+  DescriptorKey dsKey{key, frameIndex};
   if (setCache.find(dsKey) != setCache.end()) return;
 
   VkDescriptorSet set{};
-
   DescriptorWriter writer(*descriptorSetLayouts[key], *descriptorPool);
+
   if (key == LayoutKey::Camera) {
-    VkDescriptorBufferInfo info = cameraPF.cameraBuffer->descriptorInfo();
+    VkDescriptorBufferInfo info = {};
+    info.buffer = cameraPF.cameraBuffer->getBuffer();
+    info.offset = 0;
+    info.range = cameraPF.sliceSize;
     writer.writeBuffer(0, &info, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
   } else {
     throw std::runtime_error("Unknown layout key");

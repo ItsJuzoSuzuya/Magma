@@ -334,6 +334,13 @@ void OffscreenRenderer::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
 }
 #endif
 
+// Upload camera UBO to our per-renderer slice
+void OffscreenRenderer::uploadCameraUBO(const CameraUBO &ubo) {
+  if (!renderContext) return;
+  renderContext->updateCameraSlice(FrameInfo::frameIndex, rendererId,
+                                   (void *)&ubo, sizeof(ubo));
+}
+
 #if defined(MAGMA_WITH_EDITOR)
 GameObject *OffscreenRenderer::pickAtPixel(uint32_t x, uint32_t y) {
   VkExtent2D extent = renderTarget->extent();
