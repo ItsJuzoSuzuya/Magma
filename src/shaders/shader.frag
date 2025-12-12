@@ -8,7 +8,7 @@ layout(location = 0) out vec4 outColor;
 
 #if defined(MAGMA_WITH_EDITOR)
 layout(location = 1) out uint fragObjectID;
-layout(location = 3) flat in uint inObjectID; // if needed
+layout(location = 3) flat in uint inObjectID; 
 #endif
 
 struct PointLightData {

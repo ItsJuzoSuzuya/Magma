@@ -360,8 +360,13 @@ void OffscreenRenderer::uploadCameraUBO(const CameraUBO &ubo) {
 void OffscreenRenderer::submitPointLight(const PointLightData &lightData) {
   if (!renderContext)
     return;
+
+  PointLightSSBO ssbo{};
+  ssbo.lightCount = 1;
+  ssbo.lights[0] = lightData;
+
   renderContext->updatePointLightSlice(FrameInfo::frameIndex, rendererId,
-                                       (void *)&lightData, sizeof(lightData));
+                                       (void *)&ssbo, sizeof(ssbo));
 }
 
 #if defined(MAGMA_WITH_EDITOR)

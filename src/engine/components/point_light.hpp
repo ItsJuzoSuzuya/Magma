@@ -11,9 +11,8 @@ struct PointLightData {
 };
 
 struct PointLightSSBO {
-  PointLightData lights[128];
   uint32_t lightCount;
-  alignas(16) glm::vec3 padding;
+  alignas(16) PointLightData lights[128];
 };
 
 class PointLight : public Component {

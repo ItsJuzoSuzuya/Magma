@@ -23,9 +23,7 @@ Buffer::Buffer(VkDeviceSize instanceSize, uint32_t instanceCount,
 
 // Destructor
 
-Buffer::~Buffer() { 
-  cleanUp();
-}
+Buffer::~Buffer() { cleanUp(); }
 
 void Buffer::cleanUp() {
   if (buffer == VK_NULL_HANDLE && bufferMemory == VK_NULL_HANDLE)
@@ -77,12 +75,27 @@ void Buffer::writeToBuffer(void *data, VkDeviceSize size, VkDeviceSize offset) {
 
 void Buffer::flush(VkDeviceSize size, VkDeviceSize offset) {
   VkDevice device = Device::get().device();
+  const VkDeviceSize atom = Device::nonCoherentAtomSize();
 
   VkMappedMemoryRange mappedRange = {};
   mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-  mappedRange.size = size;
-  mappedRange.offset = offset;
   mappedRange.memory = bufferMemory;
+
+  if (size == VK_WHOLE_SIZE) {
+    mappedRange.size = VK_WHOLE_SIZE;
+    mappedRange.offset = 0;
+  } else {
+    VkDeviceSize alignedOffset = (offset / atom) * atom;
+    VkDeviceSize end = offset + size;
+    VkDeviceSize alignedEnd = ((end + atom - 1) / atom) * atom;
+    if (alignedEnd > bufferSize)
+      alignedEnd = bufferSize;
+    VkDeviceSize alignedSize = alignedEnd - alignedOffset;
+
+    mappedRange.offset = alignedOffset;
+    mappedRange.size = alignedSize;
+  }
+
   vkFlushMappedMemoryRanges(device, 1, &mappedRange);
 }
 
