@@ -3,6 +3,7 @@
 #include "push_constant_data.hpp"
 #include <cassert>
 #include <glm/ext/scalar_constants.hpp>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -12,6 +13,10 @@ namespace Magma {
 // Constructor and destructor
 void Renderer::init(VkDescriptorSetLayout descriptorSetLayout) {
   createPipelineLayout(descriptorSetLayout);
+}
+
+void Renderer::init(const vector<VkDescriptorSetLayout> &descriptorSetLayouts) {
+  createPipelineLayout(descriptorSetLayouts);
 }
 
 Renderer::~Renderer() {
@@ -24,6 +29,28 @@ Renderer::~Renderer() {
 // Pipeline Layout
 void Renderer::createPipelineLayout(VkDescriptorSetLayout descriptorSetLayout) {
   vector<VkDescriptorSetLayout> layouts{descriptorSetLayout};
+
+  VkPushConstantRange pushConstantRange = {};
+  pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  pushConstantRange.offset = 0;
+  pushConstantRange.size = sizeof(PushConstantData);
+
+  VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+  pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+  pipelineLayoutInfo.pSetLayouts = layouts.data();
+  pipelineLayoutInfo.pushConstantRangeCount = 1;
+  pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+
+  VkDevice device = Device::get().device();
+  if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr,
+                             &pipelineLayout) != VK_SUCCESS)
+    throw runtime_error("Failed to create pipeline layout!");
+}
+
+void Renderer::createPipelineLayout(
+    const vector<VkDescriptorSetLayout> &descriptorSetLayouts) {
+  vector<VkDescriptorSetLayout> layouts = descriptorSetLayouts;
 
   VkPushConstantRange pushConstantRange = {};
   pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;

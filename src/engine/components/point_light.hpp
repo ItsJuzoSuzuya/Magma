@@ -32,7 +32,8 @@ public:
 #endif
 
 private:
-  PointLightData lightData{glm::vec4{0.f}, glm::vec4{1.f}};
+  PointLightData lightData{glm::vec4{0.f, 0.f, 0.f, 1.f},
+                           glm::vec4{1.f, 1.f, 1.f, 1.f}};
 };
 
 } // namespace Magma

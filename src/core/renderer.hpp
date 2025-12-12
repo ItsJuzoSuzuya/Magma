@@ -20,6 +20,7 @@ public:
   // Constructor and destructor
   Renderer() = default;
   void init(VkDescriptorSetLayout descriptorSetLayout);
+  void init(const std::vector<VkDescriptorSetLayout> &descriptorSetLayouts);
   virtual ~Renderer();
 
   // Delete copy constructor and assignment operator
@@ -53,5 +54,7 @@ private:
   // Pipeline Layout
   VkPipelineLayout pipelineLayout;
   void createPipelineLayout(VkDescriptorSetLayout descriptorSetLayout);
+  void createPipelineLayout(
+      const std::vector<VkDescriptorSetLayout> &descriptorSetLayouts);
 };
 } // namespace Magma

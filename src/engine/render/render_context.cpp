@@ -64,7 +64,6 @@ void RenderContext::updatePointLightSlice(uint32_t frameIndex,
       sliceIndex * pointLightPF.sliceSize;
   pointLightPF.pointLightBuffer->writeToBuffer(const_cast<void *>(data), size,
                                                offset);
-  pointLightPF.pointLightBuffer->flush(size, offset);
 }
 
 // --- Private --- //

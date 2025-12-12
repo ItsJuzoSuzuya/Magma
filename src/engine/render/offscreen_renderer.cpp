@@ -5,6 +5,7 @@
 #include "../scene.hpp"
 #include "render_context.hpp"
 #include <cstdint>
+#include <vector>
 
 #if defined(MAGMA_WITH_EDITOR)
 #include "../../core/render_target_info.hpp"
@@ -24,8 +25,11 @@ OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info,
   rendererId = nextRendererId;
   nextRendererId++;
 
-  VkDescriptorSetLayout layout = renderContext->getLayout(LayoutKey::Camera);
-  Renderer::init(layout);
+  vector<VkDescriptorSetLayout> layouts = {
+      renderContext->getLayout(LayoutKey::Camera),
+      renderContext->getLayout(LayoutKey::PointLight)};
+
+  Renderer::init(layouts);
   renderContext->createDescriptorSets(LayoutKey::Camera);
   renderContext->createDescriptorSets(LayoutKey::PointLight);
 
@@ -237,17 +241,25 @@ void OffscreenRenderer::begin() {
 
 void OffscreenRenderer::record() {
   pipeline->bind(FrameInfo::commandBuffer);
-  auto set =
+  auto camSet =
       renderContext->getDescriptorSet(LayoutKey::Camera, currentImageIndex());
+  if (!camSet.has_value())
+    throw runtime_error(
+        "No Camera descriptor set found for OffscreenRenderer!");
+  uint32_t camOffset = rendererId * renderContext->cameraSliceSize();
 
-  if (!set.has_value())
-    throw runtime_error("No descriptor set found for OffscreenRenderer!");
+  auto lightSet = renderContext->getDescriptorSet(LayoutKey::PointLight,
+                                                  currentImageIndex());
+  if (!lightSet.has_value())
+    throw runtime_error(
+        "No Point light descriptor set found for OffscreenRenderer!");
 
-  uint32_t offset = rendererId * renderContext->cameraSliceSize();
+  VkDescriptorSet sets[] = {camSet.value(), lightSet.value()};
+  uint32_t dynamicOffsets[] = {camOffset};
 
   vkCmdBindDescriptorSets(FrameInfo::commandBuffer,
                           VK_PIPELINE_BIND_POINT_GRAPHICS, getPipelineLayout(),
-                          0, 1, &set.value(), 1, &offset);
+                          0, 2, sets, 1, dynamicOffsets);
 }
 
 void OffscreenRenderer::end() {
