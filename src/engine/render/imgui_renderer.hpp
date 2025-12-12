@@ -1,4 +1,5 @@
 #pragma once
+#include "../../core/descriptors.hpp"
 #include "../../core/renderer.hpp"
 #include "../widgets/widget.hpp"
 #include "swapchain_target.hpp"
@@ -40,7 +41,7 @@ private:
   std::unique_ptr<DescriptorPool> descriptorPool;
   std::unique_ptr<DescriptorSetLayout> descriptorSetLayout;
   void createDescriptorPool();
-  void createDescriptorSetLayout() ;
+  void createDescriptorSetLayout();
 
   // Widgets
   std::vector<std::unique_ptr<Widget>> widgets;

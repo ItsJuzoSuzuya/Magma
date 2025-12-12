@@ -1,13 +1,13 @@
 #pragma once
 #include "../../core/frame_info.hpp"
 #include "../../core/renderer.hpp"
-#include "render_context.hpp"
 #include "../components/camera.hpp"
+#include "render_context.hpp"
 #include <atomic>
 
 #if defined(MAGMA_WITH_EDITOR)
-#include "offscreen_target.hpp"
 #include "imgui.h"
+#include "offscreen_target.hpp"
 #include <cstdint>
 #else
 #include "swapchain_target.hpp"
@@ -64,7 +64,8 @@ public:
   void resize(VkExtent2D newExtent, VkSwapchainKHR swapChain);
 #endif
 
-void uploadCameraUBO(const CameraUBO &ubo) override;
+  void uploadCameraUBO(const CameraUBO &ubo) override;
+  void submitPointLight(const PointLightData &lightData) override;
 
 private:
 #if defined(MAGMA_WITH_EDITOR)

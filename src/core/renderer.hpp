@@ -1,9 +1,8 @@
 #pragma once
 #include "../engine/components/camera.hpp"
-#include "descriptors.hpp"
+#include "../engine/components/point_light.hpp"
 #include "pipeline.hpp"
 #include "render_target.hpp"
-#include "swapchain.hpp"
 #include <memory>
 #include <vulkan/vulkan_core.h>
 
@@ -40,6 +39,7 @@ public:
   void endFrame();
 
   virtual void uploadCameraUBO(const CameraUBO &ubo) {}
+  virtual void submitPointLight(const PointLightData &lightData) {}
 
 protected:
   // Pipeline

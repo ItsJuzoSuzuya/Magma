@@ -1,6 +1,7 @@
 #include "inspector_menu.hpp"
-#include "../components/transform.hpp"
 #include "../components/mesh.hpp"
+#include "../components/point_light.hpp"
+#include "../components/transform.hpp"
 #include "../gameobject.hpp"
 #include "imgui.h"
 
@@ -42,6 +43,8 @@ void InspectorMenu::drawAddComponentMenu() {
       contextTarget->addComponent<Transform>();
     if (ImGui::MenuItem("Mesh"))
       contextTarget->addComponent<Mesh>();
+    if (ImGui::MenuItem("Point Light"))
+      contextTarget->addComponent<PointLight>();
     ImGui::EndMenu();
   }
 }

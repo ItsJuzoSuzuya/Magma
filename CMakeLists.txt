@@ -53,6 +53,7 @@ set(SOURCES
     src/engine/components/transform.cpp
     src/engine/components/mesh.cpp
     src/engine/components/camera.cpp
+    src/engine/components/point_light.cpp
     # renderers
     src/engine/render/render_context.cpp
     src/engine/render/offscreen_renderer.cpp

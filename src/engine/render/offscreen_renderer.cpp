@@ -7,9 +7,9 @@
 #include <cstdint>
 
 #if defined(MAGMA_WITH_EDITOR)
-#include "offscreen_target.hpp"
 #include "../../core/render_target_info.hpp"
 #include "imgui_impl_vulkan.h"
+#include "offscreen_target.hpp"
 #endif
 
 #include <vulkan/vulkan_core.h>
@@ -18,14 +18,16 @@ using namespace std;
 namespace Magma {
 
 #if defined(MAGMA_WITH_EDITOR)
-OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info, RenderContext *renderContext): Renderer(), renderContext{renderContext} { 
+OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info,
+                                     RenderContext *renderContext)
+    : Renderer(), renderContext{renderContext} {
   rendererId = nextRendererId;
   nextRendererId++;
 
-  VkDescriptorSetLayout layout =
-      renderContext->getLayout(LayoutKey::Camera);
+  VkDescriptorSetLayout layout = renderContext->getLayout(LayoutKey::Camera);
   Renderer::init(layout);
   renderContext->createDescriptorSets(LayoutKey::Camera);
+  renderContext->createDescriptorSets(LayoutKey::PointLight);
 
   renderTarget = make_unique<OffscreenTarget>(info);
   createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
@@ -36,12 +38,13 @@ OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info, RenderContext *rend
   idColorLayouts.assign(renderTarget->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 #else
-OffscreenRenderer::OffscreenRenderer(SwapChain &swapChain, RenderContext *renderContext) : Renderer(), renderContext{renderContext} {
+OffscreenRenderer::OffscreenRenderer(SwapChain &swapChain,
+                                     RenderContext *renderContext)
+    : Renderer(), renderContext{renderContext} {
   rendererId = nextRendererId;
   nextRendererId++;
 
-  VkDescriptorSetLayout layout =
-      renderContext->getLayout(LayoutKey::Camera);
+  VkDescriptorSetLayout layout = renderContext->getLayout(LayoutKey::Camera);
   Renderer::init(layout);
   renderContext->createDescriptorSets(LayoutKey::Camera);
 
@@ -234,7 +237,8 @@ void OffscreenRenderer::begin() {
 
 void OffscreenRenderer::record() {
   pipeline->bind(FrameInfo::commandBuffer);
-  auto set = renderContext->getDescriptorSet(LayoutKey::Camera, currentImageIndex());
+  auto set =
+      renderContext->getDescriptorSet(LayoutKey::Camera, currentImageIndex());
 
   if (!set.has_value())
     throw runtime_error("No descriptor set found for OffscreenRenderer!");
@@ -243,8 +247,7 @@ void OffscreenRenderer::record() {
 
   vkCmdBindDescriptorSets(FrameInfo::commandBuffer,
                           VK_PIPELINE_BIND_POINT_GRAPHICS, getPipelineLayout(),
-                          0, 1, &set.value(), 1, 
-                          &offset);
+                          0, 1, &set.value(), 1, &offset);
 }
 
 void OffscreenRenderer::end() {
@@ -336,9 +339,17 @@ void OffscreenRenderer::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
 
 // Upload camera UBO to our per-renderer slice
 void OffscreenRenderer::uploadCameraUBO(const CameraUBO &ubo) {
-  if (!renderContext) return;
+  if (!renderContext)
+    return;
   renderContext->updateCameraSlice(FrameInfo::frameIndex, rendererId,
                                    (void *)&ubo, sizeof(ubo));
+}
+
+void OffscreenRenderer::submitPointLight(const PointLightData &lightData) {
+  if (!renderContext)
+    return;
+  renderContext->updatePointLightSlice(FrameInfo::frameIndex, rendererId,
+                                       (void *)&lightData, sizeof(lightData));
 }
 
 #if defined(MAGMA_WITH_EDITOR)
