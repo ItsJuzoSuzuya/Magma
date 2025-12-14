@@ -20,7 +20,8 @@ class RenderTargetInfo;
 class OffscreenRenderer : public Renderer {
 public:
 #if defined(MAGMA_WITH_EDITOR)
-  OffscreenRenderer(RenderTargetInfo &info, RenderContext *renderContext);
+  OffscreenRenderer(RenderTargetInfo &info, RenderContext *renderContext,
+                    bool isEditorRenderer = false);
 #else
   OffscreenRenderer(SwapChain &swapChain, RenderContext *renderContext);
 #endif
@@ -71,6 +72,8 @@ private:
 #if defined(MAGMA_WITH_EDITOR)
   // Textures for ImGui
   std::vector<ImTextureID> textures;
+
+  bool isEditorRenderer = false;
 #endif
 
   // RenderTarget for picking Objects in the scene

@@ -35,13 +35,12 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
 
 
 #if defined(MAGMA_WITH_EDITOR)
-
   renderContext = make_unique<RenderContext>(2);
   RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
   offscreenInfo.extent.width /= 2;
   offscreenInfo.extent.height /= 2;
   offscreenInfo.imageCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
-  offscreenRendererEditor = make_unique<OffscreenRenderer>(offscreenInfo, renderContext.get());
+  offscreenRendererEditor = make_unique<OffscreenRenderer>(offscreenInfo, renderContext.get(), true);
   offscreenRendererGame = make_unique<OffscreenRenderer>(offscreenInfo, renderContext.get());
 
   editorCamera = make_unique<EditorCamera>();

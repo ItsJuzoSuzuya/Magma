@@ -16,7 +16,7 @@ struct PointLightData {
   vec4 color;
 };
 
-layout(set = 1, binding = 0, std430) buffer PointLights {
+layout(set = 1, binding = 0, std430) readonly buffer PointLights {
   uint lightCount;
   PointLightData lights[];
 };

@@ -20,8 +20,9 @@ namespace Magma {
 
 #if defined(MAGMA_WITH_EDITOR)
 OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info,
-                                     RenderContext *renderContext)
-    : Renderer(), renderContext{renderContext} {
+                                     RenderContext *renderContext,
+                                     bool isEditorRenderer /*= false*/)
+    : Renderer(), renderContext{renderContext}, isEditorRenderer{isEditorRenderer} {
   rendererId = nextRendererId;
   nextRendererId++;
 
@@ -34,7 +35,12 @@ OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info,
   renderContext->createDescriptorSets(LayoutKey::PointLight);
 
   renderTarget = make_unique<OffscreenTarget>(info);
-  createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
+
+  if (isEditorRenderer)
+    createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
+                   "src/shaders/editor.frag.spv");
+  else
+    createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
                  "src/shaders/shader.frag.spv");
 
   sceneColorLayouts.assign(renderTarget->imageCount(),
@@ -329,7 +335,13 @@ void OffscreenRenderer::resize(VkExtent2D newExtent) {
     ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)texture);
 
   renderTarget->resize(newExtent);
-  createPipeline(renderTarget.get());
+
+  if (isEditorRenderer)
+    createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
+                   "src/shaders/editor.frag.spv");
+  else
+    createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
+                   "src/shaders/shader.frag.spv");
 
   createOffscreenTextures();
 
