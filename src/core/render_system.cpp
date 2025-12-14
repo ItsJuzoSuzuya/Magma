@@ -23,7 +23,6 @@
 #include <GLFW/glfw3.h>
 #include <cassert>
 #include <memory>
-#include <print>
 
 using namespace std;
 namespace Magma {
@@ -33,36 +32,35 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
   device = make_unique<Device>(window);
   swapChain = make_unique<SwapChain>(window.getExtent());
 
+  #if defined(MAGMA_WITH_EDITOR)
+    renderContext = make_unique<RenderContext>(2);
+    RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
+    offscreenInfo.extent.width /= 2;
+    offscreenInfo.extent.height /= 2;
+    offscreenInfo.imageCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
+    offscreenRendererEditor = make_unique<OffscreenRenderer>(offscreenInfo, renderContext.get(), true);
+    offscreenRendererGame = make_unique<OffscreenRenderer>(offscreenInfo, renderContext.get());
 
-#if defined(MAGMA_WITH_EDITOR)
-  renderContext = make_unique<RenderContext>(2);
-  RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
-  offscreenInfo.extent.width /= 2;
-  offscreenInfo.extent.height /= 2;
-  offscreenInfo.imageCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
-  offscreenRendererEditor = make_unique<OffscreenRenderer>(offscreenInfo, renderContext.get(), true);
-  offscreenRendererGame = make_unique<OffscreenRenderer>(offscreenInfo, renderContext.get());
+    editorCamera = make_unique<EditorCamera>();
+    offscreenRendererEditor->setActiveCamera(editorCamera->getCamera());
 
-  editorCamera = make_unique<EditorCamera>();
-  offscreenRendererEditor->setActiveCamera(editorCamera->getCamera());
+    // Rendering ImGui
+    imguiRenderer = make_unique<ImGuiRenderer>(*swapChain);
 
-  // Rendering ImGui
-  imguiRenderer = make_unique<ImGuiRenderer>(*swapChain);
+    // Add widgets
+    imguiRenderer->addWidget(make_unique<RuntimeControl>());
+    imguiRenderer->addWidget(make_unique<SceneTree>());
+    imguiRenderer->addWidget(make_unique<Inspector>());
 
-  // Add widgets
-  imguiRenderer->addWidget(make_unique<RuntimeControl>());
-  imguiRenderer->addWidget(make_unique<SceneTree>());
-  imguiRenderer->addWidget(make_unique<Inspector>());
-
-  // Important: GameEditor must be added last so that its content size is
-  // calculated according to the other widgets
-  imguiRenderer->addWidget(make_unique<GameEditor>(
-      *offscreenRendererEditor.get(), editorCamera.get()));
-  imguiRenderer->addWidget(make_unique<GameView>(*offscreenRendererGame.get()));
-#else
-  renderContext = make_unique<RenderContext>(1);
-  offscreenRenderer = make_unique<OffscreenRenderer>(*swapChain);
-#endif
+    // Important: GameEditor must be added last so that its content size is
+    // calculated according to the other widgets
+    imguiRenderer->addWidget(make_unique<GameEditor>(
+        *offscreenRendererEditor.get(), editorCamera.get()));
+    imguiRenderer->addWidget(make_unique<GameView>(*offscreenRendererGame.get()));
+  #else
+    renderContext = make_unique<RenderContext>(1);
+    offscreenRenderer = make_unique<OffscreenRenderer>(*swapChain);
+  #endif
 
   createCommandBuffers();
 }
@@ -106,6 +104,9 @@ ImGui_ImplVulkan_InitInfo RenderSystem::getImGuiInitInfo() {
   init_info.RenderPass = VK_NULL_HANDLE;
   init_info.Subpass = 0;
 
+  // Store color format for dynamic rendering
+  // @note This is needed because ImGui doesnt store the color format correctly
+  // on Arch Linux systems
   imguiColorFormat = swapChain->getRenderInfo().colorFormat;
 
   init_info.UseDynamicRendering = true;

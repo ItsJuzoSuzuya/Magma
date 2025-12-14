@@ -20,6 +20,7 @@ public:
   /**
    * Runs the main loop
    * @note This function will block until window is closed
+   * by the user.
    */
   void run();
 
@@ -30,9 +31,9 @@ private:
   std::unique_ptr<RenderSystem> renderSystem = nullptr;
   std::unique_ptr<Scene> scene = nullptr;
 
-  // ImGui
+  // --- ImGui --- 
   #if defined(MAGMA_WITH_EDITOR)
-  void initImGui();
+    void initImGui();
   #endif
 };
 

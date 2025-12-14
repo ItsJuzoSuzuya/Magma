@@ -33,6 +33,7 @@ Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
 
   auto &obj = GameObject::create();
   obj.name = "Test Object";
+
   Transform *transform = obj.addComponent<Transform>();
   transform->position = {0.f, 0.f, 1.f};
   transform->scale = {0.1f, 0.1f, 0.1f};

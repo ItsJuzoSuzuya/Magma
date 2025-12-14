@@ -9,6 +9,7 @@
 #if defined(MAGMA_WITH_EDITOR)
 #include "../engine/editor_camera.hpp"
 #include "../engine/render/imgui_renderer.hpp"
+#include "imgui_impl_vulkan.h"
 #endif
 
 #include <memory>
@@ -23,33 +24,40 @@ public:
   RenderSystem(Window &window);
   ~RenderSystem();
 
-// Getters
-#if defined(MAGMA_WITH_EDITOR)
-#include "imgui_impl_vulkan.h"
-  ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
-#endif
+  // Getters
+  #if defined(MAGMA_WITH_EDITOR)
+    ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
+  #endif
   SwapChain &getSwapChain() { return *swapChain; }
 
+  /** Renders the current frame */
   void renderFrame();
 
 private:
-  /** Vulkan Logical Device */
+  /** Vulkan Logical and Physical Device */
   std::unique_ptr<Device> device = nullptr;
+  /** Reference to the application window */
   Window &window;
 
-  // SwapChain
+  /** Swap chain 
+   * Manages the presenttation to the window
+   * Presents imgui in editor mode or the final rendered image in runtime mode
+   * @note The swap chain must be recreated when the window is resized
+   * */
   std::unique_ptr<SwapChain> swapChain = nullptr;
   void recreateSwapChain(VkExtent2D extent);
-  VkFormat imguiColorFormat = VK_FORMAT_UNDEFINED;
+  #if defined(MAGMA_WITH_EDITOR)
+    VkFormat imguiColorFormat = VK_FORMAT_UNDEFINED;
+  #endif
 
-// Renderering
-std::unique_ptr<RenderContext> renderContext = nullptr;
-#if defined(MAGMA_WITH_EDITOR)
-  std::unique_ptr<OffscreenRenderer> offscreenRendererEditor = nullptr;
-  std::unique_ptr<OffscreenRenderer> offscreenRendererGame = nullptr;
-#else
-  std::unique_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
-#endif
+  // Renderering
+  std::unique_ptr<RenderContext> renderContext = nullptr;
+  #if defined(MAGMA_WITH_EDITOR)
+    std::unique_ptr<OffscreenRenderer> offscreenRendererEditor = nullptr;
+    std::unique_ptr<OffscreenRenderer> offscreenRendererGame = nullptr;
+  #else
+    std::unique_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
+  #endif
 
   bool beginFrame();
   void endFrame();
