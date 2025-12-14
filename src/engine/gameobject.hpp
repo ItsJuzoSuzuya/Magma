@@ -57,16 +57,17 @@ public:
 
   // Component
   template <typename T, typename... Args>
-  GameObject &addComponent(Args &&...args) {
+  T *addComponent(Args &&...args) {
     static_assert(std::is_base_of<Component, T>::value,
                   "T must be a Component");
     auto component = std::make_unique<T>(this, std::forward<Args>(args)...);
-
     assert(component &&
            "Failed to create component. Make sure the constructor is valid.");
 
+    T *ptr = component.get();
+
     components[typeid(T)] = std::move(component);
-    return *this;
+    return ptr;
   }
   template <typename T> T *getComponent() const {
     static_assert(std::is_base_of<Component, T>::value,

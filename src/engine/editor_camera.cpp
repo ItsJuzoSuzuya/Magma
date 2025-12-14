@@ -8,10 +8,8 @@ namespace Magma {
 EditorCamera::EditorCamera() {
   // Create a transform and a camera bound to it
   cameraObject = new GameObject(UINT32_MAX, "Editor Camera");
-  cameraObject->addComponent<Transform>();
-  transform = cameraObject->getComponent<Transform>();
-  cameraObject->addComponent<Camera>();
-  camera = cameraObject->getComponent<Camera>();
+  transform = cameraObject->addComponent<Transform>();
+  camera = cameraObject->addComponent<Camera>();
   camera->setPerspectiveProjection(glm::radians(90.f), 16.f / 9.f, 0.1f, 100.f);
 }
 
