@@ -15,20 +15,22 @@
 
 #include <vulkan/vulkan_core.h>
 
+
 using namespace std;
 namespace Magma {
 
 #if defined(MAGMA_WITH_EDITOR)
-OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info,
+OffscreenRenderer:: OffscreenRenderer(RenderTargetInfo &info,
                                      RenderContext *renderContext,
                                      bool isEditorRenderer /*= false*/)
-    : Renderer(), renderContext{renderContext}, isEditorRenderer{isEditorRenderer} {
-  rendererId = nextRendererId;
-  nextRendererId++;
+    :  Renderer(), renderContext{renderContext}, isEditorRenderer{isEditorRenderer} {
+  
+  // Self-register with the context to get our slice index
+  rendererId = renderContext->registerRenderer();
 
   vector<VkDescriptorSetLayout> layouts = {
-      renderContext->getLayout(LayoutKey::Camera),
-      renderContext->getLayout(LayoutKey::PointLight)};
+      renderContext->getLayout(LayoutKey:: Camera),
+      renderContext->getLayout(LayoutKey:: PointLight)};
 
   Renderer::init(layouts);
   renderContext->createDescriptorSets(LayoutKey::Camera);
@@ -43,7 +45,7 @@ OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info,
     createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
                  "src/shaders/shader.frag.spv");
 
-  sceneColorLayouts.assign(renderTarget->imageCount(),
+  sceneColorLayouts. assign(renderTarget->imageCount(),
                            VK_IMAGE_LAYOUT_UNDEFINED);
   idColorLayouts.assign(renderTarget->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
@@ -51,17 +53,22 @@ OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info,
 OffscreenRenderer::OffscreenRenderer(SwapChain &swapChain,
                                      RenderContext *renderContext)
     : Renderer(), renderContext{renderContext} {
-  rendererId = nextRendererId;
-  nextRendererId++;
+  
+  // Self-register with the context to get our slice index
+  rendererId = renderContext->registerRenderer();
 
-  VkDescriptorSetLayout layout = renderContext->getLayout(LayoutKey::Camera);
-  Renderer::init(layout);
+  vector<VkDescriptorSetLayout> layouts = {
+      renderContext->getLayout(LayoutKey::Camera),
+      renderContext->getLayout(LayoutKey::PointLight)};
+
+  Renderer::init(layouts);
   renderContext->createDescriptorSets(LayoutKey::Camera);
+  renderContext->createDescriptorSets(LayoutKey:: PointLight);
 
   renderTarget = std::make_unique<SwapchainTarget>(swapChain);
 
-  createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
-                 "src/shaders/shader.frag.spv");
+  createPipeline(renderTarget. get(), "src/shaders/shader. vert.spv",
+                 "src/shaders/shader.frag. spv");
 
   sceneColorLayouts.assign(renderTarget->imageCount(),
                            VK_IMAGE_LAYOUT_UNDEFINED);

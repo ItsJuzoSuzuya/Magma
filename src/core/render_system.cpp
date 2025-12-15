@@ -3,7 +3,7 @@
 #include "../engine/scene.hpp"
 #include "deletion_queue.hpp"
 #include "../engine/time.hpp"
-#include "device.hpp"
+#include "../core/device.hpp"
 #include "renderer.hpp"
 #include "swapchain.hpp"
 #include <vulkan/vulkan_core.h>
@@ -28,18 +28,22 @@ using namespace std;
 namespace Magma {
 
 // Constructor
-RenderSystem::RenderSystem(Window &window) : window{window} {
+RenderSystem:: RenderSystem(Window &window) : window{window} {
   device = make_unique<Device>(window);
   swapChain = make_unique<SwapChain>(window.getExtent());
+  renderContext = make_unique<RenderContext>();
 
   #if defined(MAGMA_WITH_EDITOR)
-    renderContext = make_unique<RenderContext>(2);
     RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
     offscreenInfo.extent.width /= 2;
     offscreenInfo.extent.height /= 2;
     offscreenInfo.imageCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
-    offscreenRendererEditor = make_unique<OffscreenRenderer>(offscreenInfo, renderContext.get(), true);
-    offscreenRendererGame = make_unique<OffscreenRenderer>(offscreenInfo, renderContext.get());
+    
+    // Renderers register themselves with the context
+    offscreenRendererEditor = make_unique<OffscreenRenderer>(
+        offscreenInfo, renderContext.get(), true);
+    offscreenRendererGame = make_unique<OffscreenRenderer>(
+        offscreenInfo, renderContext.get());
 
     editorCamera = make_unique<EditorCamera>();
     offscreenRendererEditor->setActiveCamera(editorCamera->getCamera());
@@ -52,14 +56,13 @@ RenderSystem::RenderSystem(Window &window) : window{window} {
     imguiRenderer->addWidget(make_unique<SceneTree>());
     imguiRenderer->addWidget(make_unique<Inspector>());
 
-    // Important: GameEditor must be added last so that its content size is
-    // calculated according to the other widgets
     imguiRenderer->addWidget(make_unique<GameEditor>(
         *offscreenRendererEditor.get(), editorCamera.get()));
     imguiRenderer->addWidget(make_unique<GameView>(*offscreenRendererGame.get()));
   #else
-    renderContext = make_unique<RenderContext>(1);
-    offscreenRenderer = make_unique<OffscreenRenderer>(*swapChain);
+    // Single renderer registers itself
+    offscreenRenderer = make_unique<OffscreenRenderer>(
+        *swapChain, renderContext.get());
   #endif
 
   createCommandBuffers();

@@ -3,7 +3,6 @@
 #include "../../core/renderer.hpp"
 #include "../components/camera.hpp"
 #include "render_context.hpp"
-#include <atomic>
 
 #if defined(MAGMA_WITH_EDITOR)
 #include "imgui.h"
@@ -88,7 +87,6 @@ private:
 
   Camera *activeCamera = nullptr;
 
-  inline static std::atomic<uint32_t> nextRendererId{0};
   uint32_t rendererId = 0;
 
   // Image layout tracking (per-frame images)
