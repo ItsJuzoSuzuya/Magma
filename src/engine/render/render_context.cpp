@@ -6,7 +6,6 @@
 #include <memory>
 #include <optional>
 #include <stdexcept>
-#include <utility>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -16,8 +15,8 @@ namespace Magma {
 
 SlicedResource::SlicedResource(VkDeviceSize elementSize,
                                VkBufferUsageFlags usage,
-                               uint32_t framesInFlight)
-    : elementSize{elementSize}, usage{usage}, framesInFlight{framesInFlight} {}
+                               uint32_t framesInFlight): 
+  elementSize{elementSize}, usage{usage}, framesInFlight{framesInFlight} {}
 
 void SlicedResource::ensureCapacity(uint32_t rendererCount) {
   if (rendererCount <= currentCapacity)
@@ -33,7 +32,7 @@ void SlicedResource::ensureCapacity(uint32_t rendererCount) {
 
 void SlicedResource::update(uint32_t frameIndex, uint32_t sliceIndex,
                             const void *data, VkDeviceSize size) {
-  if (! buffer)
+  if (!buffer)
     return;
 
   VkDeviceSize offset = frameIndex * (elementSize * currentCapacity) +
@@ -53,10 +52,6 @@ void SlicedResource::reallocate(uint32_t newCapacity) {
 }
 
 // ============== RenderContext Implementation ==============
-
-RenderContext::RenderContext() {
-  // Nothing allocated upfront - everything is lazy! 
-}
 
 uint32_t RenderContext::registerRenderer() {
   uint32_t index = registeredRendererCount++;
@@ -98,19 +93,19 @@ void RenderContext::createDescriptorSets(LayoutKey key) {
 }
 
 std::optional<VkDescriptorSet>
-RenderContext:: getDescriptorSet(LayoutKey key, uint32_t frameIndex) {
+RenderContext::getDescriptorSet(LayoutKey key, uint32_t frameIndex) {
   rebuildDescriptorSetsIfNeeded(key);
 
   DescriptorKey dKey{key, frameIndex};
-  auto it = setCache. find(dKey);
+  auto it = setCache.find(dKey);
   if (it == setCache.end())
     return nullopt;
 
   return it->second;
 }
 
-uint32_t RenderContext:: cameraSliceSize() const {
-  return cameraResource ?  static_cast<uint32_t>(cameraResource->getSliceSize())
+uint32_t RenderContext::cameraSliceSize() const {
+  return cameraResource ? static_cast<uint32_t>(cameraResource->getSliceSize())
                         : sizeof(CameraUBO);
 }
 
@@ -241,8 +236,8 @@ void RenderContext::writeDescriptorSet(LayoutKey key, uint32_t frameIndex) {
 }
 
 void RenderContext::rebuildDescriptorSetsIfNeeded(LayoutKey key) {
-  auto it = setsNeedRebuild. find(key);
-  if (it == setsNeedRebuild.end() || ! it->second)
+  auto it = setsNeedRebuild.find(key);
+  if (it == setsNeedRebuild.end() || !it->second)
     return;
 
   // Clear old sets for this key

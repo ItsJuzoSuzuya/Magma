@@ -22,7 +22,6 @@ public:
 
   // Getters
   VkSwapchainKHR getSwapChain() const { return swapChain; }
-  VkFence &getInFlightFence(int index) { return inFlightFences[index]; }
   RenderTargetInfo getRenderInfo() const { return renderInfo; }
 
   // Rendering
@@ -38,10 +37,10 @@ private:
   void createSwapChain(VkExtent2D &extent);
 
   // Synchronization
-  std::vector<VkSemaphore> imageAvailableSemaphores;
-  std::vector<VkSemaphore> renderFinishedSemaphores;
-  std::vector<VkFence> inFlightFences;
-  std::vector<VkFence> imagesInFlight;
+  std::vector<VkSemaphore> imageAcquiredSemaphores;
+  std::vector<VkSemaphore> renderCompleteSemaphores;
+  std::vector<VkFence> frameSubmitFences;
+  std::vector<VkFence> imagesInUseFences;
   void createSyncObjects();
   void destroySyncObjects();
 

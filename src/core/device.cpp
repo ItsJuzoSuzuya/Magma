@@ -16,7 +16,7 @@ using namespace std;
 
 namespace Magma {
 
-// Debug Callback Helper
+// Debug Callback 
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -24,16 +24,17 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
               const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
               void *pUserData) {
   cout << "Severity: " << messageSeverity << endl;
-  cout << "Message: " << pCallbackData->pMessage << std::endl;
-  cout << "Type: " << messageType << std::endl;
-  cout << "UserData: " << &pUserData << std::endl;
+  cout << "Message: " << pCallbackData->pMessage << endl;
+  cout << "Type: " << messageType << endl;
+  cout << "UserData: " << &pUserData << endl;
   return VK_FALSE;
 }
+
 
 // Debug Messenger Helper Functions
 
 VkResult
-CreateDebugUtilsMessengerEXT(VkInstance instance,
+createDebugUtilsMessengerEXT(VkInstance instance,
                              VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
                              const VkAllocationCallbacks *pAllocator,
                              VkDebugUtilsMessengerEXT *pDebugMessenger) {
@@ -43,6 +44,20 @@ CreateDebugUtilsMessengerEXT(VkInstance instance,
     return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
   else
     return VK_ERROR_EXTENSION_NOT_PRESENT;
+}
+
+void populateDebugMessenger(
+    VkDebugUtilsMessengerCreateInfoEXT &createInfo) {
+  createInfo = {};
+  createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+  createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                               VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+  createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+  createInfo.pfnUserCallback = debugCallback;
+  createInfo.pUserData = nullptr;
+  createInfo.pNext = NULL;
 }
 
 void destroyDebugUtilsMessengerEXT(VkInstance instance,
@@ -58,11 +73,21 @@ void destroyDebugUtilsMessengerEXT(VkInstance instance,
 // Constructor
 
 Device::Device(Window &window) {
+  // Instance setup
   createInstance();
   setupDebugMessenger();
-  createSurface(window);
+
+  // Surface creation
+  window.createSurface(instance, &surface_);
+
+  // Physical device selection
   pickPhysicalDevice();
+  vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+
+  // Logical device creation
   createLogicalDevice();
+
+  // Command pool and fence creation
   createCommandPool();
   createFence();
 
@@ -337,22 +362,24 @@ void Device::createInstance() {
   appInfo.apiVersion = VK_API_VERSION_1_3;
   appInfo.pNext = nullptr;
 
+  vector<const char *> instanceExtensions = getRequiredExtensions();
+  println("Requested Extensions:");
+  for (const auto &extension : instanceExtensions) 
+    cout << "\t" << extension << endl;
+
   VkInstanceCreateInfo createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   createInfo.pApplicationInfo = &appInfo;
+  createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
+  createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
-  vector<const char *> extensions = getRequiredExtensions();
-  createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-  createInfo.ppEnabledExtensionNames = extensions.data();
-
-  VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+  VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
   if (enableValidationLayers) {
     createInfo.enabledLayerCount =
         static_cast<uint32_t>(validationLayers.size());
     createInfo.ppEnabledLayerNames = validationLayers.data();
 
     populateDebugMessenger(debugCreateInfo);
-
     createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debugCreateInfo;
   } else {
     createInfo.enabledLayerCount = 0;
@@ -365,17 +392,12 @@ void Device::createInstance() {
 
 vector<const char *> Device::getRequiredExtensions() {
   uint32_t glfwExtensionCount = 0;
-  const char **glfwExtensions;
-  glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+  const char **glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
   vector<const char *> extensions(glfwExtensions,
                                   glfwExtensions + glfwExtensionCount);
 
   if (enableValidationLayers)
     extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-
-  for (const auto &extension : extensions) {
-    cout << extension << std::endl;
-  }
 
   return extensions;
 }
@@ -389,29 +411,9 @@ void Device::setupDebugMessenger() {
   VkDebugUtilsMessengerCreateInfoEXT createInfo;
   populateDebugMessenger(createInfo);
 
-  if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr,
+  if (createDebugUtilsMessengerEXT(instance, &createInfo, nullptr,
                                    &debugMessenger) != VK_SUCCESS)
     throw runtime_error("Failed to set up debug messenger!");
-}
-
-void Device::populateDebugMessenger(
-    VkDebugUtilsMessengerCreateInfoEXT &createInfo) {
-  createInfo = {};
-  createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-  createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                               VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-  createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                           VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                           VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-  createInfo.pfnUserCallback = debugCallback;
-  createInfo.pUserData = nullptr;
-  createInfo.pNext = NULL;
-}
-
-// Surface
-
-void Device::createSurface(Window &window) {
-  window.createSurface(instance, &surface_);
 }
 
 // Physical Device
@@ -435,27 +437,28 @@ void Device::pickPhysicalDevice() {
 
   if (physicalDevice == VK_NULL_HANDLE)
     throw runtime_error("No device was suitable!");
-
-  vkGetPhysicalDeviceProperties(physicalDevice, &properties);
 }
 
 bool Device::isDeviceSuitable(VkPhysicalDevice device) {
   QueueFamilyIndices indices = findQueueFamilies(device);
+  if (!indices.isComplete())
+    return false;
 
-  bool extensionsSupported = checkDeviceExtensionSupport(device);
+  if (!checkDeviceExtensionSupport(device))
+    return false;
 
-  bool swapChainAdequat = false;
-  if (extensionsSupported) {
-    SwapchainSupportDetails swapChainSupport = querySwapChainSupport(device);
-    swapChainAdequat = !swapChainSupport.formats.empty() &&
-                       !swapChainSupport.presentModes.empty();
-  }
+  SwapchainSupportDetails swapChainSupport = querySwapChainSupport(device);
+  bool swapChainAdequat = !swapChainSupport.formats.empty() &&
+                     !swapChainSupport.presentModes.empty();
+  if (!swapChainAdequat)
+    return false;
 
   VkPhysicalDeviceFeatures supportedFeatures;
   vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
+  if(!supportedFeatures.samplerAnisotropy)
+    return false;
 
-  return indices.isComplete() && extensionsSupported && swapChainAdequat &&
-         supportedFeatures.samplerAnisotropy;
+  return true;
 }
 
 SwapchainSupportDetails Device::querySwapChainSupport(VkPhysicalDevice device) {
@@ -499,9 +502,8 @@ bool Device::checkDeviceExtensionSupport(VkPhysicalDevice device) {
   set<std::string> requiredExtensions(deviceExtensions.begin(),
                                       deviceExtensions.end());
 
-  for (const auto &extension : availableExtensions) {
+  for (const auto &extension : availableExtensions) 
     requiredExtensions.erase(extension.extensionName);
-  }
 
   return requiredExtensions.empty();
 }
@@ -522,13 +524,12 @@ void Device::createLogicalDevice() {
     queueCreateInfo.queueFamilyIndex = queueFamily;
     queueCreateInfo.queueCount = 1;
     queueCreateInfo.pQueuePriorities = &queuePriority;
+
     queueCreateInfos.push_back(queueCreateInfo);
   }
 
   VkPhysicalDeviceFeatures deviceFeatures = {};
   deviceFeatures.samplerAnisotropy = VK_TRUE;
-  deviceFeatures.tessellationShader = VK_TRUE;
-  deviceFeatures.multiDrawIndirect = VK_TRUE;
 
   VkPhysicalDeviceVulkan13Features vulkan13Features = {};
   vulkan13Features.sType =

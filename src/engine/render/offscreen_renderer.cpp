@@ -19,11 +19,12 @@
 using namespace std;
 namespace Magma {
 
+
 #if defined(MAGMA_WITH_EDITOR)
 OffscreenRenderer:: OffscreenRenderer(RenderTargetInfo &info,
                                      RenderContext *renderContext,
-                                     bool isEditorRenderer /*= false*/)
-    :  Renderer(), renderContext{renderContext}, isEditorRenderer{isEditorRenderer} {
+                                     RendererMode mode)
+    :  Renderer(), renderContext{renderContext}, mode{mode} {
   
   // Self-register with the context to get our slice index
   rendererId = renderContext->registerRenderer();
@@ -38,7 +39,7 @@ OffscreenRenderer:: OffscreenRenderer(RenderTargetInfo &info,
 
   renderTarget = make_unique<OffscreenTarget>(info);
 
-  if (isEditorRenderer)
+  if (mode == RendererMode::Editor)
     createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
                    "src/shaders/editor.frag.spv");
   else
@@ -191,7 +192,7 @@ void OffscreenRenderer::begin() {
 
   VkRenderingAttachmentInfo color0 = {};
   color0.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-  color0.imageView = renderTarget->getColorImageView(currentImageIndex());
+  color0.imageView = renderTarget->getColorImageView(idx);
   color0.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
   color0.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   color0.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -210,7 +211,7 @@ void OffscreenRenderer::begin() {
 
   VkRenderingAttachmentInfo depth = {};
   depth.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-  depth.imageView = renderTarget->getDepthImageView(currentImageIndex());
+  depth.imageView = renderTarget->getDepthImageView(idx);
   depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
   depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   depth.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;

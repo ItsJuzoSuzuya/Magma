@@ -16,14 +16,18 @@ namespace Magma {
 
 class RenderTargetInfo;
 
+#if defined(MAGMA_WITH_EDITOR)
+  enum class RendererMode { Game, Editor };
+#endif
+
 class OffscreenRenderer : public Renderer {
 public:
-#if defined(MAGMA_WITH_EDITOR)
-  OffscreenRenderer(RenderTargetInfo &info, RenderContext *renderContext,
-                    bool isEditorRenderer = false);
-#else
-  OffscreenRenderer(SwapChain &swapChain, RenderContext *renderContext);
-#endif
+  #if defined(MAGMA_WITH_EDITOR)
+    OffscreenRenderer(RenderTargetInfo &info, RenderContext *renderContext,
+                    RendererMode mode = RendererMode::Game);
+  #else 
+    OffscreenRenderer(SwapChain &swapChain, RenderContext *renderContext);
+  #endif
 
   ~OffscreenRenderer();
 
@@ -78,6 +82,7 @@ private:
   // RenderTarget for picking Objects in the scene
 #if defined(MAGMA_WITH_EDITOR)
   std::unique_ptr<OffscreenTarget> renderTarget;
+  RendererMode mode;
 #else
   std::unique_ptr<SwapchainTarget> renderTarget;
 #endif

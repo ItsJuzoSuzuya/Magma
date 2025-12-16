@@ -2,7 +2,6 @@
 #include "device.hpp"
 #include "frame_info.hpp"
 #include "queue_family_indices.hpp"
-#include "render_system.hpp"
 #include "render_target_info.hpp"
 #include <algorithm>
 #include <cstddef>
@@ -11,6 +10,7 @@
 #include <print>
 #include <stdexcept>
 #include <vector>
+#include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_core.h>
 
 using namespace std;
@@ -19,6 +19,14 @@ namespace Magma {
 // Constructor
 SwapChain::SwapChain(VkExtent2D extent) {
   createSwapChain(extent);
+
+  println("Swapchain details:");
+  println("  Image Count: {}", renderInfo.imageCount);
+  println("  Color Format: {}", string_VkFormat(renderInfo.colorFormat));
+  println("  Depth Format: {}", string_VkFormat(renderInfo.depthFormat));
+  println("  Extent: {}x{}", renderInfo.extent.width, renderInfo.extent.height);
+  println("  Frames In Flight: {}", MAX_FRAMES_IN_FLIGHT);
+  
   createSyncObjects();
 }
 
@@ -41,15 +49,13 @@ SwapChain::~SwapChain() {
 VkResult SwapChain::acquireNextImage() {
   VkDevice device = Device::get().device();
 
-  // Wait for the fence for the current frame (we are going to reuse its command
-  // buffer)
-  vkWaitForFences(device, 1, &inFlightFences[FrameInfo::frameIndex], VK_TRUE,
+  // Wait for the previous frame to finish
+  vkWaitForFences(device, 1, &frameSubmitFences[FrameInfo::frameIndex], VK_TRUE,
                   UINT64_MAX);
 
-  // Acquire next image using per-frame semaphore
   VkResult result =
       vkAcquireNextImageKHR(device, swapChain, UINT64_MAX,
-                            imageAvailableSemaphores[FrameInfo::frameIndex],
+                            imageAcquiredSemaphores[FrameInfo::frameIndex],
                             VK_NULL_HANDLE, &FrameInfo::imageIndex);
 
   if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
@@ -62,11 +68,7 @@ VkResult SwapChain::acquireNextImage() {
     return VK_ERROR_OUT_OF_DATE_KHR;
 
   // If that image is already in flight, wait for its fence
-  if (imagesInFlight[FrameInfo::imageIndex] != VK_NULL_HANDLE) {
-    vkWaitForFences(device, 1, &imagesInFlight[FrameInfo::imageIndex], VK_TRUE,
-                    UINT64_MAX);
-  }
-
+  vkWaitForFences(device, 1, &imagesInUseFences[FrameInfo::imageIndex], VK_TRUE, UINT64_MAX);
   return result;
 }
 
@@ -74,13 +76,13 @@ VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
   Device &device = Device::get();
 
   // Associate the image with the fence of the current frame
-  imagesInFlight[FrameInfo::imageIndex] = inFlightFences[FrameInfo::frameIndex];
+  imagesInUseFences[FrameInfo::imageIndex] = frameSubmitFences[FrameInfo::frameIndex];
 
   VkSubmitInfo submitInfo = {};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
   VkSemaphore waitSemaphores[] = {
-      imageAvailableSemaphores[FrameInfo::frameIndex]}; 
+      imageAcquiredSemaphores[FrameInfo::frameIndex]}; 
 
   VkPipelineStageFlags waitStages[] = {
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -92,14 +94,14 @@ VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
   submitInfo.pCommandBuffers = commandBuffer;
 
   VkSemaphore signalSemaphores[] = {
-      renderFinishedSemaphores[FrameInfo::imageIndex]}; 
+      renderCompleteSemaphores[FrameInfo::imageIndex]}; 
 
   submitInfo.signalSemaphoreCount = 1;
   submitInfo.pSignalSemaphores = signalSemaphores;
 
-  vkResetFences(device.device(), 1, &inFlightFences[FrameInfo::frameIndex]);
+  vkResetFences(device.device(), 1, &frameSubmitFences[FrameInfo::frameIndex]);
   if (vkQueueSubmit(device.graphicsQueue(), 1, &submitInfo,
-                    inFlightFences[FrameInfo::frameIndex]) != VK_SUCCESS)
+                    frameSubmitFences[FrameInfo::frameIndex]) != VK_SUCCESS)
     throw std::runtime_error("Failed to submit draw command buffer!");
 
   VkPresentInfoKHR presentInfo = {};
@@ -185,11 +187,10 @@ void SwapChain::createSwapChain(VkExtent2D &extent) {
 void SwapChain::createSyncObjects() {
   VkDevice device = Device::get().device();
 
-  imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-  // Per-image render-finished semaphores sized to swapchain image count
-  renderFinishedSemaphores.resize(renderInfo.imageCount);
-  inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-  imagesInFlight.resize(renderInfo.imageCount, VK_NULL_HANDLE);
+  imageAcquiredSemaphores.resize(MAX_FRAMES_IN_FLIGHT, VK_NULL_HANDLE);
+  renderCompleteSemaphores.resize(renderInfo.imageCount, VK_NULL_HANDLE);
+  frameSubmitFences.resize(MAX_FRAMES_IN_FLIGHT, VK_NULL_HANDLE);
+  imagesInUseFences.resize(renderInfo.imageCount, VK_NULL_HANDLE);
 
   VkSemaphoreCreateInfo semaphoreInfo = {};
   semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -198,20 +199,20 @@ void SwapChain::createSyncObjects() {
   fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-  for (size_t i = 0; i < imageAvailableSemaphores.size(); i++) {
+  for (size_t i = 0; i < imageAcquiredSemaphores.size(); i++) {
     if (vkCreateSemaphore(device, &semaphoreInfo, nullptr,
-                          &imageAvailableSemaphores[i]) != VK_SUCCESS)
+                          &imageAcquiredSemaphores[i]) != VK_SUCCESS)
       throw std::runtime_error("Failed to create imageAvailable semaphore!");
   }
 
-  for (size_t i = 0; i < renderFinishedSemaphores.size(); i++) {
+  for (size_t i = 0; i < renderCompleteSemaphores.size(); i++) {
     if (vkCreateSemaphore(device, &semaphoreInfo, nullptr,
-                          &renderFinishedSemaphores[i]) != VK_SUCCESS)
+                          &renderCompleteSemaphores[i]) != VK_SUCCESS)
       throw std::runtime_error("Failed to create renderFinished semaphore!");
   }
 
-  for (size_t i = 0; i < inFlightFences.size(); i++) {
-    if (vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) !=
+  for (size_t i = 0; i < frameSubmitFences.size(); i++) {
+    if (vkCreateFence(device, &fenceInfo, nullptr, &frameSubmitFences[i]) !=
         VK_SUCCESS)
       throw std::runtime_error("Failed to create inFlight fence!");
   }
@@ -220,20 +221,19 @@ void SwapChain::createSyncObjects() {
 void SwapChain::destroySyncObjects() {
   VkDevice device = Device::get().device();
 
-  for (auto s : imageAvailableSemaphores)
+  for (auto s : imageAcquiredSemaphores)
     vkDestroySemaphore(device, s, nullptr);
-  for (auto s : renderFinishedSemaphores)
+  for (auto s : renderCompleteSemaphores)
     vkDestroySemaphore(device, s, nullptr);
-  for (auto f : inFlightFences)
+  for (auto f : frameSubmitFences)
     vkDestroyFence(device, f, nullptr);
 
-  imageAvailableSemaphores.clear();
-  renderFinishedSemaphores.clear();
-  inFlightFences.clear();
-  imagesInFlight.clear();
+  imageAcquiredSemaphores.clear();
+  renderCompleteSemaphores.clear();
+  frameSubmitFences.clear();
+  imagesInUseFences.clear();
 }
 
-// Helpers (unchanged)
 VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(
     const std::vector<VkSurfaceFormatKHR> &availableFormats) {
   for (const auto &availableFormat : availableFormats) {
@@ -261,10 +261,10 @@ SwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities,
   } else {
     VkExtent2D actualExtent = extent;
     actualExtent.width =
-        std::clamp(actualExtent.width, capabilities.minImageExtent.width,
+        clamp(actualExtent.width, capabilities.minImageExtent.width,
                    capabilities.maxImageExtent.width);
     actualExtent.height =
-        std::clamp(actualExtent.height, capabilities.minImageExtent.height,
+        clamp(actualExtent.height, capabilities.minImageExtent.height,
                    capabilities.maxImageExtent.height);
 
     return actualExtent;

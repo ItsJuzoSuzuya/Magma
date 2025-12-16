@@ -110,11 +110,9 @@ private:
   // Debug Messenger
   VkDebugUtilsMessengerEXT debugMessenger;
   void setupDebugMessenger();
-  void populateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT &createInfo);
 
   // Surface
   VkSurfaceKHR surface_;
-  void createSurface(Window &window);
 
   // Physical Device
   VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;

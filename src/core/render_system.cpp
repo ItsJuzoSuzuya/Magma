@@ -41,9 +41,9 @@ RenderSystem:: RenderSystem(Window &window) : window{window} {
     
     // Renderers register themselves with the context
     offscreenRendererEditor = make_unique<OffscreenRenderer>(
-        offscreenInfo, renderContext.get(), true);
+        offscreenInfo, renderContext.get(), RendererMode::Editor);
     offscreenRendererGame = make_unique<OffscreenRenderer>(
-        offscreenInfo, renderContext.get());
+        offscreenInfo, renderContext.get(), RendererMode::Game);
 
     editorCamera = make_unique<EditorCamera>();
     offscreenRendererEditor->setActiveCamera(editorCamera->getCamera());
