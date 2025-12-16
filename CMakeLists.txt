@@ -20,6 +20,7 @@ set(EXTERNAL_DIR ${CMAKE_SOURCE_DIR}/src/external)
 # Include path
 include_directories(${IMGUI_DIR})
 include_directories(${EXTERNAL_DIR})
+include_directories(${CMAKE_SOURCE_DIR}/src)
 
 if(MAGMA_WITH_EDITOR)
   set(IMGUI_SOURCES
@@ -82,12 +83,15 @@ endif()
 
 # Build executable
 add_executable(${PROJECT_NAME} ${SOURCES} ${IMGUI_SOURCES})
+
 add_custom_target(shaders
   COMMAND ${CMAKE_COMMAND} -E env MAGMA_WITH_EDITOR=$<IF:$<BOOL:${MAGMA_WITH_EDITOR}>,ON,OFF>
           ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR} bash src/shaders/compile.sh
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   COMMENT "Compiling Vulkan shaders (MAGMA_WITH_EDITOR=$<IF:$<BOOL:${MAGMA_WITH_EDITOR}>,ON,OFF>)"
 )
+
+
 
 # Now it is safe to add the dependency on the already-created executable target
 add_dependencies(${PROJECT_NAME} shaders)

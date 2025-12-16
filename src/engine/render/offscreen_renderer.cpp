@@ -1,37 +1,37 @@
 #include "offscreen_renderer.hpp"
-#include "../../core/device.hpp"
-#include "../../core/frame_info.hpp"
-#include "../components/camera.hpp"
-#include "../scene.hpp"
+#include "core/device.hpp"
+#include "core/frame_info.hpp"
+#include "engine/components/camera.hpp"
+#include "engine/scene.hpp"
 #include "render_context.hpp"
 #include <cstdint>
+#include <print>
 #include <vector>
+#include <vulkan/vk_enum_string_helper.h>
 
 #if defined(MAGMA_WITH_EDITOR)
-#include "../../core/render_target_info.hpp"
+#include "core/render_target_info.hpp"
 #include "imgui_impl_vulkan.h"
 #include "offscreen_target.hpp"
 #endif
 
 #include <vulkan/vulkan_core.h>
 
-
 using namespace std;
 namespace Magma {
 
-
 #if defined(MAGMA_WITH_EDITOR)
-OffscreenRenderer:: OffscreenRenderer(RenderTargetInfo &info,
+OffscreenRenderer::OffscreenRenderer(RenderTargetInfo &info,
                                      RenderContext *renderContext,
                                      RendererMode mode)
-    :  Renderer(), renderContext{renderContext}, mode{mode} {
-  
+    : Renderer(), renderContext{renderContext}, mode{mode} {
+
   // Self-register with the context to get our slice index
   rendererId = renderContext->registerRenderer();
 
   vector<VkDescriptorSetLayout> layouts = {
-      renderContext->getLayout(LayoutKey:: Camera),
-      renderContext->getLayout(LayoutKey:: PointLight)};
+      renderContext->getLayout(LayoutKey::Camera),
+      renderContext->getLayout(LayoutKey::PointLight)};
 
   Renderer::init(layouts);
   renderContext->createDescriptorSets(LayoutKey::Camera);
@@ -44,9 +44,9 @@ OffscreenRenderer:: OffscreenRenderer(RenderTargetInfo &info,
                    "src/shaders/editor.frag.spv");
   else
     createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
-                 "src/shaders/shader.frag.spv");
+                   "src/shaders/shader.frag.spv");
 
-  sceneColorLayouts. assign(renderTarget->imageCount(),
+  sceneColorLayouts.assign(renderTarget->imageCount(),
                            VK_IMAGE_LAYOUT_UNDEFINED);
   idColorLayouts.assign(renderTarget->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
@@ -54,7 +54,7 @@ OffscreenRenderer:: OffscreenRenderer(RenderTargetInfo &info,
 OffscreenRenderer::OffscreenRenderer(SwapChain &swapChain,
                                      RenderContext *renderContext)
     : Renderer(), renderContext{renderContext} {
-  
+
   // Self-register with the context to get our slice index
   rendererId = renderContext->registerRenderer();
 
@@ -64,12 +64,12 @@ OffscreenRenderer::OffscreenRenderer(SwapChain &swapChain,
 
   Renderer::init(layouts);
   renderContext->createDescriptorSets(LayoutKey::Camera);
-  renderContext->createDescriptorSets(LayoutKey:: PointLight);
+  renderContext->createDescriptorSets(LayoutKey::PointLight);
 
   renderTarget = std::make_unique<SwapchainTarget>(swapChain);
 
-  createPipeline(renderTarget. get(), "src/shaders/shader. vert.spv",
-                 "src/shaders/shader.frag. spv");
+  createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
+                 "src/shaders/shader.frag.spv");
 
   sceneColorLayouts.assign(renderTarget->imageCount(),
                            VK_IMAGE_LAYOUT_UNDEFINED);
@@ -256,14 +256,14 @@ void OffscreenRenderer::begin() {
 void OffscreenRenderer::record() {
   pipeline->bind(FrameInfo::commandBuffer);
   auto camSet =
-      renderContext->getDescriptorSet(LayoutKey::Camera, currentImageIndex());
+      renderContext->getDescriptorSet(LayoutKey::Camera, FrameInfo::frameIndex);
   if (!camSet.has_value())
     throw runtime_error(
         "No Camera descriptor set found for OffscreenRenderer!");
   uint32_t camOffset = rendererId * renderContext->cameraSliceSize();
 
   auto lightSet = renderContext->getDescriptorSet(LayoutKey::PointLight,
-                                                  currentImageIndex());
+                                                  FrameInfo::frameIndex);
   if (!lightSet.has_value())
     throw runtime_error(
         "No Point light descriptor set found for OffscreenRenderer!");
@@ -362,7 +362,8 @@ void OffscreenRenderer::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
   Device::waitIdle();
 
   renderTarget->resize(newExtent, swapChain);
-  createPipeline(renderTarget.get());
+  createPipeline(renderTarget.get(), "src/shaders/shader.vert.spv",
+                 "src/shaders/shader.frag.spv");
 
   sceneColorLayouts.assign(renderTarget->imageCount(),
                            VK_IMAGE_LAYOUT_UNDEFINED);

@@ -1,20 +1,20 @@
 #include "render_system.hpp"
-#include "../core/window.hpp"
-#include "../engine/scene.hpp"
+#include "core/device.hpp"
+#include "core/window.hpp"
 #include "deletion_queue.hpp"
-#include "../engine/time.hpp"
-#include "../core/device.hpp"
+#include "engine/scene.hpp"
+#include "engine/time.hpp"
 #include "renderer.hpp"
 #include "swapchain.hpp"
 #include <vulkan/vulkan_core.h>
 
 #if defined(MAGMA_WITH_EDITOR)
-#include "../engine/widgets/dock_layout.hpp"
-#include "../engine/widgets/game_editor.hpp"
-#include "../engine/widgets/game_view.hpp"
-#include "../engine/widgets/inspector.hpp"
-#include "../engine/widgets/runtime_control.hpp"
-#include "../engine/widgets/scene_tree.hpp"
+#include "engine/widgets/dock_layout.hpp"
+#include "engine/widgets/game_editor.hpp"
+#include "engine/widgets/game_view.hpp"
+#include "engine/widgets/inspector.hpp"
+#include "engine/widgets/runtime_control.hpp"
+#include "engine/widgets/scene_tree.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
@@ -28,52 +28,53 @@ using namespace std;
 namespace Magma {
 
 // Constructor
-RenderSystem:: RenderSystem(Window &window) : window{window} {
+RenderSystem::RenderSystem(Window &window) : window{window} {
   device = make_unique<Device>(window);
   swapChain = make_unique<SwapChain>(window.getExtent());
   renderContext = make_unique<RenderContext>();
 
-  #if defined(MAGMA_WITH_EDITOR)
-    RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
-    offscreenInfo.extent.width /= 2;
-    offscreenInfo.extent.height /= 2;
-    offscreenInfo.imageCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
-    
-    // Renderers register themselves with the context
-    offscreenRendererEditor = make_unique<OffscreenRenderer>(
-        offscreenInfo, renderContext.get(), RendererMode::Editor);
-    offscreenRendererGame = make_unique<OffscreenRenderer>(
-        offscreenInfo, renderContext.get(), RendererMode::Game);
+#if defined(MAGMA_WITH_EDITOR)
+  RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
+  offscreenInfo.extent.width /= 2;
+  offscreenInfo.extent.height /= 2;
+  offscreenInfo.imageCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
 
-    editorCamera = make_unique<EditorCamera>();
-    offscreenRendererEditor->setActiveCamera(editorCamera->getCamera());
+  // Renderers register themselves with the context
+  offscreenRendererEditor = make_unique<OffscreenRenderer>(
+      offscreenInfo, renderContext.get(), RendererMode::Editor);
+  offscreenRendererGame = make_unique<OffscreenRenderer>(
+      offscreenInfo, renderContext.get(), RendererMode::Game);
 
-    // Rendering ImGui
-    imguiRenderer = make_unique<ImGuiRenderer>(*swapChain);
+  editorCamera = make_unique<EditorCamera>();
+  offscreenRendererEditor->setActiveCamera(editorCamera->getCamera());
 
-    // Add widgets
-    imguiRenderer->addWidget(make_unique<RuntimeControl>());
-    imguiRenderer->addWidget(make_unique<SceneTree>());
-    imguiRenderer->addWidget(make_unique<Inspector>());
+  // Rendering ImGui
+  imguiRenderer = make_unique<ImGuiRenderer>(*swapChain);
 
-    imguiRenderer->addWidget(make_unique<GameEditor>(
-        *offscreenRendererEditor.get(), editorCamera.get()));
-    imguiRenderer->addWidget(make_unique<GameView>(*offscreenRendererGame.get()));
-  #else
-    // Single renderer registers itself
-    offscreenRenderer = make_unique<OffscreenRenderer>(
-        *swapChain, renderContext.get());
-  #endif
+  // Add widgets
+  imguiRenderer->addWidget(make_unique<RuntimeControl>());
+  imguiRenderer->addWidget(make_unique<SceneTree>());
+  imguiRenderer->addWidget(make_unique<Inspector>());
+
+  imguiRenderer->addWidget(make_unique<GameEditor>(
+      *offscreenRendererEditor.get(), editorCamera.get()));
+  imguiRenderer->addWidget(make_unique<GameView>(*offscreenRendererGame.get()));
+#else
+  // Single renderer registers itself
+  offscreenRenderer =
+      make_unique<OffscreenRenderer>(*swapChain, renderContext.get());
+#endif
 
   createCommandBuffers();
 }
 
 // Destructor
 RenderSystem::~RenderSystem() {
-Device::waitIdle();
+  Device::waitIdle();
+
+  renderContext.reset();
 
 #if defined(MAGMA_WITH_EDITOR)
-  renderContext.reset();
   if (offscreenRendererEditor)
     offscreenRendererEditor.reset();
   if (offscreenRendererGame)
@@ -91,7 +92,7 @@ Device::waitIdle();
     offscreenRenderer.reset();
 #endif
 
-DeletionQueue::flushAll();
+  DeletionQueue::flushAll();
 }
 
 // --- Public ---
@@ -117,7 +118,8 @@ ImGui_ImplVulkan_InitInfo RenderSystem::getImGuiInitInfo() {
   init_info.PipelineRenderingCreateInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
   init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-  init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &imguiColorFormat ;
+  init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats =
+      &imguiColorFormat;
   init_info.PipelineRenderingCreateInfo.depthAttachmentFormat =
       swapChain->getRenderInfo().depthFormat;
   init_info.PipelineRenderingCreateInfo.stencilAttachmentFormat =
@@ -145,7 +147,7 @@ void RenderSystem::renderFrame() {
 
   if (beginFrame()) {
 #if defined(MAGMA_WITH_EDITOR)
-    // Offscreen Editor 
+    // Offscreen Editor
     {
       offscreenRendererEditor->begin();
       offscreenRendererEditor->record();

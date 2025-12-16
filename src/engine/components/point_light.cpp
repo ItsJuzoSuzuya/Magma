@@ -17,13 +17,13 @@ void PointLight::onRender(Renderer &renderer) {
   renderer.submitPointLight(lightData);
 }
 
-void PointLight::onInspector() {
 #if defined(MAGMA_WITH_EDITOR)
+void PointLight::onInspector() {
   // Draw simple controls (no Begin/End here; Inspector wraps us)
   ImGui::TextDisabled("Point Light");
   ImGui::ColorEdit3("Color", &lightData.color.x);
   ImGui::DragFloat("Intensity", &lightData.color.w, 0.01f, 0.0f, 100.0f);
-#endif
 }
+#endif
 
 } // namespace Magma

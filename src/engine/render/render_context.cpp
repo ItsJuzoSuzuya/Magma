@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <ostream>
+#include <print>
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
 
@@ -15,8 +17,8 @@ namespace Magma {
 
 SlicedResource::SlicedResource(VkDeviceSize elementSize,
                                VkBufferUsageFlags usage,
-                               uint32_t framesInFlight): 
-  elementSize{elementSize}, usage{usage}, framesInFlight{framesInFlight} {}
+                               uint32_t framesInFlight)
+    : elementSize{elementSize}, usage{usage}, framesInFlight{framesInFlight} {}
 
 void SlicedResource::ensureCapacity(uint32_t rendererCount) {
   if (rendererCount <= currentCapacity)
@@ -35,18 +37,17 @@ void SlicedResource::update(uint32_t frameIndex, uint32_t sliceIndex,
   if (!buffer)
     return;
 
-  VkDeviceSize offset = frameIndex * (elementSize * currentCapacity) +
-                        sliceIndex * elementSize;
+  VkDeviceSize offset =
+      frameIndex * (elementSize * currentCapacity) + sliceIndex * elementSize;
 
   buffer->writeToBuffer(const_cast<void *>(data), size, offset);
   buffer->flush(size, offset);
 }
 
 void SlicedResource::reallocate(uint32_t newCapacity) {
-  buffer = make_unique<Buffer>(
-      elementSize, newCapacity * framesInFlight, usage,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  buffer = make_unique<Buffer>(elementSize, newCapacity * framesInFlight, usage,
+                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   buffer->map();
   currentCapacity = newCapacity;
 }
@@ -55,8 +56,10 @@ void SlicedResource::reallocate(uint32_t newCapacity) {
 
 uint32_t RenderContext::registerRenderer() {
   uint32_t index = registeredRendererCount++;
+  println("Registered renderer with index {}", index);
 
-  // Ensure resources have capacity for this renderer (if they already exist)
+  // Ensure resources have capacity for this renderer (if they already
+  // exist)
   if (cameraResource) {
     uint32_t oldCapacity = cameraResource->getCapacity();
     cameraResource->ensureCapacity(registeredRendererCount);
@@ -80,6 +83,7 @@ VkDescriptorSetLayout RenderContext::getLayout(LayoutKey key) {
 }
 
 void RenderContext::createDescriptorSets(LayoutKey key) {
+  println("Creating descriptor sets for layout key {}", static_cast<int>(key));
   rebuildDescriptorSetsIfNeeded(key);
 
   for (uint32_t frameIndex = 0; frameIndex < SwapChain::MAX_FRAMES_IN_FLIGHT;
@@ -127,7 +131,7 @@ uint32_t RenderContext::pointLightSliceSize() const {
              : sizeof(PointLightSSBO);
 }
 
-void RenderContext:: updatePointLightSlice(uint32_t frameIndex,
+void RenderContext::updatePointLightSlice(uint32_t frameIndex,
                                           uint32_t sliceIndex, const void *data,
                                           VkDeviceSize size) {
   ensurePointLightResource();
@@ -147,7 +151,7 @@ void RenderContext::ensureDescriptorPool() {
     return;
 
   descriptorPool =
-      DescriptorPool:: Builder()
+      DescriptorPool::Builder()
           .setMaxSets(512)
           .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 256)
           .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 256)
@@ -160,7 +164,7 @@ void RenderContext::ensureLayout(LayoutKey key) {
     return;
 
   switch (key) {
-  case LayoutKey:: Camera:
+  case LayoutKey::Camera:
     descriptorSetLayouts[key] =
         DescriptorSetLayout::Builder()
             .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
@@ -168,9 +172,9 @@ void RenderContext::ensureLayout(LayoutKey key) {
             .build();
     break;
 
-  case LayoutKey::PointLight: 
+  case LayoutKey::PointLight:
     descriptorSetLayouts[key] =
-        DescriptorSetLayout:: Builder()
+        DescriptorSetLayout::Builder()
             .addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                         VK_SHADER_STAGE_FRAGMENT_BIT)
             .build();
@@ -182,6 +186,7 @@ void RenderContext::ensureCameraResource() {
   if (cameraResource)
     return;
 
+  println("Creating camera resource");
   cameraResource = make_unique<SlicedResource>(
       sizeof(CameraUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
       SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -194,12 +199,13 @@ void RenderContext::ensurePointLightResource() {
   if (pointLightResource)
     return;
 
+  println("Creating point light resource");
   pointLightResource = make_unique<SlicedResource>(
       sizeof(PointLightSSBO), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
       SwapChain::MAX_FRAMES_IN_FLIGHT);
 
   pointLightResource->ensureCapacity(max(1u, registeredRendererCount));
-  setsNeedRebuild[LayoutKey:: PointLight] = true;
+  setsNeedRebuild[LayoutKey::PointLight] = true;
 }
 
 void RenderContext::writeDescriptorSet(LayoutKey key, uint32_t frameIndex) {
@@ -211,7 +217,7 @@ void RenderContext::writeDescriptorSet(LayoutKey key, uint32_t frameIndex) {
   VkDescriptorSet set{};
   DescriptorWriter writer(*descriptorSetLayouts[key], *descriptorPool);
 
-  if (key == LayoutKey:: Camera) {
+  if (key == LayoutKey::Camera) {
     ensureCameraResource();
     VkDescriptorBufferInfo info = {};
     info.buffer = cameraResource->getBuffer();
@@ -229,7 +235,7 @@ void RenderContext::writeDescriptorSet(LayoutKey key, uint32_t frameIndex) {
     throw runtime_error("Unknown layout key");
   }
 
-  if (! writer.build(set))
+  if (!writer.build(set))
     throw runtime_error("Failed to build descriptor set");
 
   setCache[dsKey] = set;

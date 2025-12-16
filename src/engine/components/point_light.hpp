@@ -27,7 +27,6 @@ public:
   void onInspector() override;
   virtual const char *inspectorName() const override { return "Point Light"; }
   virtual const float inspectorHeight() const override { return 100.f; }
-
 #endif
 
 private:

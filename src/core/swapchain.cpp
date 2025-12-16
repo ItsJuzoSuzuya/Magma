@@ -26,7 +26,7 @@ SwapChain::SwapChain(VkExtent2D extent) {
   println("  Depth Format: {}", string_VkFormat(renderInfo.depthFormat));
   println("  Extent: {}x{}", renderInfo.extent.width, renderInfo.extent.height);
   println("  Frames In Flight: {}", MAX_FRAMES_IN_FLIGHT);
-  
+
   createSyncObjects();
 }
 
@@ -67,8 +67,11 @@ VkResult SwapChain::acquireNextImage() {
   if (FrameInfo::imageIndex >= renderInfo.imageCount)
     return VK_ERROR_OUT_OF_DATE_KHR;
 
-  // If that image is already in flight, wait for its fence
-  vkWaitForFences(device, 1, &imagesInUseFences[FrameInfo::imageIndex], VK_TRUE, UINT64_MAX);
+  // If that image is still in use, wait for its fence
+  if (imagesInUseFences[FrameInfo::imageIndex] != VK_NULL_HANDLE)
+    vkWaitForFences(device, 1, &imagesInUseFences[FrameInfo::imageIndex],
+                    VK_TRUE, UINT64_MAX);
+
   return result;
 }
 
@@ -76,26 +79,27 @@ VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
   Device &device = Device::get();
 
   // Associate the image with the fence of the current frame
-  imagesInUseFences[FrameInfo::imageIndex] = frameSubmitFences[FrameInfo::frameIndex];
+  imagesInUseFences[FrameInfo::imageIndex] =
+      frameSubmitFences[FrameInfo::frameIndex];
 
   VkSubmitInfo submitInfo = {};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = commandBuffer;
 
+  // Wait for the image to be acquired submit
   VkSemaphore waitSemaphores[] = {
-      imageAcquiredSemaphores[FrameInfo::frameIndex]}; 
-
+      imageAcquiredSemaphores[FrameInfo::frameIndex]};
+  // Wait in the color attachment output stage
   VkPipelineStageFlags waitStages[] = {
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
   submitInfo.waitSemaphoreCount = 1;
   submitInfo.pWaitSemaphores = waitSemaphores;
   submitInfo.pWaitDstStageMask = waitStages;
 
-  submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = commandBuffer;
-
+  // Signal that rendering is complete
   VkSemaphore signalSemaphores[] = {
-      renderCompleteSemaphores[FrameInfo::imageIndex]}; 
-
+      renderCompleteSemaphores[FrameInfo::imageIndex]};
   submitInfo.signalSemaphoreCount = 1;
   submitInfo.pSignalSemaphores = signalSemaphores;
 
@@ -107,6 +111,7 @@ VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
   VkPresentInfoKHR presentInfo = {};
   presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   presentInfo.waitSemaphoreCount = 1;
+  // Present after signal that rendering is complete
   presentInfo.pWaitSemaphores = signalSemaphores;
 
   VkSwapchainKHR swapChains[] = {swapChain};
@@ -262,10 +267,10 @@ SwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities,
     VkExtent2D actualExtent = extent;
     actualExtent.width =
         clamp(actualExtent.width, capabilities.minImageExtent.width,
-                   capabilities.maxImageExtent.width);
+              capabilities.maxImageExtent.width);
     actualExtent.height =
         clamp(actualExtent.height, capabilities.minImageExtent.height,
-                   capabilities.maxImageExtent.height);
+              capabilities.maxImageExtent.height);
 
     return actualExtent;
   }

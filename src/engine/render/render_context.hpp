@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../components/point_light.hpp"
 #include "../../core/buffer.hpp"
 #include "../../core/descriptors.hpp"
+#include "../components/point_light.hpp"
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -17,11 +17,11 @@ enum class LayoutKey {
 };
 
 /**
- * Manages a sliced buffer for per-renderer, per-frame data. 
- * Lazily allocated and auto-growing. 
+ * Manages a sliced buffer for per-renderer, per-frame data.
+ * Lazily allocated and auto-growing.
  */
 class SlicedResource {
-public: 
+public:
   SlicedResource(VkDeviceSize elementSize, VkBufferUsageFlags usage,
                  uint32_t framesInFlight);
   ~SlicedResource() = default;
@@ -31,13 +31,13 @@ public:
               VkDeviceSize size);
 
   VkBuffer getBuffer() const {
-    return buffer ?  buffer->getBuffer() : VK_NULL_HANDLE;
+    return buffer ? buffer->getBuffer() : VK_NULL_HANDLE;
   }
   VkDeviceSize getSliceSize() const { return elementSize; }
   uint32_t getCapacity() const { return currentCapacity; }
   bool isAllocated() const { return buffer != nullptr; }
 
-private: 
+private:
   VkDeviceSize elementSize;
   VkBufferUsageFlags usage;
   uint32_t framesInFlight;
@@ -48,15 +48,15 @@ private:
 };
 
 /**
- * Central render resource manager with lazy allocation. 
+ * Central render resource manager with lazy allocation.
  *
- * Resources are only created when first requested: 
+ * Resources are only created when first requested:
  * - No lights in scene?  PointLight buffers never allocated.
  * - Renderers self-register and get a slice index back.
  */
 class RenderContext {
-public: 
-  RenderContext();
+public:
+  RenderContext() = default;
   ~RenderContext() = default;
 
   // Delete copy/move
@@ -119,7 +119,7 @@ private:
   };
   struct DescriptorKeyHash {
     size_t operator()(const DescriptorKey &k) const {
-      return static_cast<size_t>(k.key) * 73856093u ^ k. frameIndex * 19349663u;
+      return static_cast<size_t>(k.key) * 73856093u ^ k.frameIndex * 19349663u;
     }
   };
   std::unordered_map<DescriptorKey, VkDescriptorSet, DescriptorKeyHash>

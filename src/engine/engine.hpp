@@ -1,6 +1,6 @@
 #pragma once
-#include "../core/render_system.hpp"
-#include "../core/window.hpp"
+#include "core/render_system.hpp"
+#include "core/window.hpp"
 #include "scene.hpp"
 #include <GLFW/glfw3.h>
 #include <X11/X.h>
@@ -31,10 +31,10 @@ private:
   std::unique_ptr<RenderSystem> renderSystem = nullptr;
   std::unique_ptr<Scene> scene = nullptr;
 
-  // --- ImGui --- 
-  #if defined(MAGMA_WITH_EDITOR)
-    void initImGui();
-  #endif
+// --- ImGui ---
+#if defined(MAGMA_WITH_EDITOR)
+  void initImGui();
+#endif
 };
 
 } // namespace Magma
