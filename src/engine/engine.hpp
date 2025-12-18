@@ -11,10 +11,10 @@ class EngineSpecifications;
 
 /**
  * The main engine class that initializes and runs the application.
+ * It manages the window, rendering system, and scene.
  */
 class Engine {
 public:
-  /** Constructs the engine with the given specifications */
   Engine(EngineSpecifications &spec);
 
   /**
@@ -25,16 +25,14 @@ public:
   void run();
 
 private:
-  // --- Engine ---
   EngineSpecifications &specifications;
   std::unique_ptr<Window> window = nullptr;
   std::unique_ptr<RenderSystem> renderSystem = nullptr;
   std::unique_ptr<Scene> scene = nullptr;
 
-// --- ImGui ---
-#if defined(MAGMA_WITH_EDITOR)
-  void initImGui();
-#endif
+  #if defined(MAGMA_WITH_EDITOR)
+    void initImGui();
+  #endif
 };
 
 } // namespace Magma

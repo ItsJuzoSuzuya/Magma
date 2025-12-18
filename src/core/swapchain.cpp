@@ -16,7 +16,6 @@
 using namespace std;
 namespace Magma {
 
-// Constructor
 SwapChain::SwapChain(VkExtent2D extent) {
   createSwapChain(extent);
 
@@ -37,15 +36,16 @@ SwapChain::SwapChain(VkExtent2D extent, std::shared_ptr<SwapChain> oldSwapChain)
   this->oldSwapChain = nullptr;
 }
 
-// Destructor
 SwapChain::~SwapChain() {
   destroySyncObjects();
   VkDevice device = Device::get().device();
   vkDestroySwapchainKHR(device, swapChain, nullptr);
 }
 
-// --- Public ---
-// Rendering
+
+// --- Public --- //
+
+// *** Rendering *** //
 VkResult SwapChain::acquireNextImage() {
   VkDevice device = Device::get().device();
 
@@ -122,8 +122,9 @@ VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
   return vkQueuePresentKHR(device.presentQueue(), &presentInfo);
 }
 
-// --- Private ---
-// Swap Chain
+// --- Private --- //
+
+// *** Swap Chain *** //
 void SwapChain::createSwapChain(VkExtent2D &extent) {
   Device &device = Device::get();
   SwapchainSupportDetails swapChainSupport = device.getSwapChainSupport();
@@ -188,7 +189,7 @@ void SwapChain::createSwapChain(VkExtent2D &extent) {
   };
 }
 
-// Synchronization
+// *** Synchronization *** //
 void SwapChain::createSyncObjects() {
   VkDevice device = Device::get().device();
 
@@ -239,6 +240,7 @@ void SwapChain::destroySyncObjects() {
   imagesInUseFences.clear();
 }
 
+// *** Helpers *** //
 VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(
     const std::vector<VkSurfaceFormatKHR> &availableFormats) {
   for (const auto &availableFormat : availableFormats) {

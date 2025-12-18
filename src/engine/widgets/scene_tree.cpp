@@ -6,7 +6,6 @@
 using namespace std;
 namespace Magma {
 
-// Pre-frame: Just attach Scene Tree
 void SceneTree::preFrame() {
   UIContext::ensureInit();
   ImGui::SetNextWindowClass(&UIContext::AppDockClass);
@@ -14,7 +13,6 @@ void SceneTree::preFrame() {
   ImGui::End();
 }
 
-// Draw: Simple tree node
 void SceneTree::draw() {
   UIContext::ensureInit();
 
@@ -24,7 +22,7 @@ void SceneTree::draw() {
   if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) 
     SceneMenu::queueContextMenuFor(nullptr);
 
-  Scene::drawTree();
+  Scene::drawSceneTree();
   sceneMenu.draw();
 
   ImGui::End();

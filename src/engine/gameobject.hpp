@@ -35,40 +35,32 @@ class GameObject {
 public:
   using id_t = uint64_t;
 
-  // Destructor
   ~GameObject();
-  void destroy();
-  void removeChild(GameObject *child);
-
-  // Factory methods
-  static GameObject &create();
-  static GameObject &create(std::string name);
-  static GameObject &create(GameObject &parent);
-  static GameObject &create(GameObject &parent, std::string name);
 
   GameObject(const GameObject &) = delete;
   GameObject &operator=(const GameObject &) = delete;
   GameObject(GameObject &&) = default;
   GameObject &operator=(GameObject &&) = default;
 
-  // Getters
+  static GameObject &create();
+  static GameObject &create(std::string name);
+  static GameObject &create(GameObject &parent);
+  static GameObject &create(GameObject &parent, std::string name);
+
+  void destroy();
+
+  GameObject *parent = nullptr;
   static id_t getNextId();
+
   std::vector<GameObject *> getChildren();
+  void addChild();
+  void addChild(std::unique_ptr<GameObject> child);
+  void removeChild(GameObject *child);
+  bool hasChildren() const { return !children.empty(); }
+  #if defined(MAGMA_WITH_EDITOR)
+    void drawChildren();
+  #endif
 
-  // Component
-  template <typename T, typename... Args>
-  T *addComponent(Args &&...args) {
-    static_assert(std::is_base_of<Component, T>::value,
-                  "T must be a Component");
-    auto component = std::make_unique<T>(this, std::forward<Args>(args)...);
-    assert(component &&
-           "Failed to create component. Make sure the constructor is valid.");
-
-    T *ptr = component.get();
-
-    components[typeid(T)] = std::move(component);
-    return ptr;
-  }
   template <typename T> T *getComponent() const {
     static_assert(std::is_base_of<Component, T>::value,
                   "T must be a Component");
@@ -84,19 +76,19 @@ public:
     util::sortComponentsByName(vec);
     return vec;
   }
+  template <typename T, typename... Args>
+  T *addComponent(Args &&...args) {
+    static_assert(std::is_base_of<Component, T>::value,
+                  "T must be a Component");
+    auto component = std::make_unique<T>(this, std::forward<Args>(args)...);
+    assert(component &&
+           "Failed to create component. Make sure the constructor is valid.");
 
-  // Parent
-  GameObject *parent = nullptr;
+    T *ptr = component.get();
 
-  // Children
-  void addChild();
-  void addChild(std::unique_ptr<GameObject> child);
-  bool hasChildren() const { return !children.empty(); }
-  #if defined(MAGMA_WITH_EDITOR)
-  void drawChildren();
-  #endif
-
-
+    components[typeid(T)] = std::move(component);
+    return ptr;
+  }
 
   /**
    * Render (recursive)
@@ -111,7 +103,7 @@ public:
   std::string name;
 
 private:
-  static id_t nextId;
+  inline static id_t nextId = 1;
 
   GameObject(id_t id) : id{id}, name("GameObject " + std::to_string(id)) {};
   GameObject(id_t id, std::string name) : id{id}, name{name} {};
@@ -120,7 +112,6 @@ private:
   GameObject(id_t id, GameObject *parent, std::string name)
       : id{id}, parent{parent}, name{name} {};
 
-  // Hierarchy
   std::unordered_map<std::type_index, std::unique_ptr<Component>> components;
   std::vector<std::unique_ptr<GameObject>> children;
 

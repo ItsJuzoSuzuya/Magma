@@ -1,19 +1,19 @@
 #include "scene.hpp"
-#include "../core/device.hpp"
-#include "../core/renderer.hpp"
+#include "core/device.hpp"
+#include "core/renderer.hpp"
 #include "components/transform.hpp"
 #include "gameobject.hpp"
 #include "scene_action.hpp"
-
-#if defined(MAGMA_WITH_EDITOR)
-#include "imgui.h"
-#include "widgets/inspector.hpp"
-#include "widgets/scene_menu.hpp"
-#endif
-
 #include <memory>
 
-using namespace std;
+#if defined(MAGMA_WITH_EDITOR)
+  #include "imgui.h"
+  #include "widgets/inspector.hpp"
+  #include "widgets/scene_menu.hpp"
+#endif
+
+
+
 namespace Magma {
 
 Scene::Scene() {
@@ -35,40 +35,49 @@ Scene::~Scene() {
     activeScene = nullptr;
 }
 
-// --- Public --- //
+// ----------------------------------------------------------------------------
+// Public Methods
+// ----------------------------------------------------------------------------
+
+// GameObject management 
+std::vector<std::unique_ptr<GameObject>> &Scene::getGameObjects() {
+  return gameObjects;
+}
 
 GameObject *Scene::findGameObjectById(GameObject::id_t id) {
   if (activeScene == nullptr)
     return nullptr;
 
-  std::function<GameObject *(GameObject *)> findFrom =
+  std::function<GameObject *(GameObject *)> findObjectInChildren =
       [&](GameObject *node) -> GameObject * {
     if (!node)
       return nullptr;
+
     if (node->id == id)
       return node;
+
     auto children = node->getChildren();
-    for (auto *c : children) {
-      if (auto r = findFrom(c))
-        return r;
+    for (auto *child : children) {
+      if (auto obj = findObjectInChildren(child))
+        return obj;
     }
     return nullptr;
   };
 
-  for (const auto &g : activeScene->gameObjects) {
-    if (!g)
+  for (const auto &go : activeScene->gameObjects) {
+    if (!go) 
       continue;
-    if (g->id == id)
-      return g.get();
-    if (auto r = findFrom(g.get()))
-      return r;
+
+    if (go->id == id) 
+      return go.get();
+
+    if (auto obj = findObjectInChildren(go.get())) 
+      return obj;
   }
   return nullptr;
 }
 
-// --- GameObject management ---
-
-GameObject &Scene::addGameObject(unique_ptr<GameObject> gameObject) {
+GameObject &Scene::addGameObject(std::unique_ptr<GameObject> gameObject) {
   assert(gameObject != nullptr &&
          "GameObject cannot be null when adding to scene");
 
@@ -81,9 +90,9 @@ void Scene::removeGameObject(GameObject *gameObject) {
   defer(SceneAction::remove(gameObject));
 }
 
-// --- Scene operations ---
+// Scene Tree (Editor Only)
 #if defined(MAGMA_WITH_EDITOR)
-void Scene::drawTree() {
+void Scene::drawSceneTree() {
   if (activeScene == nullptr)
     return;
 
@@ -123,6 +132,7 @@ void Scene::drawTree() {
 }
 #endif
 
+// Rendering
 void Scene::onRender(Renderer &renderer) {
   if (activeScene == nullptr)
     return;
@@ -133,6 +143,7 @@ void Scene::onRender(Renderer &renderer) {
   }
 }
 
+// Deferred Actions
 void Scene::processDeferredActions() {
   if (activeScene == nullptr)
     return;

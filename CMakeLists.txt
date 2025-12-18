@@ -22,6 +22,7 @@ include_directories(${IMGUI_DIR})
 include_directories(${EXTERNAL_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/src)
 
+
 if(MAGMA_WITH_EDITOR)
   set(IMGUI_SOURCES
       ${IMGUI_DIR}/imgui.cpp

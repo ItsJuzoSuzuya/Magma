@@ -11,7 +11,7 @@ class Renderer;
 
 /**
  * Represents a scene containing multiple
- * GameObjects and manages their lifecycle and rendering.
+ * root GameObjects and manages their lifecycle and rendering.
  * @note Only one scene can be active at a time.
  */
 class Scene {
@@ -24,31 +24,20 @@ public:
   Scene(Scene &&) = default;
   Scene &operator=(Scene &&) = default;
 
-  // --- Global access ---
   static Scene *current() { return activeScene; }
   void setActive() { activeScene = this; }
 
   static void setActiveCamera(Camera *camera) { activeCamera = camera; }
   static Camera *getActiveCamera() { return activeCamera; }
 
-  std::vector<std::unique_ptr<GameObject>> &getGameObjects() {
-    return gameObjects;
-  }
-
-  // Find GameObject by ID
+  std::vector<std::unique_ptr<GameObject>> &getGameObjects();
   GameObject *findGameObjectById(GameObject::id_t id);
-
-  // --- GameObject management ---
   GameObject &addGameObject(std::unique_ptr<GameObject> gameObject);
   void removeGameObject(GameObject *gameObject);
 
-// --- Scene operations ---
-/**
- * Draw the scene hierarchy in a tree structure
- * */
-#if defined(MAGMA_WITH_EDITOR)
-  static void drawTree();
-#endif
+  #if defined(MAGMA_WITH_EDITOR)
+    static void drawSceneTree();
+  #endif
 
   /**
    * Render GameObjects recursively
@@ -62,7 +51,6 @@ public:
    * @note This is useful for actions that modify the scene
    */
   void defer(std::function<void()> func) { deferredActions.push_back(func); }
-
   /**
    * Process deferred actions queued during the frame
    * @note This should be called at the end of each frame
@@ -74,6 +62,7 @@ private:
   inline static Camera *activeCamera = nullptr;
 
   std::vector<std::unique_ptr<GameObject>> gameObjects;
+
   std::vector<std::function<void()>> deferredActions;
 };
 

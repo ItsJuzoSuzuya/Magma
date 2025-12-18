@@ -24,19 +24,15 @@ public:
   RenderSystem(Window &window);
   ~RenderSystem();
 
-  // Getters
   #if defined(MAGMA_WITH_EDITOR)
     ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
   #endif
   SwapChain &getSwapChain() { return *swapChain; }
 
-  /** Renders the current frame */
   void renderFrame();
 
 private:
-  /** Vulkan Logical and Physical Device */
   std::unique_ptr<Device> device = nullptr;
-  /** Reference to the application window */
   Window &window;
 
   /** Swap chain 
@@ -50,7 +46,6 @@ private:
     VkFormat imguiColorFormat = VK_FORMAT_UNDEFINED;
   #endif
 
-  // Renderering
   std::unique_ptr<RenderContext> renderContext = nullptr;
   #if defined(MAGMA_WITH_EDITOR)
     std::unique_ptr<OffscreenRenderer> offscreenRendererEditor = nullptr;
@@ -62,21 +57,17 @@ private:
   bool beginFrame();
   void endFrame();
 
-  // Resize
-  void onWindowResized();
+  void onWindowResize();
   void onSceneResize();
 
-  // Command buffers
   std::vector<VkCommandBuffer> commandBuffers;
   VkCommandBuffer imageAcquireCommandBuffer = VK_NULL_HANDLE;
   void createCommandBuffers();
 
-// ImGui Dockspace
-#if defined(MAGMA_WITH_EDITOR)
-  void createDockspace(ImGuiID &dockspace_id, const ImVec2 &size);
-#endif
+  #if defined(MAGMA_WITH_EDITOR)
+    void createDockspace(ImGuiID &dockspace_id, const ImVec2 &size);
+  #endif
 
-  // Frame info
   FrameInfo frameInfo;
   bool firstFrame = true;
 

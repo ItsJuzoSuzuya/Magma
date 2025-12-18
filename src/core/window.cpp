@@ -9,15 +9,29 @@ namespace Magma {
 
 Window::Window(EngineSpecifications &spec)
     : width(spec.windowWidth), height(spec.windowHeight), name(spec.name) {
-  initWindow();
+  initGLFWWindow();
 }
 
 Window::~Window() {
   glfwDestroyWindow(window);
   glfwTerminate();
 }
+// ----------------------------------------------------------------------------
+// Public Methods 
+// ----------------------------------------------------------------------------
 
-void Window::initWindow() {
+void Window::createSurface(VkInstance instance, VkSurfaceKHR *surface) {
+  if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS)
+    throw runtime_error("Failed to create window surface!");
+}
+
+void Window::close() { glfwSetWindowShouldClose(window, GLFW_TRUE); }
+
+// ----------------------------------------------------------------------------
+// Private Methods
+// ----------------------------------------------------------------------------
+
+void Window::initGLFWWindow() {
   glfwInit();
 
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -33,11 +47,7 @@ void Window::initWindow() {
   glfwSetDropCallback(window, dropCallback);
 }
 
-void Window::createSurface(VkInstance instance, VkSurfaceKHR *surface) {
-  if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS)
-    throw runtime_error("Failed to create window surface!");
-}
-
+// Static Callbacks
 void Window::framebufferResizeCallback(GLFWwindow *window, int width,
                                        int height) {
   auto app = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
@@ -60,5 +70,4 @@ void Window::dropCallback(GLFWwindow *window, int count, const char **paths) {
   }
 }
 
-void Window::close() { glfwSetWindowShouldClose(window, GLFW_TRUE); }
 } // namespace Magma

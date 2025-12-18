@@ -5,6 +5,9 @@
 #include "gameobject.hpp"
 #include "specifications.hpp"
 #include <print>
+#include <GLFW/glfw3.h>
+#include <X11/X.h>
+#include <vulkan/vulkan_core.h>
 
 #if defined(MAGMA_WITH_EDITOR)
 #include "imgui.h"
@@ -13,24 +16,19 @@
 #include "widgets/ui_context.hpp"
 #endif
 
-#include <GLFW/glfw3.h>
-#include <X11/X.h>
-#include <vulkan/vulkan_core.h>
 
-using namespace std;
+
 namespace Magma {
 
-// Constructor
-
 Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
-  window = make_unique<Window>(specifications);
-  renderSystem = make_unique<RenderSystem>(*window);
+  window = std::make_unique<Window>(specifications);
+  renderSystem = std::make_unique<RenderSystem>(*window);
 
 #if defined(MAGMA_WITH_EDITOR)
   initImGui();
 #endif
 
-  scene = make_unique<Scene>();
+  scene = std::make_unique<Scene>();
 
   auto &obj = GameObject::create();
   obj.name = "Test Object";
@@ -46,13 +44,15 @@ Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
   if (!obj.addComponent<Mesh>()->load("assets/cube/scene.gltf"))
     throw std::runtime_error("Failed to load model!");
 
-  println("Engine initialized successfully.");
+  std::println("Engine initialized successfully.");
 }
 
-// --- Public ---
-// Main loop
+// ----------------------------------------------------------------------------
+// Public Methods
+// ----------------------------------------------------------------------------
+
 void Engine::run() {
-  println("Starting main loop...");
+  std::println("Starting main loop...");
   while (!window->shouldClose()) {
     glfwPollEvents();
     if (glfwGetKey(window->getGLFWwindow(), GLFW_KEY_ESCAPE))
@@ -62,8 +62,10 @@ void Engine::run() {
   }
 }
 
-// --- Private ---
-// Initialize ImGui
+// ----------------------------------------------------------------------------
+// Private Methods
+// ----------------------------------------------------------------------------
+
 #if defined(MAGMA_WITH_EDITOR)
 void Engine::initImGui() {
   ImGui::CreateContext();
