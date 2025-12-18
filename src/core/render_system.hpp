@@ -1,19 +1,18 @@
 #pragma once
-#include "../engine/render/offscreen_renderer.hpp"
-#include "../engine/render/render_context.hpp"
+#include "engine/render/offscreen_renderer.hpp"
+#include "engine/render/render_context.hpp"
 #include "device.hpp"
 #include "frame_info.hpp"
 #include "renderer.hpp"
 #include "swapchain.hpp"
-
-#if defined(MAGMA_WITH_EDITOR)
-#include "../engine/editor_camera.hpp"
-#include "../engine/render/imgui_renderer.hpp"
-#include "imgui_impl_vulkan.h"
-#endif
-
 #include <memory>
 #include <vulkan/vulkan_core.h>
+
+#if defined(MAGMA_WITH_EDITOR)
+  #include "engine/editor_camera.hpp"
+  #include "engine/render/imgui_renderer.hpp"
+  #include "imgui_impl_vulkan.h"
+#endif
 
 namespace Magma {
 
@@ -71,10 +70,9 @@ private:
   FrameInfo frameInfo;
   bool firstFrame = true;
 
-// Editor
-#if defined(MAGMA_WITH_EDITOR)
-  std::unique_ptr<ImGuiRenderer> imguiRenderer = nullptr;
-  std::unique_ptr<EditorCamera> editorCamera = nullptr;
-#endif
+  #if defined(MAGMA_WITH_EDITOR)
+    std::unique_ptr<ImGuiRenderer> imguiRenderer = nullptr;
+    std::unique_ptr<EditorCamera> editorCamera = nullptr;
+  #endif
 };
 } // namespace Magma

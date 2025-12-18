@@ -1,31 +1,33 @@
 #include "render_context.hpp"
-#include "../../core/swapchain.hpp"
-#include "../components/camera.hpp"
+#include "core/swapchain.hpp"
+#include "engine/components/camera.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <ostream>
-#include <print>
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
 
-using namespace std;
 namespace Magma {
-
-// ============== SlicedResource Implementation ==============
+// -----------------------------------------------------------------------------
+// SlicedResource Implementation
+// -----------------------------------------------------------------------------
 
 SlicedResource::SlicedResource(VkDeviceSize elementSize,
                                VkBufferUsageFlags usage,
                                uint32_t framesInFlight)
     : elementSize{elementSize}, usage{usage}, framesInFlight{framesInFlight} {}
 
+// -----------------------------------------------------------------------------
+// Public Methods
+// -----------------------------------------------------------------------------
+
 void SlicedResource::ensureCapacity(uint32_t rendererCount) {
   if (rendererCount <= currentCapacity)
     return;
 
   // Grow by doubling or to requested size, whichever is larger
-  uint32_t newCapacity = max(rendererCount, currentCapacity * 2);
+  uint32_t newCapacity = std::max(rendererCount, currentCapacity * 2);
   if (newCapacity == 0)
     newCapacity = 1;
 
@@ -44,22 +46,26 @@ void SlicedResource::update(uint32_t frameIndex, uint32_t sliceIndex,
   buffer->flush(size, offset);
 }
 
+// -----------------------------------------------------------------------------
+// Private Methods
+// -----------------------------------------------------------------------------
+
 void SlicedResource::reallocate(uint32_t newCapacity) {
-  buffer = make_unique<Buffer>(elementSize, newCapacity * framesInFlight, usage,
+  buffer = std::make_unique<Buffer>(elementSize, newCapacity * framesInFlight, usage,
                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   buffer->map();
   currentCapacity = newCapacity;
 }
 
-// ============== RenderContext Implementation ==============
+// -----------------------------------------------------------------------------
+// RenderContext Implementation
+// Public Methods
+// -----------------------------------------------------------------------------
 
 uint32_t RenderContext::registerRenderer() {
   uint32_t index = registeredRendererCount++;
-  println("Registered renderer with index {}", index);
 
-  // Ensure resources have capacity for this renderer (if they already
-  // exist)
   if (cameraResource) {
     uint32_t oldCapacity = cameraResource->getCapacity();
     cameraResource->ensureCapacity(registeredRendererCount);
@@ -82,13 +88,13 @@ VkDescriptorSetLayout RenderContext::getLayout(LayoutKey key) {
   return descriptorSetLayouts[key]->getDescriptorSetLayout();
 }
 
+// Descriptor Sets
 void RenderContext::createDescriptorSets(LayoutKey key) {
-  println("Creating descriptor sets for layout key {}", static_cast<int>(key));
   rebuildDescriptorSetsIfNeeded(key);
 
   for (uint32_t frameIndex = 0; frameIndex < SwapChain::MAX_FRAMES_IN_FLIGHT;
        frameIndex++) {
-    DescriptorKey dKey{key, frameIndex};
+    DescriptorSetKey dKey{key, frameIndex};
     if (setCache.find(dKey) != setCache.end())
       continue;
 
@@ -100,14 +106,15 @@ std::optional<VkDescriptorSet>
 RenderContext::getDescriptorSet(LayoutKey key, uint32_t frameIndex) {
   rebuildDescriptorSetsIfNeeded(key);
 
-  DescriptorKey dKey{key, frameIndex};
+  DescriptorSetKey dKey{key, frameIndex};
   auto it = setCache.find(dKey);
   if (it == setCache.end())
-    return nullopt;
+    return std::nullopt;
 
   return it->second;
 }
 
+// Camera Slice
 uint32_t RenderContext::cameraSliceSize() const {
   return cameraResource ? static_cast<uint32_t>(cameraResource->getSliceSize())
                         : sizeof(CameraUBO);
@@ -125,6 +132,7 @@ void RenderContext::updateCameraSlice(uint32_t frameIndex, uint32_t sliceIndex,
   cameraResource->update(frameIndex, sliceIndex, data, size);
 }
 
+// Point Light Slice
 uint32_t RenderContext::pointLightSliceSize() const {
   return pointLightResource
              ? static_cast<uint32_t>(pointLightResource->getSliceSize())
@@ -144,7 +152,9 @@ void RenderContext::updatePointLightSlice(uint32_t frameIndex,
   pointLightResource->update(frameIndex, sliceIndex, data, size);
 }
 
-// ============== Private Helpers ==============
+// -----------------------------------------------------------------------------
+// Private Methods
+// -----------------------------------------------------------------------------
 
 void RenderContext::ensureDescriptorPool() {
   if (descriptorPool)
@@ -186,12 +196,11 @@ void RenderContext::ensureCameraResource() {
   if (cameraResource)
     return;
 
-  println("Creating camera resource");
-  cameraResource = make_unique<SlicedResource>(
+  cameraResource = std::make_unique<SlicedResource>(
       sizeof(CameraUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
       SwapChain::MAX_FRAMES_IN_FLIGHT);
 
-  cameraResource->ensureCapacity(max(1u, registeredRendererCount));
+  cameraResource->ensureCapacity(std::max(1u, registeredRendererCount));
   setsNeedRebuild[LayoutKey::Camera] = true;
 }
 
@@ -199,12 +208,11 @@ void RenderContext::ensurePointLightResource() {
   if (pointLightResource)
     return;
 
-  println("Creating point light resource");
-  pointLightResource = make_unique<SlicedResource>(
+  pointLightResource = std::make_unique<SlicedResource>(
       sizeof(PointLightSSBO), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
       SwapChain::MAX_FRAMES_IN_FLIGHT);
 
-  pointLightResource->ensureCapacity(max(1u, registeredRendererCount));
+  pointLightResource->ensureCapacity(std::max(1u, registeredRendererCount));
   setsNeedRebuild[LayoutKey::PointLight] = true;
 }
 
@@ -212,7 +220,7 @@ void RenderContext::writeDescriptorSet(LayoutKey key, uint32_t frameIndex) {
   ensureDescriptorPool();
   ensureLayout(key);
 
-  DescriptorKey dsKey{key, frameIndex};
+  DescriptorSetKey dsKey{key, frameIndex};
 
   VkDescriptorSet set{};
   DescriptorWriter writer(*descriptorSetLayouts[key], *descriptorPool);
@@ -232,11 +240,11 @@ void RenderContext::writeDescriptorSet(LayoutKey key, uint32_t frameIndex) {
     info.range = pointLightResource->getSliceSize();
     writer.writeBuffer(0, &info, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
   } else {
-    throw runtime_error("Unknown layout key");
+    throw std::runtime_error("Unknown layout key");
   }
 
   if (!writer.build(set))
-    throw runtime_error("Failed to build descriptor set");
+    throw std::runtime_error("Failed to build descriptor set");
 
   setCache[dsKey] = set;
 }
@@ -246,14 +254,12 @@ void RenderContext::rebuildDescriptorSetsIfNeeded(LayoutKey key) {
   if (it == setsNeedRebuild.end() || !it->second)
     return;
 
-  // Clear old sets for this key
   for (uint32_t frameIndex = 0; frameIndex < SwapChain::MAX_FRAMES_IN_FLIGHT;
        frameIndex++) {
-    DescriptorKey dKey{key, frameIndex};
+    DescriptorSetKey dKey{key, frameIndex};
     setCache.erase(dKey);
   }
 
-  // Rebuild
   for (uint32_t frameIndex = 0; frameIndex < SwapChain::MAX_FRAMES_IN_FLIGHT;
        frameIndex++) {
     writeDescriptorSet(key, frameIndex);

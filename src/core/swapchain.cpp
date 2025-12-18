@@ -13,18 +13,17 @@
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_core.h>
 
-using namespace std;
 namespace Magma {
 
 SwapChain::SwapChain(VkExtent2D extent) {
   createSwapChain(extent);
 
-  println("Swapchain details:");
-  println("  Image Count: {}", renderInfo.imageCount);
-  println("  Color Format: {}", string_VkFormat(renderInfo.colorFormat));
-  println("  Depth Format: {}", string_VkFormat(renderInfo.depthFormat));
-  println("  Extent: {}x{}", renderInfo.extent.width, renderInfo.extent.height);
-  println("  Frames In Flight: {}", MAX_FRAMES_IN_FLIGHT);
+  std::println("Swapchain details:");
+  std::println("  Image Count: {}", renderInfo.imageCount);
+  std::println("  Color Format: {}", string_VkFormat(renderInfo.colorFormat));
+  std::println("  Depth Format: {}", string_VkFormat(renderInfo.depthFormat));
+  std::println("  Extent: {}x{}", renderInfo.extent.width, renderInfo.extent.height);
+  std::println("  Frames In Flight: {}", MAX_FRAMES_IN_FLIGHT);
 
   createSyncObjects();
 }
@@ -43,9 +42,10 @@ SwapChain::~SwapChain() {
 }
 
 
-// --- Public --- //
-
-// *** Rendering *** //
+// ---------------------------------------------------------------------------- 
+// Public Methods
+// ----------------------------------------------------------------------------
+//
 VkResult SwapChain::acquireNextImage() {
   VkDevice device = Device::get().device();
 
@@ -122,9 +122,10 @@ VkResult SwapChain::submitCommandBuffer(const VkCommandBuffer *commandBuffer) {
   return vkQueuePresentKHR(device.presentQueue(), &presentInfo);
 }
 
-// --- Private --- //
+// ----------------------------------------------------------------------------
+// Private Methods
+// ----------------------------------------------------------------------------
 
-// *** Swap Chain *** //
 void SwapChain::createSwapChain(VkExtent2D &extent) {
   Device &device = Device::get();
   SwapchainSupportDetails swapChainSupport = device.getSwapChainSupport();
@@ -189,7 +190,7 @@ void SwapChain::createSwapChain(VkExtent2D &extent) {
   };
 }
 
-// *** Synchronization *** //
+// Synchronization 
 void SwapChain::createSyncObjects() {
   VkDevice device = Device::get().device();
 
@@ -240,7 +241,7 @@ void SwapChain::destroySyncObjects() {
   imagesInUseFences.clear();
 }
 
-// *** Helpers *** //
+// Helpers 
 VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(
     const std::vector<VkSurfaceFormatKHR> &availableFormats) {
   for (const auto &availableFormat : availableFormats) {
@@ -268,10 +269,10 @@ SwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities,
   } else {
     VkExtent2D actualExtent = extent;
     actualExtent.width =
-        clamp(actualExtent.width, capabilities.minImageExtent.width,
+        std::clamp(actualExtent.width, capabilities.minImageExtent.width,
               capabilities.maxImageExtent.width);
     actualExtent.height =
-        clamp(actualExtent.height, capabilities.minImageExtent.height,
+        std::clamp(actualExtent.height, capabilities.minImageExtent.height,
               capabilities.maxImageExtent.height);
 
     return actualExtent;

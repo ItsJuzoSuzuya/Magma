@@ -232,7 +232,7 @@ void Mesh::onInspector() {
       sourcePath = dropped;
       Scene::current()->defer(SceneAction::loadMesh(owner));
     }
-    Window::resetDrop();
+    Window::resetHasDropped();
   }
 
   if (pressedEnter) {
