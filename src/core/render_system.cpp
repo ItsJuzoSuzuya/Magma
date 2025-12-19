@@ -98,8 +98,8 @@ void RenderSystem::renderFrame() {
 
   #if defined(MAGMA_WITH_EDITOR)
     if (firstFrame) {
-      offscreenRendererEditor->createOffscreenTextures();
-      offscreenRendererGame->createOffscreenTextures();
+      offscreenRendererEditor->createSceneTextures();
+      offscreenRendererGame->createSceneTextures();
     }
   #endif
 

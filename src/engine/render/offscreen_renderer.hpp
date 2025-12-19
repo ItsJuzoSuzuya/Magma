@@ -16,98 +16,73 @@ namespace Magma {
 
 class RenderTargetInfo;
 
-#if defined(MAGMA_WITH_EDITOR)
-  enum class RendererMode { Game, Editor };
-#endif
+enum class RendererMode { Game, Editor };
 
 class OffscreenRenderer : public Renderer {
 public:
   #if defined(MAGMA_WITH_EDITOR)
     OffscreenRenderer(RenderTargetInfo &info, RenderContext *renderContext,
                     RendererMode mode = RendererMode::Game);
+
+    OffscreenTarget &target() { return *renderTarget; }
+    void resize(VkExtent2D newExtent);
+
+    ImVec2 getSceneSize() const;
+    ImTextureID getSceneTexture() const {
+      return textures[FrameInfo::frameIndex]; }
+    void createSceneTextures();
+
+    // Picking API (deferred to safe point)
+    void requestPick(uint32_t x, uint32_t y);
+    GameObject *pollPickResult();
   #else 
-    OffscreenRenderer(SwapChain &swapChain, RenderContext *renderContext);
+    OffscreenRenderer(SwapChain &swapChain, RenderContext *renderContext, 
+                    RendererMode mode = RendererMode::Game);
+
+    SwapchainTarget &target() { return *renderTarget; }
+    void resize(VkExtent2D newExtent, VkSwapchainKHR swapChain);
   #endif
 
   ~OffscreenRenderer();
 
-  VkImage &getSceneImage() const;
-
   void setActiveCamera(Camera *camera) { activeCamera = camera; }
   Camera *getActiveCamera() override { return activeCamera; }
 
-#if defined(MAGMA_WITH_EDITOR)
-  OffscreenTarget &target() { return *renderTarget; }
-#else
-  SwapchainTarget &target() { return *renderTarget; }
-#endif
-
-// Textures
-#if defined(MAGMA_WITH_EDITOR)
-  ImVec2 getSceneSize() const;
-  ImTextureID getSceneTexture() const {
-    return textures[FrameInfo::frameIndex];
-  }
-  void createOffscreenTextures();
-
-  // Picking API (deferred to safe point)
-  void requestPick(uint32_t x, uint32_t y);
-  GameObject *pollPickResult();
-#endif
-
-  // Rendering
   void begin() override;
   void record() override;
   void end() override;
-
-// Resize
-#if defined(MAGMA_WITH_EDITOR)
-  void resize(VkExtent2D newExtent);
-  GameObject *pickAtPixel(uint32_t x, uint32_t y);
-#else
-  void resize(VkExtent2D newExtent, VkSwapchainKHR swapChain);
-#endif
 
   void uploadCameraUBO(const CameraUBO &ubo) override;
   void submitPointLight(const PointLightData &lightData) override;
 
 private:
-#if defined(MAGMA_WITH_EDITOR)
-  // Textures for ImGui
-  std::vector<ImTextureID> textures;
-
-  bool isEditorRenderer = false;
-#endif
-
-  // RenderTarget for picking Objects in the scene
-#if defined(MAGMA_WITH_EDITOR)
-  std::unique_ptr<OffscreenTarget> renderTarget;
-  RendererMode mode;
-#else
-  std::unique_ptr<SwapchainTarget> renderTarget;
-#endif
-
-  // Render context
   RenderContext *renderContext = nullptr;
+  uint32_t rendererId = 0;
+  RendererMode mode;
 
   Camera *activeCamera = nullptr;
 
-  uint32_t rendererId = 0;
-
-  // Image layout tracking (per-frame images)
   std::vector<VkImageLayout> sceneColorLayouts; // main color image layout
-#if defined(MAGMA_WITH_EDITOR)
-  std::vector<VkImageLayout> idColorLayouts; // ID image layout
 
-  // Deferred pick request state
-  struct PendingPick {
-    bool hasRequest = false;
-    uint32_t x = 0, y = 0;
-    GameObject *result = nullptr;
-  } pendingPick;
+  #if defined(MAGMA_WITH_EDITOR)
+    std::unique_ptr<OffscreenTarget> renderTarget = nullptr;
 
-  void servicePendingPick(); // executes after offscreen pass ends
-#endif
+    std::vector<ImTextureID> textures;
+    std::vector<VkImageLayout> idImageLayouts;
+
+    // Deferred Picking
+    struct PendingPick {
+      bool hasRequest = false;
+      uint32_t x = 0, y = 0;
+      GameObject *result = nullptr;
+    } pendingPick;
+
+    GameObject *pickAtPixel(uint32_t x, uint32_t y);
+    void servicePendingPick(); // executes after offscreen rendering
+  #else
+    std::unique_ptr<SwapchainTarget> renderTarget;
+  #endif
+
 };
 
 } // namespace Magma
