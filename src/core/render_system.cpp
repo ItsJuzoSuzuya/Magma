@@ -4,8 +4,11 @@
 #include "deletion_queue.hpp"
 #include "engine/scene.hpp"
 #include "engine/time.hpp"
+#include "engine/widgets/file_manager.hpp"
+#include "engine/widgets/ui_context.hpp"
 #include "renderer.hpp"
 #include "swapchain.hpp"
+#include <print>
 #include <vulkan/vulkan_core.h>
 #include <GLFW/glfw3.h>
 #include <cassert>
@@ -25,39 +28,12 @@
 
 namespace Magma {
 
-RenderSystem:: RenderSystem(Window &window) : window{window} {
+RenderSystem::RenderSystem(Window &window) : window{window} {
   device = std::make_unique<Device>(window);
   swapChain = std::make_unique<SwapChain>(window.getExtent());
   renderContext = std::make_unique<RenderContext>();
 
-  #if defined(MAGMA_WITH_EDITOR)
-    RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
-    offscreenInfo.extent.width /= 2;
-    offscreenInfo.extent.height /= 2;
-    offscreenInfo.imageCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
-    
-    // Renderers register themselves to the render context
-    offscreenRendererEditor = std::make_unique<OffscreenRenderer>(
-        offscreenInfo, renderContext.get(), RendererMode::Editor);
-    offscreenRendererGame = std::make_unique<OffscreenRenderer>(
-        offscreenInfo, renderContext.get(), RendererMode::Game);
-
-    editorCamera = std::make_unique<EditorCamera>();
-    offscreenRendererEditor->setActiveCamera(editorCamera->getCamera());
-
-    imguiRenderer = std::make_unique<ImGuiRenderer>(*swapChain);
-    imguiRenderer->addWidget(std::make_unique<RuntimeControl>());
-    imguiRenderer->addWidget(std::make_unique<SceneTree>());
-    imguiRenderer->addWidget(std::make_unique<Inspector>());
-
-    imguiRenderer->addWidget(std::make_unique<GameEditor>(
-        *offscreenRendererEditor.get(), editorCamera.get()));
-    imguiRenderer->addWidget(std::make_unique<GameView>(*offscreenRendererGame.get()));
-  #else
-    offscreenRenderer = std::make_unique<OffscreenRenderer>(
-        *swapChain, renderContext.get());
-  #endif
-
+  initializeRenderers();
   createCommandBuffers();
 }
 
@@ -65,26 +41,7 @@ RenderSystem::~RenderSystem() {
   Device::waitIdle();
 
   renderContext.reset();
-
-
-  renderContext.reset();
-  #if defined(MAGMA_WITH_EDITOR)
-    if (offscreenRendererEditor)
-      offscreenRendererEditor.reset();
-    if (offscreenRendererGame)
-      offscreenRendererGame.reset();
-
-    ImGui_ImplVulkan_Shutdown();
-
-    if (imguiRenderer)
-      imguiRenderer.reset();
-
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-  #else
-    if (offscreenRenderer)
-      offscreenRenderer.reset();
-  #endif
+  destroyAllRenderers();
 
   DeletionQueue::flushAll();
 }
@@ -93,54 +50,18 @@ RenderSystem::~RenderSystem() {
 // Public Methods
 // ----------------------------------------------------------------------------
 
-void RenderSystem::renderFrame() {
+void RenderSystem::onRender() {
   Time::update(glfwGetTime());
 
   #if defined(MAGMA_WITH_EDITOR)
     if (firstFrame) {
       offscreenRendererEditor->createSceneTextures();
-      offscreenRendererGame->createSceneTextures();
+      offscreenRenderer->createSceneTextures();
     }
   #endif
 
   if (beginFrame()) {
-    #if defined(MAGMA_WITH_EDITOR)
-      {
-        offscreenRendererEditor->begin();
-        offscreenRendererEditor->record();
-        editorCamera->onUpdate();
-        editorCamera->onRender(*offscreenRendererEditor);
-        Scene::onRender(*offscreenRendererEditor);
-        offscreenRendererEditor->end();
-      }
-
-      {
-        Camera *mainCam = Scene::getActiveCamera();
-        offscreenRendererGame->setActiveCamera(
-            mainCam ? mainCam : editorCamera->getCamera());
-
-        offscreenRendererGame->begin();
-        offscreenRendererGame->record();
-        Scene::onRender(*offscreenRendererGame);
-        offscreenRendererGame->end();
-      }
-
-      {
-        imguiRenderer->begin();
-        imguiRenderer->record();
-        imguiRenderer->end();
-      }
-    #else
-      {
-        Camera *mainCam = Scene::getActiveCamera();
-        offscreenRenderer->setActiveCamera(mainCam);
-      }
-      offscreenRenderer->begin();
-      offscreenRenderer->record();
-      Scene::onRender(*offscreenRenderer);
-      offscreenRenderer->end();
-    #endif
-
+    renderFrame();
     endFrame();
   }
 
@@ -189,6 +110,59 @@ void RenderSystem::renderFrame() {
 // Private Methods
 // ----------------------------------------------------------------------------
 
+// Renderers
+void RenderSystem::initializeRenderers() {
+  #if defined(MAGMA_WITH_EDITOR)
+    RenderTargetInfo offscreenInfo = swapChain->getRenderInfo();
+    offscreenInfo.extent.width /= 2;
+    offscreenInfo.extent.height /= 2;
+    offscreenInfo.imageCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
+    
+    // Renderers register themselves to the render context
+    offscreenRendererEditor = std::make_unique<OffscreenRenderer>(
+        offscreenInfo, renderContext.get(), RendererMode::Editor);
+    offscreenRenderer = std::make_unique<OffscreenRenderer>(
+        offscreenInfo, renderContext.get(), RendererMode::Game);
+
+    editorCamera = std::make_unique<EditorCamera>();
+    offscreenRendererEditor->setActiveCamera(editorCamera->getCamera());
+
+    imguiRenderer = std::make_unique<ImGuiRenderer>(*swapChain);
+    imguiRenderer->addWidget(std::make_unique<RuntimeControl>());
+    imguiRenderer->addWidget(std::make_unique<SceneTree>());
+    imguiRenderer->addWidget(std::make_unique<Inspector>());
+    imguiRenderer->addWidget(std::make_unique<FileManager>());
+
+    imguiRenderer->addWidget(std::make_unique<GameEditor>(
+        *offscreenRendererEditor.get(), editorCamera.get()));
+    imguiRenderer->addWidget(std::make_unique<GameView>(*offscreenRenderer.get()));
+
+    initImGui();
+  #else
+    offscreenRenderer = std::make_unique<OffscreenRenderer>(
+        *swapChain, renderContext.get());
+  #endif
+}
+
+void RenderSystem::destroyAllRenderers() {
+  if (offscreenRenderer)
+    offscreenRenderer.reset();
+
+  #if defined(MAGMA_WITH_EDITOR)
+    if (offscreenRendererEditor)
+      offscreenRendererEditor.reset();
+
+    ImGui_ImplVulkan_Shutdown();
+
+    if (imguiRenderer)
+      imguiRenderer.reset();
+
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+  #endif
+}
+
+// Command Buffers
 void RenderSystem::createCommandBuffers() {
   commandBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
@@ -203,6 +177,7 @@ void RenderSystem::createCommandBuffers() {
     throw std::runtime_error("Failed to allocate command buffers!");
 }
 
+// Swap Chain
 void RenderSystem::recreateSwapChain(VkExtent2D extent) {
   Device::waitIdle();
 
@@ -218,15 +193,12 @@ bool RenderSystem::beginFrame() {
   #endif
 
   auto result = swapChain->acquireNextImage();
-
-  /* VK_ERROR_OUT_OF_DATE_KHR indicates that the swap chain is no longer
-     compatible with the surface and needs to be recreated. This can happen
-      e.g. after a window resize. */
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
     onWindowResize();
     return false;
-  } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+  } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR){
     throw std::runtime_error("Failed to acquire next swap chain image!");
+  }
 
   VkCommandBuffer commandBuffer = commandBuffers[FrameInfo::frameIndex];
   VkCommandBufferBeginInfo beginInfo = {};
@@ -238,6 +210,45 @@ bool RenderSystem::beginFrame() {
   FrameInfo::commandBuffer = commandBuffer;
 
   return true;
+}
+
+void RenderSystem::renderFrame() {
+  #if defined(MAGMA_WITH_EDITOR)
+    {
+      offscreenRendererEditor->begin();
+      offscreenRendererEditor->record();
+      editorCamera->onUpdate();
+      editorCamera->onRender(*offscreenRendererEditor);
+      Scene::onRender(*offscreenRendererEditor);
+      offscreenRendererEditor->end();
+    }
+
+    {
+      Camera *mainCam = Scene::getActiveCamera();
+      offscreenRenderer->setActiveCamera(
+          mainCam ? mainCam : editorCamera->getCamera());
+
+      offscreenRenderer->begin();
+      offscreenRenderer->record();
+      Scene::onRender(*offscreenRenderer);
+      offscreenRenderer->end();
+    }
+
+    {
+      imguiRenderer->begin();
+      imguiRenderer->record();
+      imguiRenderer->end();
+    }
+  #else
+    {
+      Camera *mainCam = Scene::getActiveCamera();
+      offscreenRenderer->setActiveCamera(mainCam);
+    }
+    offscreenRenderer->begin();
+    offscreenRenderer->record();
+    Scene::onRender(*offscreenRenderer);
+    offscreenRenderer->end();
+  #endif
 }
 
 void RenderSystem::endFrame() {
@@ -258,6 +269,7 @@ void RenderSystem::endFrame() {
   DeletionQueue::flushForFrame(FrameInfo::frameIndex);
 }
 
+// Resize handling
 void RenderSystem::onWindowResize() {
   auto extent = window.getExtent();
   while (extent.width == 0 || extent.height == 0) {
@@ -268,6 +280,10 @@ void RenderSystem::onWindowResize() {
   window.resetWindowResizedFlag();
   recreateSwapChain(extent);
 
+  resizeSwapChainRenderer();
+}
+
+void RenderSystem::resizeSwapChainRenderer() {
   #if defined(MAGMA_WITH_EDITOR)
     imguiRenderer->resize(swapChain->getRenderInfo().extent,
                           swapChain->getSwapChain());
@@ -277,8 +293,43 @@ void RenderSystem::onWindowResize() {
   #endif
 }
 
+
 // Dockspace 
 #if defined(MAGMA_WITH_EDITOR)
+  void RenderSystem::initImGui() {
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    io.DisplaySize = ImVec2(
+        static_cast<float>(window.getExtent().width),
+        static_cast<float>(window.getExtent().height));
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    ImGui::StyleColorsDark();
+
+    io.Fonts->AddFontDefault();
+
+    {
+      ImFontConfig config;
+      config.MergeMode = true;
+      config.PixelSnapH = true;
+      config.GlyphMinAdvanceX = 0.0f;
+
+      static const ImWchar fa_range[] = {0xF000, 0xF8FF, 0};
+      UIContext::IconFont = io.Fonts->AddFontFromFileTTF(
+          "assets/fonts/fa7-solid.otf", 10.0f, &config, fa_range);
+      IM_ASSERT(UIContext::IconFont && "Failed to load fa6-solid.otf");
+    }
+
+    ImGui_ImplGlfw_InitForVulkan(window.getGLFWwindow(), true);
+    ImGui_ImplVulkan_InitInfo init_info = getImGuiInitInfo();
+    bool ok = ImGui_ImplVulkan_Init(&init_info);
+    if (!ok)
+      throw std::runtime_error(
+          "Failed to initialize ImGui Vulkan implementation!");
+  }
+
   void RenderSystem::createDockspace(ImGuiID &dockspace_id, const ImVec2 &size) {
     DockLayout dockLayout(dockspace_id, size);
 

@@ -9,25 +9,11 @@
 #include <X11/X.h>
 #include <vulkan/vulkan_core.h>
 
-#if defined(MAGMA_WITH_EDITOR)
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_vulkan.h"
-#include "widgets/ui_context.hpp"
-#endif
-
-
-
 namespace Magma {
 
 Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
   window = std::make_unique<Window>(specifications);
   renderSystem = std::make_unique<RenderSystem>(*window);
-
-#if defined(MAGMA_WITH_EDITOR)
-  initImGui();
-#endif
-
   scene = std::make_unique<Scene>();
 
   auto &obj = GameObject::create();
@@ -58,47 +44,8 @@ void Engine::run() {
     if (glfwGetKey(window->getGLFWwindow(), GLFW_KEY_ESCAPE))
       window->close();
 
-    renderSystem->renderFrame();
+    renderSystem->onRender();
   }
 }
-
-// ----------------------------------------------------------------------------
-// Private Methods
-// ----------------------------------------------------------------------------
-
-#if defined(MAGMA_WITH_EDITOR)
-void Engine::initImGui() {
-  ImGui::CreateContext();
-  ImGuiIO &io = ImGui::GetIO();
-  io.DisplaySize = ImVec2(static_cast<float>(specifications.windowWidth),
-                          static_cast<float>(specifications.windowHeight));
-  io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-  ImGui::StyleColorsDark();
-
-  io.Fonts->AddFontDefault();
-
-  {
-    ImFontConfig config;
-    config.MergeMode = true;
-    config.PixelSnapH = true;
-    config.GlyphMinAdvanceX = 0.0f;
-
-    static const ImWchar fa_range[] = {0xF000, 0xF8FF, 0};
-    UIContext::IconFont = io.Fonts->AddFontFromFileTTF(
-        "assets/fonts/fa7-solid.otf", 10.0f, &config, fa_range);
-    IM_ASSERT(UIContext::IconFont && "Failed to load fa6-solid.otf");
-  }
-
-  ImGui_ImplGlfw_InitForVulkan(window->getGLFWwindow(), true);
-  ImGui_ImplVulkan_InitInfo init_info = renderSystem->getImGuiInitInfo();
-  bool ok = ImGui_ImplVulkan_Init(&init_info);
-  if (!ok)
-    throw std::runtime_error(
-        "Failed to initialize ImGui Vulkan implementation!");
-}
-#endif
 
 } // namespace Magma

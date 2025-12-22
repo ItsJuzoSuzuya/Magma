@@ -71,6 +71,7 @@ if (MAGMA_WITH_EDITOR)
     src/engine/editor_camera.cpp
     src/engine/widgets/inspector.cpp
     src/engine/widgets/inspector_menu.cpp
+    src/engine/widgets/file_manager.cpp
     src/engine/widgets/scene_tree.cpp
     src/engine/widgets/scene_menu.cpp
     src/engine/widgets/game_view.cpp

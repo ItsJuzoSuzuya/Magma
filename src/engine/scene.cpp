@@ -12,8 +12,6 @@
   #include "widgets/scene_menu.hpp"
 #endif
 
-
-
 namespace Magma {
 
 Scene::Scene() {

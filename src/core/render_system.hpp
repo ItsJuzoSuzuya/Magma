@@ -26,53 +26,49 @@ public:
   #if defined(MAGMA_WITH_EDITOR)
     ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
   #endif
+
   SwapChain &getSwapChain() { return *swapChain; }
 
-  void renderFrame();
+  void onRender();
 
 private:
-  std::unique_ptr<Device> device = nullptr;
   Window &window;
+  std::unique_ptr<Device> device = nullptr;
+  std::unique_ptr<RenderContext> renderContext = nullptr;
 
   /** Swap chain 
-   * Manages the presenttation to the window
+   * Manages the presentation to the window
    * Presents imgui in editor mode or the final rendered image in runtime mode
    * @note The swap chain must be recreated when the window is resized
    * */
   std::unique_ptr<SwapChain> swapChain = nullptr;
   void recreateSwapChain(VkExtent2D extent);
-  #if defined(MAGMA_WITH_EDITOR)
-    VkFormat imguiColorFormat = VK_FORMAT_UNDEFINED;
-  #endif
 
-  std::unique_ptr<RenderContext> renderContext = nullptr;
+  std::unique_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
   #if defined(MAGMA_WITH_EDITOR)
+    std::unique_ptr<EditorCamera> editorCamera = nullptr;
     std::unique_ptr<OffscreenRenderer> offscreenRendererEditor = nullptr;
-    std::unique_ptr<OffscreenRenderer> offscreenRendererGame = nullptr;
-  #else
-    std::unique_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
+
+    VkFormat imguiColorFormat = VK_FORMAT_UNDEFINED;
+    std::unique_ptr<ImGuiRenderer> imguiRenderer = nullptr;
+    void initImGui();
+    void createDockspace(ImGuiID &dockspace_id, const ImVec2 &size);
   #endif
+  void initializeRenderers();
+  void destroyAllRenderers();
 
   bool beginFrame();
+  void renderFrame();
   void endFrame();
 
   void onWindowResize();
-  void onSceneResize();
+  void resizeSwapChainRenderer();
 
   std::vector<VkCommandBuffer> commandBuffers;
   VkCommandBuffer imageAcquireCommandBuffer = VK_NULL_HANDLE;
   void createCommandBuffers();
 
-  #if defined(MAGMA_WITH_EDITOR)
-    void createDockspace(ImGuiID &dockspace_id, const ImVec2 &size);
-  #endif
-
   FrameInfo frameInfo;
   bool firstFrame = true;
-
-  #if defined(MAGMA_WITH_EDITOR)
-    std::unique_ptr<ImGuiRenderer> imguiRenderer = nullptr;
-    std::unique_ptr<EditorCamera> editorCamera = nullptr;
-  #endif
 };
 } // namespace Magma

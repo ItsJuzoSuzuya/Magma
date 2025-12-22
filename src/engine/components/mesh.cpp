@@ -1,16 +1,11 @@
 #include "mesh.hpp"
-#include "../core/frame_info.hpp"
-#include "../core/mesh_data.hpp"
-#include "../core/device.hpp"
-#include "../scene.hpp"
-#include "../scene_action.hpp"
+#include "core/frame_info.hpp"
+#include "core/mesh_data.hpp"
+#include "core/device.hpp"
+#include "engine/scene.hpp"
+#include "engine/scene_action.hpp"
 #include "component.hpp"
-#include "../core/window.hpp"
-
-#if defined(MAGMA_WITH_EDITOR)
-#include "imgui.h"
-#endif
-
+#include "core/window.hpp"
 #include <X11/X.h>
 #include <algorithm>
 #include <cstdint>
@@ -23,15 +18,20 @@
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "../external/tiny_gltf.h"
+#include "tiny_gltf.h"
 
-using namespace std;
+#if defined(MAGMA_WITH_EDITOR)
+#include "imgui.h"
+#endif
+
+
+
 namespace fs = std::filesystem;
 
 namespace Magma {
 
 namespace string_utils {
-inline string toLower(string str) {
+inline std::string toLower(std::string str) {
   transform(str.begin(), str.end(), str.begin(),
             [](unsigned char c) { return (char)tolower(c); });
   return str;
@@ -43,7 +43,6 @@ inline bool hasAllowedExt(const fs::path &path) {
   auto ext = toLower(path.extension().string());
   return ext == ".gltf";
 }
-
 } // namespace string_utils
 
 Mesh::Mesh(GameObject *owner)
@@ -58,19 +57,21 @@ Mesh::~Mesh() {
   }
 }
 
+// --------------------------------------------------------------
+// Public Methods
+// --------------------------------------------------------------
+
 #if defined(MAGMA_WITH_EDITOR)
-// --- Public --- //
-bool Mesh::load() {
-  if (sourcePath.empty()) {
-    println("No source path set for mesh.");
-    return false;
+  bool Mesh::load() {
+    if (sourcePath.empty()) {
+      std::println("No source path set for mesh.");
+      return false;
+    }
+    return load(sourcePath);
   }
-  return load(sourcePath);
-}
 #endif
 
-// --- Data ---
-bool Mesh::load(const string &filepath) {
+bool Mesh::load(const std::string &filepath) {
   if (meshData) {
     delete meshData;
     meshData = nullptr;
@@ -80,8 +81,8 @@ bool Mesh::load(const string &filepath) {
 
   tinygltf::Model gltfModel;
   tinygltf::TinyGLTF loader;
-  string err;
-  string warn;
+  std::string err;
+  std::string warn;
 
   bool result = loader.LoadASCIIFromFile(&gltfModel, &err, &warn, filepath);
 
@@ -163,7 +164,7 @@ bool Mesh::load(const string &filepath) {
   return true;
 }
 
-// --- Lifecycle ---
+// Lifecycle 
 void Mesh::onRender(Renderer &renderer) {
   if (!meshData)
     return;
@@ -195,68 +196,68 @@ void Mesh::draw() {
 }
 
 #if defined(MAGMA_WITH_EDITOR)
-// --- Inspector ---
-void Mesh::onInspector() {
-  if (meshData) {
-    ImGui::Text("Vertices: %zu", meshData->vertices.size());
-    ImGui::Text("Indices: %zu", meshData->indices.size());
-  }
-
-  if (!assetsScanned) {
-    scanAssetsOnce();
-    assetsScanned = true;
-  }
-
-  if (pathBuffer[0] == 0) {
-    if (!sourcePath.empty()) {
-      snprintf(pathBuffer, size(sourcePath), "%s", sourcePath.c_str());
-    } else {
-      snprintf(pathBuffer, size(sourcePath), "assets/");
+  void Mesh::onInspector() {
+    if (meshData) {
+      ImGui::Text("Vertices: %zu", meshData->vertices.size());
+      ImGui::Text("Indices: %zu", meshData->indices.size());
     }
-  }
 
-  ImGui::Spacing();
-  ImGui::TextDisabled("Asset: ");
-
-  bool pressedEnter = ImGui::InputText(
-      "##mesh_path", pathBuffer, IM_ARRAYSIZE(pathBuffer),
-      ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll );
-
-  if (ImGui::IsItemHovered() && Window::hasDroppedText) {
-    string dropped = Window::getDroppedText();
-    snprintf(pathBuffer, sizeof(pathBuffer), "%s", dropped.c_str());
-
-    if (find_if(assets.begin(), assets.end(), [&dropped](const string &asset) {
-          return asset == dropped;
-        }) != assets.end()) {
-      sourcePath = dropped;
-      Scene::current()->defer(SceneAction::loadMesh(owner));
+    if (!assetsScanned) {
+      scanAssetsOnce();
+      assetsScanned = true;
     }
-    Window::resetHasDropped();
-  }
 
-  if (pressedEnter) {
-    std::string typed = pathBuffer;
-
-    if (find_if(assets.begin(), assets.end(), [&typed](const string &asset) {
-          return asset == typed;
-        }) != assets.end()) {
-      sourcePath = typed;
-      Scene::current()->defer(SceneAction::loadMesh(owner));
+    if (pathBuffer[0] == 0) {
+      if (!sourcePath.empty()) {
+        snprintf(pathBuffer, size(sourcePath), "%s", sourcePath.c_str());
+      } else {
+        snprintf(pathBuffer, size(sourcePath), "assets/");
+      }
     }
-  }
 
-  // Display current source
-  if (!sourcePath.empty()) {
     ImGui::Spacing();
-    ImGui::TextDisabled("Loaded:");
-    ImGui::TextWrapped("%s", sourcePath.c_str());
+    ImGui::TextDisabled("Asset: ");
+
+    bool pressedEnter = ImGui::InputText(
+        "##mesh_path", pathBuffer, IM_ARRAYSIZE(pathBuffer),
+        ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll );
+
+    if (ImGui::IsItemHovered() && Window::hasDroppedText) {
+      std::string dropped = Window::getDroppedText();
+      snprintf(pathBuffer, sizeof(pathBuffer), "%s", dropped.c_str());
+
+      if (find_if(assets.begin(), assets.end(), [&dropped](const std::string &asset) {
+            return asset == dropped;
+          }) != assets.end()) {
+        sourcePath = dropped;
+        Scene::current()->defer(SceneAction::loadMesh(owner));
+      }
+      Window::resetHasDropped();
+    }
+
+    if (pressedEnter) {
+      std::string typed = pathBuffer;
+
+      if (find_if(assets.begin(), assets.end(), [&typed](const std::string &asset) {
+            return asset == typed;
+          }) != assets.end()) {
+        sourcePath = typed;
+        Scene::current()->defer(SceneAction::loadMesh(owner));
+      }
+    }
+
+    // Display current source
+    if (!sourcePath.empty()) {
+      ImGui::Spacing();
+      ImGui::TextDisabled("Current Source: %s", sourcePath.c_str());
+    }
   }
-}
 #endif
 
-// --- Private --- //
-// --- Buffers ---
+// --------------------------------------------------------------
+// Private Methods
+// --------------------------------------------------------------
+
 void Mesh::createVertexBuffer() {
   assert(meshData != nullptr &&
          "Cannot create vertex buffer before loading mesh data!");
@@ -273,7 +274,7 @@ void Mesh::createVertexBuffer() {
   stagingBuffer.map();
   stagingBuffer.writeToBuffer((void *)meshData->vertices.data());
 
-  vertexBuffer = make_unique<Buffer>(vertexSize, vertexCount,
+  vertexBuffer = std::make_unique<Buffer>(vertexSize, vertexCount,
                                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                          VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -302,7 +303,7 @@ void Mesh::createIndexBuffer() {
   stagingBuffer.map();
   stagingBuffer.writeToBuffer((void *)meshData->indices.data());
 
-  indexBuffer = make_unique<Buffer>(indexSize, indexCount,
+  indexBuffer = std::make_unique<Buffer>(indexSize, indexCount,
                                     VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
                                         VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -311,25 +312,24 @@ void Mesh::createIndexBuffer() {
                     bufferSize);
 }
 
-// --- Assets ---
 #if defined(MAGMA_WITH_EDITOR)
-void Mesh::scanAssetsOnce() {
-  const fs::path assetDir = "assets/";
-  try {
-    if (fs::exists(assetDir) && fs::is_directory(assetDir)) {
-      for (auto it = fs::recursive_directory_iterator(assetDir);
-           it != fs::recursive_directory_iterator(); it++) {
-        if (it->is_regular_file() && string_utils::hasAllowedExt(it->path()))
-          assets.push_back(it->path().string());
+  void Mesh::scanAssetsOnce() {
+    const fs::path assetDir = "assets/";
+    try {
+      if (fs::exists(assetDir) && fs::is_directory(assetDir)) {
+        for (auto it = fs::recursive_directory_iterator(assetDir);
+             it != fs::recursive_directory_iterator(); it++) {
+          if (it->is_regular_file() && string_utils::hasAllowedExt(it->path()))
+            assets.push_back(it->path().string());
+        }
       }
+    } catch (const fs::filesystem_error &e) {
+      std::println("Filesystem error: {}", e.what());
     }
-  } catch (const fs::filesystem_error &e) {
-    println("Filesystem error: {}", e.what());
-  }
 
-  std::sort(assets.begin(), assets.end());
-  assets.erase(std::unique(assets.begin(), assets.end()), assets.end());
-}
+    std::sort(assets.begin(), assets.end());
+    assets.erase(std::unique(assets.begin(), assets.end()), assets.end());
+  }
 #endif
 
 } // namespace Magma
