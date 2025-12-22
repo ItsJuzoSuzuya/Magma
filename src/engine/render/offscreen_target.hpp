@@ -1,6 +1,6 @@
 #pragma once
-#include "../core/render_target.hpp"
-#include "../core/render_target_info.hpp"
+#include "core/render_target.hpp"
+#include "core/render_target_info.hpp"
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -13,8 +13,8 @@ public:
   explicit OffscreenTarget(const RenderTargetInfo &info);
   ~OffscreenTarget() override;
 
-  // RenderTarget interface
   VkExtent2D extent() const override { return targetExtent; }
+  uint32_t imageCount() const override { return imageCount_; }
 
   VkImage &getColorImage(int index) override {
     return images.at(static_cast<size_t>(index));
@@ -31,10 +31,10 @@ public:
     return depthImageViews.at(static_cast<size_t>(index));
   }
 
-  VkImage &getIdImage() { return idImage; }
-  VkImageView getIdImageView() const { return idImageView; }
-  uint32_t imageCount() const override { return imageCount_; }
+  VkImage getIdImage(size_t index) { return idImages.at(index); }
+  VkImageView getIdImageView(size_t index) const { return idImageViews.at(index); }
 
+  void initImageLayouts();
   void resize(VkExtent2D newExtent) override;
   void cleanup() override;
 
@@ -47,6 +47,7 @@ private:
   VkFormat imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
   void createImages();
   void createImageViews();
+  void destroyColorResources();
 
   // Depth images (offscreen-owned)
   std::vector<VkImage> depthImages;
@@ -54,13 +55,15 @@ private:
   std::vector<VkImageView> depthImageViews;
   VkFormat depthImageFormat = VK_FORMAT_D32_SFLOAT;
   void createDepthResources();
+  void destroyDepthResources();
 
   // Id image for object picking
-  VkImage idImage = VK_NULL_HANDLE;
-  VkDeviceMemory idImageMemory = VK_NULL_HANDLE;
-  VkImageView idImageView = VK_NULL_HANDLE;
+  std::vector<VkImage> idImages;
+  std::vector<VkDeviceMemory> idImageMemories;
+  std::vector<VkImageView> idImageViews;
   VkFormat idImageFormat = VK_FORMAT_R32_UINT;
-  void createIdImage();
+  void createIdImages();
+  void destroyIdImages();
 
   // Sampler for sampling the color image in shaders / ImGui
   VkSampler colorSampler{VK_NULL_HANDLE};
@@ -69,9 +72,5 @@ private:
   // Extent
   VkExtent2D targetExtent{};
 
-  // Destruction helpers
-  void destroyIdImages();
-  void destroyColorResources();
-  void destroyDepthResources();
 };
 } // namespace Magma

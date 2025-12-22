@@ -15,11 +15,11 @@
 
 namespace DebugMessenger {
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL
-callback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-              VkDebugUtilsMessageTypeFlagsEXT messageType,
-              const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-              void *pUserData) {
+static VKAPI_ATTR VkBool32 VKAPI_CALL callback(
+      VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+      VkDebugUtilsMessageTypeFlagsEXT messageType,
+      const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+      void *pUserData) {
   std::cout << "Severity: " << messageSeverity << std::endl;
   std::cout << "Message: " << pCallbackData->pMessage << std::endl;
   std::cout << "Type: " << messageType << std::endl;
@@ -28,9 +28,10 @@ callback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 }
 
 
-VkResult create(VkInstance instance, VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
-      const VkAllocationCallbacks *pAllocator,
-                             VkDebugUtilsMessengerEXT *pDebugMessenger) {
+VkResult create(VkInstance instance, 
+                VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
+                const VkAllocationCallbacks *pAllocator,
+                VkDebugUtilsMessengerEXT *pDebugMessenger) {
   auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
       instance, "vkCreateDebugUtilsMessengerEXT");
   if (func != nullptr)

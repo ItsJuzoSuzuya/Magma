@@ -62,7 +62,7 @@ private:
 
   Camera *activeCamera = nullptr;
 
-  std::vector<VkImageLayout> sceneColorLayouts; // main color image layout
+  std::vector<VkImageLayout> sceneColorLayouts; 
 
   #if defined(MAGMA_WITH_EDITOR)
     std::unique_ptr<OffscreenTarget> renderTarget = nullptr;

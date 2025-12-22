@@ -4,7 +4,7 @@
 #include "deletion_queue.hpp"
 #include "engine/scene.hpp"
 #include "engine/time.hpp"
-#include "engine/widgets/file_manager.hpp"
+#include "engine/widgets/file_browser.hpp"
 #include "engine/widgets/ui_context.hpp"
 #include "renderer.hpp"
 #include "swapchain.hpp"
@@ -131,7 +131,7 @@ void RenderSystem::initializeRenderers() {
     imguiRenderer->addWidget(std::make_unique<RuntimeControl>());
     imguiRenderer->addWidget(std::make_unique<SceneTree>());
     imguiRenderer->addWidget(std::make_unique<Inspector>());
-    imguiRenderer->addWidget(std::make_unique<FileManager>());
+    imguiRenderer->addWidget(std::make_unique<FileBrowser>());
 
     imguiRenderer->addWidget(std::make_unique<GameEditor>(
         *offscreenRendererEditor.get(), editorCamera.get()));

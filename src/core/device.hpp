@@ -29,8 +29,7 @@ public:
 
   static Device &get() { return *instance_; }
   static VkDeviceSize nonCoherentAtomSize() {
-    return get().properties.limits.nonCoherentAtomSize;
-  }
+    return get().properties.limits.nonCoherentAtomSize; }
   VkDevice device() { return device_; }
   VkSurfaceKHR surface() { return surface_; }
   VkCommandPool getCommandPool() { return commandPool; }
@@ -40,11 +39,9 @@ public:
   void populateImGuiInitInfo(ImGui_ImplVulkan_InitInfo *init_info);
 
   SwapchainSupportDetails getSwapChainSupport() {
-    return querySwapChainSupport(physicalDevice);
-  }
+    return querySwapChainSupport(physicalDevice); }
   QueueFamilyIndices findQueueFamilies() {
-    return findQueueFamilies(physicalDevice);
-  }
+    return findQueueFamilies(physicalDevice); }
 
   void createImageWithInfo(const VkImageCreateInfo &imageInfo,
                            VkMemoryPropertyFlags properties, VkImage &image,

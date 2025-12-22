@@ -1,6 +1,6 @@
 #include "offscreen_target.hpp"
 #include "../core/device.hpp"
-#include <array>
+#include "core/frame_info.hpp"
 #include <print>
 #include <stdexcept>
 #include <vector>
@@ -9,17 +9,20 @@
 using namespace std;
 namespace Magma {
 
-// Constructor
 OffscreenTarget::OffscreenTarget(const RenderTargetInfo &info)
     : targetExtent{info.extent}, imageFormat{info.colorFormat},
       depthImageFormat{info.depthFormat}, imageCount_{info.imageCount} {
   createImages();
-  createIdImage();
+  createIdImages();
   createDepthResources();
   createColorSampler();
 }
 
 OffscreenTarget::~OffscreenTarget() { cleanup(); }
+
+// -----------------------------------------------------------------------------
+// Public Methods
+// -----------------------------------------------------------------------------
 
 void OffscreenTarget::cleanup() {
   VkDevice device = Device::get().device();
@@ -41,7 +44,6 @@ void OffscreenTarget::cleanup() {
   destroyColorResources();
 }
 
-// Resize (Offscreen)
 void OffscreenTarget::resize(VkExtent2D newExtent) {
   if (newExtent.width == 0 || newExtent.height == 0)
     return;
@@ -55,14 +57,15 @@ void OffscreenTarget::resize(VkExtent2D newExtent) {
   targetExtent = newExtent;
 
   createImages();
-  createIdImage();
+  createIdImages();
   createDepthResources();
   createColorSampler();
 }
 
-// --- Private helpers ---
+// -----------------------------------------------------------------------------
+// Private Methods
 
-// Images (color) - Offscreen
+// Scene Images 
 void OffscreenTarget::createImages() {
   images.resize(imageCount_);
   imageMemories.resize(imageCount_);
@@ -113,14 +116,28 @@ void OffscreenTarget::createImageViews() {
   }
 }
 
+void OffscreenTarget::destroyColorResources() {
+  VkDevice device = Device::get().device();
+  for (size_t i = 0; i < images.size(); ++i) {
+    if (images[i] != VK_NULL_HANDLE)
+      vkDestroyImage(device, images[i], nullptr);
+    if (imageMemories[i] != VK_NULL_HANDLE)
+      vkFreeMemory(device, imageMemories[i], nullptr);
+  }
+  images.clear();
+  imageMemories.clear();
+  imageViews.clear();
+}
+
+// Depth Resources
 void OffscreenTarget::createDepthResources() {
   Device &device = Device::get();
 
-  depthImages.resize(images.size());
-  depthImageMemories.resize(images.size());
-  depthImageViews.resize(images.size());
+  depthImages.resize(imageCount_);
+  depthImageMemories.resize(imageCount_);
+  depthImageViews.resize(imageCount_);
 
-  for (size_t i = 0; i < images.size(); ++i) {
+  for (size_t i = 0; i < depthImages.size(); ++i) {
     VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
     imageInfo.extent.width = targetExtent.width;
@@ -157,7 +174,29 @@ void OffscreenTarget::createDepthResources() {
   }
 }
 
-void OffscreenTarget::createIdImage() {
+
+
+void OffscreenTarget::destroyDepthResources() {
+  VkDevice device = Device::get().device();
+  for (size_t i = 0; i < depthImages.size(); ++i) {
+    if (depthImageViews[i] != VK_NULL_HANDLE)
+      vkDestroyImageView(device, depthImageViews[i], nullptr);
+    if (depthImages[i] != VK_NULL_HANDLE)
+      vkDestroyImage(device, depthImages[i], nullptr);
+    if (depthImageMemories[i] != VK_NULL_HANDLE)
+      vkFreeMemory(device, depthImageMemories[i], nullptr);
+  }
+  depthImages.clear();
+  depthImageMemories.clear();
+  depthImageViews.clear();
+}
+
+// ID Images for Picking
+void OffscreenTarget::createIdImages() {
+  idImages.resize(imageCount_);
+  idImageMemories.resize(imageCount_);
+  idImageViews.resize(imageCount_);
+
   VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
   imageInfo.imageType = VK_IMAGE_TYPE_2D;
   imageInfo.extent.width = targetExtent.width;
@@ -174,25 +213,50 @@ void OffscreenTarget::createIdImage() {
   imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
   imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  Device::get().createImageWithInfo(
-      imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, idImage, idImageMemory);
+  for (uint32_t i = 0; i < imageCount_; ++i) {
+    Device::get().createImageWithInfo(
+        imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, idImages[i], idImageMemories[i]);
 
-  VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-  viewInfo.image = idImage;
-  viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  viewInfo.format = idImageFormat;
-  viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-  viewInfo.subresourceRange.baseMipLevel = 0;
-  viewInfo.subresourceRange.levelCount = 1;
-  viewInfo.subresourceRange.baseArrayLayer = 0;
-  viewInfo.subresourceRange.layerCount = 1;
+    VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    viewInfo.image = idImages[i];
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = idImageFormat;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
 
-  if (vkCreateImageView(Device::get().device(), &viewInfo, nullptr,
-                        &idImageView) != VK_SUCCESS)
-    throw runtime_error(
-        "OffscreenRenderTarget: failed to create id image view");
+    if (vkCreateImageView(Device::get().device(), &viewInfo, nullptr,
+                          &idImageViews[i]) != VK_SUCCESS)
+      throw runtime_error(
+          "OffscreenRenderTarget: failed to create id image view");
+  }
 }
 
+void OffscreenTarget::destroyIdImages() {
+  VkDevice device = Device::get().device();
+  for (size_t i = 0; i < idImages.size(); ++i) {
+    if (idImageViews[i] != VK_NULL_HANDLE) {
+      vkDestroyImageView(device, idImageViews[i], nullptr);
+      idImageViews[i] = VK_NULL_HANDLE;
+    }
+
+    if (idImages[i] != VK_NULL_HANDLE) {
+      vkDestroyImage(device, idImages[i], nullptr);
+      idImages[i] = VK_NULL_HANDLE;
+    }
+    if (idImageMemories[i] != VK_NULL_HANDLE) {
+      vkFreeMemory(device, idImageMemories[i], nullptr);
+      idImageMemories[i] = VK_NULL_HANDLE;
+    }
+  }
+  idImages.clear();
+  idImageMemories.clear();
+  idImageViews.clear();
+}
+
+// Color Sampler
 void OffscreenTarget::createColorSampler() {
   if (colorSampler != VK_NULL_HANDLE)
     return;
@@ -215,50 +279,6 @@ void OffscreenTarget::createColorSampler() {
   VkDevice device = Device::get().device();
   if (vkCreateSampler(device, &info, nullptr, &colorSampler) != VK_SUCCESS)
     throw std::runtime_error("OffscreenRenderTarget: failed to create sampler");
-}
-
-// Destruction helpers
-void OffscreenTarget::destroyIdImages() {
-  VkDevice device = Device::get().device();
-  if (idImageView != VK_NULL_HANDLE) {
-    vkDestroyImageView(device, idImageView, nullptr);
-    idImageView = VK_NULL_HANDLE;
-  }
-  if (idImage != VK_NULL_HANDLE) {
-    vkDestroyImage(device, idImage, nullptr);
-    idImage = VK_NULL_HANDLE;
-  }
-  if (idImageMemory != VK_NULL_HANDLE) {
-    vkFreeMemory(device, idImageMemory, nullptr);
-    idImageMemory = VK_NULL_HANDLE;
-  }
-}
-
-void OffscreenTarget::destroyColorResources() {
-  VkDevice device = Device::get().device();
-  for (size_t i = 0; i < images.size(); ++i) {
-    if (images[i] != VK_NULL_HANDLE)
-      vkDestroyImage(device, images[i], nullptr);
-    if (imageMemories[i] != VK_NULL_HANDLE)
-      vkFreeMemory(device, imageMemories[i], nullptr);
-  }
-  images.clear();
-  imageMemories.clear();
-}
-
-void OffscreenTarget::destroyDepthResources() {
-  VkDevice device = Device::get().device();
-  for (size_t i = 0; i < depthImages.size(); ++i) {
-    if (depthImageViews[i] != VK_NULL_HANDLE)
-      vkDestroyImageView(device, depthImageViews[i], nullptr);
-    if (depthImages[i] != VK_NULL_HANDLE)
-      vkDestroyImage(device, depthImages[i], nullptr);
-    if (depthImageMemories[i] != VK_NULL_HANDLE)
-      vkFreeMemory(device, depthImageMemories[i], nullptr);
-  }
-  depthImages.clear();
-  depthImageViews.clear();
-  depthImageMemories.clear();
 }
 
 } // namespace Magma

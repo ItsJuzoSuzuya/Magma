@@ -161,7 +161,7 @@ void OffscreenRenderer::begin() {
   VkImageLayout curSceneLayout = sceneColorLayouts[idx];
   if (curSceneLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
     VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    VkAccessFlags srcAccess = 0;
+    VkAccessFlags srcAccess = VK_ACCESS_NONE;
     if (curSceneLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
       srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
       srcAccess = VK_ACCESS_SHADER_READ_BIT;
@@ -178,7 +178,7 @@ void OffscreenRenderer::begin() {
   #if defined(MAGMA_WITH_EDITOR)
     // Transition ID image to COLOR_ATTACHMENT_OPTIMAL
     VkImage idImage =
-        static_cast<OffscreenTarget *>(renderTarget.get())->getIdImage();
+        static_cast<OffscreenTarget *>(renderTarget.get())->getIdImage(idx);
     VkImageLayout curIdLayout = idImageLayouts[idx];
     if (curIdLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
       VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -221,7 +221,7 @@ void OffscreenRenderer::begin() {
   #if defined(MAGMA_WITH_EDITOR)
     color1.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     color1.imageView =
-        static_cast<OffscreenTarget *>(renderTarget.get())->getIdImageView();
+        static_cast<OffscreenTarget *>(renderTarget.get())->getIdImageView(idx);
     color1.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     color1.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color1.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -313,18 +313,6 @@ void OffscreenRenderer::end() {
         VK_IMAGE_ASPECT_COLOR_BIT);
     sceneColorLayouts[idx] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    // Transition ID image to SHADER_READ_ONLY (used for readback barriers)
-    VkImage idImage =
-        static_cast<OffscreenTarget *>(renderTarget.get())->getIdImage();
-    Device::transitionImageLayout(
-        idImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-        VK_IMAGE_ASPECT_COLOR_BIT);
-    idImageLayouts[idx] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
     servicePendingPick();
   #else
     VkImage sceneColor = renderTarget->getColorImage(idx);
@@ -373,7 +361,7 @@ void OffscreenRenderer::submitPointLight(const PointLightData &lightData) {
                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     stagingBuffer.map();
 
-    VkImage idImage = renderTarget->getIdImage();
+    VkImage idImage = renderTarget->getIdImage(currentImageIndex());
 
     // Transition ID image for readback (from shader read-only to transfer src)
     Device::transitionImageLayout(
@@ -394,10 +382,8 @@ void OffscreenRenderer::submitPointLight(const PointLightData &lightData) {
     region.imageOffset = {static_cast<int32_t>(x), static_cast<int32_t>(y), 0};
     region.imageExtent = {1, 1, 1};
 
-    VkCommandBuffer commandBuffer = Device::get().beginSingleTimeCommands();
-    Device::get().copyImageToBuffer(commandBuffer, stagingBuffer.getBuffer(),
+    Device::get().copyImageToBuffer(FrameInfo::commandBuffer, stagingBuffer.getBuffer(),
                                     idImage, region);
-    Device::get().endSingleTimeCommands(commandBuffer);
 
     // Transition back to shader read-only
     Device::transitionImageLayout(

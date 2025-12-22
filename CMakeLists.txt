@@ -61,6 +61,8 @@ set(SOURCES
     src/engine/render/offscreen_renderer.cpp
     src/engine/render/offscreen_target.cpp
     src/engine/render/swapchain_target.cpp
+    # systems 
+    src/engine/systems/file_manager.cpp
 )
 
 if (MAGMA_WITH_EDITOR)
@@ -71,7 +73,7 @@ if (MAGMA_WITH_EDITOR)
     src/engine/editor_camera.cpp
     src/engine/widgets/inspector.cpp
     src/engine/widgets/inspector_menu.cpp
-    src/engine/widgets/file_manager.cpp
+    src/engine/widgets/file_browser.cpp
     src/engine/widgets/scene_tree.cpp
     src/engine/widgets/scene_menu.cpp
     src/engine/widgets/game_view.cpp
