@@ -37,7 +37,7 @@ public:
   // --- Lifecycle ---
   void onAwake() override {};
   void onUpdate() override {};
-  void onRender(Renderer &renderer) override;
+  void onRender(SceneRenderer &renderer) override;
   void draw();
 
   #if defined(MAGMA_WITH_EDITOR)

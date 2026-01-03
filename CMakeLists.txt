@@ -58,7 +58,7 @@ set(SOURCES
     src/engine/components/point_light.cpp
     # renderers
     src/engine/render/render_context.cpp
-    src/engine/render/offscreen_renderer.cpp
+    src/engine/render/scene_renderer.cpp
     src/engine/render/offscreen_target.cpp
     src/engine/render/swapchain_target.cpp
     # systems 

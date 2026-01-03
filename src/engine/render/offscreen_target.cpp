@@ -1,7 +1,8 @@
 #include "offscreen_target.hpp"
-#include "../core/device.hpp"
+#include "core/device.hpp"
 #include "core/frame_info.hpp"
-#include <print>
+#include <cstddef>
+#include <cstdint>
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -13,7 +14,6 @@ OffscreenTarget::OffscreenTarget(const RenderTargetInfo &info)
     : targetExtent{info.extent}, imageFormat{info.colorFormat},
       depthImageFormat{info.depthFormat}, imageCount_{info.imageCount} {
   createImages();
-  createIdImages();
   createDepthResources();
   createColorSampler();
 }
@@ -24,6 +24,44 @@ OffscreenTarget::~OffscreenTarget() { cleanup(); }
 // Public Methods
 // -----------------------------------------------------------------------------
 
+// Color Resources
+VkImage OffscreenTarget::getColorImage(size_t index) {
+  return images.at(static_cast<size_t>(index));
+}
+
+VkImageView OffscreenTarget::getColorImageView(size_t index) const {
+  return imageViews.at(static_cast<size_t>(index));
+}
+
+VkRenderingAttachmentInfo OffscreenTarget::getColorAttachment(
+    size_t index) const {
+  VkRenderingAttachmentInfo colorAttachmentInfo{};
+  colorAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  colorAttachmentInfo.imageView = imageViews.at(static_cast<size_t>(index));
+  colorAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  colorAttachmentInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  colorAttachmentInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  colorAttachmentInfo.clearValue = {0.0f, 0.0f, 0.0f, 1.0f};
+  return colorAttachmentInfo;
+}
+
+// Depth Resources
+VkImageView OffscreenTarget::getDepthImageView(size_t index) const {
+  return depthImageViews.at(static_cast<size_t>(index));
+}
+
+VkRenderingAttachmentInfo OffscreenTarget::getDepthAttachment(size_t index) const {
+  VkRenderingAttachmentInfo depthAttachmentInfo{};
+  depthAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  depthAttachmentInfo.imageView = depthImageViews[index];
+  depthAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  depthAttachmentInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  depthAttachmentInfo.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  depthAttachmentInfo.clearValue.depthStencil = {1.0f, 0};
+  return depthAttachmentInfo;
+}
+
+
 void OffscreenTarget::cleanup() {
   VkDevice device = Device::get().device();
 
@@ -32,7 +70,6 @@ void OffscreenTarget::cleanup() {
     colorSampler = VK_NULL_HANDLE;
   }
 
-  destroyIdImages();
   destroyDepthResources();
 
   for (auto v : imageViews) {
@@ -44,7 +81,7 @@ void OffscreenTarget::cleanup() {
   destroyColorResources();
 }
 
-void OffscreenTarget::resize(VkExtent2D newExtent) {
+void OffscreenTarget::onResize(VkExtent2D newExtent) {
   if (newExtent.width == 0 || newExtent.height == 0)
     return;
   if (newExtent.width == targetExtent.width &&
@@ -57,13 +94,35 @@ void OffscreenTarget::resize(VkExtent2D newExtent) {
   targetExtent = newExtent;
 
   createImages();
-  createIdImages();
   createDepthResources();
   createColorSampler();
 }
 
+void OffscreenTarget::transitionColorImage(size_t index,
+                                           ImageTransitionDescription transition) {
+  VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+  barrier.oldLayout = imageLayouts.at(static_cast<size_t>(index));
+  barrier.newLayout = transition.newLayout;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image = images.at(static_cast<size_t>(index));
+  barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 1;
+  barrier.srcAccessMask = transition.srcAccess;
+  barrier.dstAccessMask = transition.dstAccess;
+
+  vkCmdPipelineBarrier(FrameInfo::commandBuffer, transition.srcStage,
+                       transition.dstStage, 0, 0, nullptr, 0, nullptr, 1,
+                       &barrier);
+  imageLayouts.at(static_cast<size_t>(index)) = transition.newLayout;
+}
+
 // -----------------------------------------------------------------------------
 // Private Methods
+// -----------------------------------------------------------------------------
 
 // Scene Images 
 void OffscreenTarget::createImages() {
@@ -174,8 +233,6 @@ void OffscreenTarget::createDepthResources() {
   }
 }
 
-
-
 void OffscreenTarget::destroyDepthResources() {
   VkDevice device = Device::get().device();
   for (size_t i = 0; i < depthImages.size(); ++i) {
@@ -191,70 +248,6 @@ void OffscreenTarget::destroyDepthResources() {
   depthImageViews.clear();
 }
 
-// ID Images for Picking
-void OffscreenTarget::createIdImages() {
-  idImages.resize(imageCount_);
-  idImageMemories.resize(imageCount_);
-  idImageViews.resize(imageCount_);
-
-  VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
-  imageInfo.imageType = VK_IMAGE_TYPE_2D;
-  imageInfo.extent.width = targetExtent.width;
-  imageInfo.extent.height = targetExtent.height;
-  imageInfo.extent.depth = 1;
-  imageInfo.mipLevels = 1;
-  imageInfo.arrayLayers = 1;
-  imageInfo.format = idImageFormat;
-  imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-  imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                    VK_IMAGE_USAGE_SAMPLED_BIT;
-  imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-  imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-  for (uint32_t i = 0; i < imageCount_; ++i) {
-    Device::get().createImageWithInfo(
-        imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, idImages[i], idImageMemories[i]);
-
-    VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    viewInfo.image = idImages[i];
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = idImageFormat;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-
-    if (vkCreateImageView(Device::get().device(), &viewInfo, nullptr,
-                          &idImageViews[i]) != VK_SUCCESS)
-      throw runtime_error(
-          "OffscreenRenderTarget: failed to create id image view");
-  }
-}
-
-void OffscreenTarget::destroyIdImages() {
-  VkDevice device = Device::get().device();
-  for (size_t i = 0; i < idImages.size(); ++i) {
-    if (idImageViews[i] != VK_NULL_HANDLE) {
-      vkDestroyImageView(device, idImageViews[i], nullptr);
-      idImageViews[i] = VK_NULL_HANDLE;
-    }
-
-    if (idImages[i] != VK_NULL_HANDLE) {
-      vkDestroyImage(device, idImages[i], nullptr);
-      idImages[i] = VK_NULL_HANDLE;
-    }
-    if (idImageMemories[i] != VK_NULL_HANDLE) {
-      vkFreeMemory(device, idImageMemories[i], nullptr);
-      idImageMemories[i] = VK_NULL_HANDLE;
-    }
-  }
-  idImages.clear();
-  idImageMemories.clear();
-  idImageViews.clear();
-}
 
 // Color Sampler
 void OffscreenTarget::createColorSampler() {

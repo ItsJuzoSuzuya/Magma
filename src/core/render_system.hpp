@@ -1,5 +1,5 @@
 #pragma once
-#include "engine/render/offscreen_renderer.hpp"
+#include "engine/render/scene_renderer.hpp"
 #include "engine/render/render_context.hpp"
 #include "device.hpp"
 #include "frame_info.hpp"
@@ -23,12 +23,7 @@ public:
   RenderSystem(Window &window);
   ~RenderSystem();
 
-  #if defined(MAGMA_WITH_EDITOR)
-    ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
-  #endif
-
-  SwapChain &getSwapChain() { return *swapChain; }
-
+  void addRenderer(std::unique_ptr<IRenderer> renderer);
   void onRender();
 
 private:
@@ -44,17 +39,18 @@ private:
   std::unique_ptr<SwapChain> swapChain = nullptr;
   void recreateSwapChain(VkExtent2D extent);
 
-  std::unique_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
-  #if defined(MAGMA_WITH_EDITOR)
-    std::unique_ptr<EditorCamera> editorCamera = nullptr;
-    std::unique_ptr<OffscreenRenderer> offscreenRendererEditor = nullptr;
+  std::vector<std::unique_ptr<IRenderer>> renderers;
+  void resizeSwapChainRenderer(const VkExtent2D extent);
 
-    VkFormat imguiColorFormat = VK_FORMAT_UNDEFINED;
-    std::unique_ptr<ImGuiRenderer> imguiRenderer = nullptr;
+  /*
+  #if defined(MAGMA_WITH_EDITOR)
+
     void initImGui();
+    ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
+
     void createDockspace(ImGuiID &dockspace_id, const ImVec2 &size);
   #endif
-  void initializeRenderers();
+*/
   void destroyAllRenderers();
 
   bool beginFrame();

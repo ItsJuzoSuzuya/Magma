@@ -131,7 +131,7 @@ void Scene::drawSceneTree() {
 #endif
 
 // Rendering
-void Scene::onRender(Renderer &renderer) {
+void Scene::onRender(SceneRenderer &renderer) {
   if (activeScene == nullptr)
     return;
 

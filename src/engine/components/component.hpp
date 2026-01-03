@@ -3,10 +3,10 @@
 namespace Magma {
 
 class GameObject;
-class Renderer;
+class SceneRenderer;
 
 /**
- * Interface for all components.
+ * Abstract class for all components.
  * Components are used to add functionality to entities.
  * @note All components must implement the Component interface.
  * @note Scripts are also considered components.
@@ -19,7 +19,7 @@ public:
   // --- Lifecycle ---
   virtual void onAwake() = 0;
   virtual void onUpdate() = 0;
-  virtual void onRender(Renderer &renderer) = 0;
+  virtual void onRender(SceneRenderer &renderer) = 0;
 
   #if defined(MAGMA_WITH_EDITOR)
   // Inspector

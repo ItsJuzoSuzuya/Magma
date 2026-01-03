@@ -43,7 +43,7 @@ public:
    * Render GameObjects recursively
    * @param renderer Renderer to use for rendering
    */
-  static void onRender(Renderer &renderer);
+  static void onRender(SceneRenderer &renderer);
 
   /**
    * Defers an action to be executed after the current frame

@@ -1,17 +1,17 @@
 #pragma once
 #include "imgui.h"
-#include "../editor_camera.hpp"
 #include "widget.hpp"
+#include <glm/vec3.hpp>
 
 namespace Magma {
 
-class OffscreenRenderer;
+class SceneRenderer;
 class GameObject;
+class EditorCamera;
 
 class GameEditor : public Widget {
 public:
-  explicit GameEditor(OffscreenRenderer &renderer, EditorCamera *editorCamera = nullptr)
-      : offscreenRenderer{renderer}, editorCamera{editorCamera} {}
+  GameEditor(SceneRenderer &renderer, EditorCamera *editorCamera = nullptr);
 
   // Name of the widget
   const char *name() const override { return "Editor"; }
@@ -28,7 +28,7 @@ public:
   }
 
 private:
-  OffscreenRenderer &offscreenRenderer;
+  SceneRenderer &renderer;
   EditorCamera *editorCamera = nullptr;
 
   // Drag state

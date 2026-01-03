@@ -1,6 +1,6 @@
 #include "point_light.hpp"
-#include "../../core/renderer.hpp"
-#include "../gameobject.hpp"
+#include "engine/gameobject.hpp"
+#include "engine/render/scene_renderer.hpp"
 #include "imgui.h"
 #include "transform.hpp"
 
@@ -8,7 +8,7 @@ namespace Magma {
 
 PointLight::PointLight(GameObject *owner) : Component(owner) {}
 
-void PointLight::onRender(Renderer &renderer) {
+void PointLight::onRender(SceneRenderer &renderer) {
   // Keep light position in sync with the owner's Transform
   if (owner) {
     if (auto *t = owner->getComponent<Transform>())

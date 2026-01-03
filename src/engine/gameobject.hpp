@@ -92,11 +92,11 @@ public:
 
   /**
    * Render (recursive)
-   * @param renderer Renderer to use for rendering
+   * @param renderer SceneRenderer to use for rendering
    * @note This function is called by Scene::onRender() or by the parent
    * GameObject.
    */
-  void onRender(Renderer &renderer);
+  void onRender(SceneRenderer &renderer);
   void draw();
 
   id_t id;

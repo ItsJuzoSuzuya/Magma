@@ -15,7 +15,7 @@ public:
   glm::vec3 scale{1.0f, 1.0f, 1.0f};
 
   // Lifecycle
-  void onRender(Renderer &renderer) override;
+  void onRender(SceneRenderer &renderer) override;
   void onAwake() override {};
   void onUpdate() override {};
 

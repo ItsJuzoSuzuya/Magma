@@ -1,8 +1,9 @@
 #include "camera.hpp"
-#include "../core/buffer.hpp"
-#include "../core/renderer.hpp"
-#include "../gameobject.hpp"
-#include "../scene.hpp"
+#include "core/buffer.hpp"
+#include "core/renderer.hpp"
+#include "engine/gameobject.hpp"
+#include "engine/render/scene_renderer.hpp"
+#include "engine/scene.hpp"
 #include "imgui.h"
 #include "transform.hpp"
 #include <array>
@@ -120,7 +121,7 @@ void Camera::pushCameraDataToGPU(Buffer *uboBuffer) {
 }
 
 // --- Lifecycle ---
-void Camera::onRender(Renderer &renderer) {
+void Camera::onRender(SceneRenderer &renderer) {
   Camera *active = renderer.getActiveCamera();
   if (active != this)
     return;

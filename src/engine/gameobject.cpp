@@ -134,7 +134,7 @@ void GameObject::removeChild(GameObject *child) {
 #endif
 
 // Rendering
-void GameObject::onRender(Renderer &renderer) {
+void GameObject::onRender(SceneRenderer &renderer) {
   for (const auto &component : components) {
     if (component.second)
       component.second->onRender(renderer);

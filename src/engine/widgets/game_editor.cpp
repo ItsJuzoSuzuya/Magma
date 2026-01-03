@@ -1,7 +1,8 @@
 #include "game_editor.hpp"
-#include "../components/transform.hpp"
-#include "../render/offscreen_renderer.hpp"
-#include "../time.hpp"
+#include "engine/components/transform.hpp"
+#include "engine/editor_camera.hpp"
+#include "engine/render/scene_renderer.hpp"
+#include "engine/time.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "inspector.hpp"
@@ -11,8 +12,6 @@
 #include <glm/fwd.hpp>
 #include <print>
 
-using namespace std;
-namespace Magma {
 
 static ImVec2 fit16x9(const ImVec2 &avail) {
   float targetH = avail.x * 9.0f / 16.0f;
@@ -33,7 +32,15 @@ static ImVec2 fit16x9(const ImVec2 &avail) {
   return size;
 }
 
-// Perform resize decision before starting frame.
+namespace Magma {
+
+GameEditor::GameEditor(SceneRenderer &renderer, EditorCamera *editorCamera)
+    : renderer(renderer), editorCamera(editorCamera) {}
+
+// ----------------------------------------------------------------------------
+// Public Methods
+// ----------------------------------------------------------------------------
+
 void GameEditor::preFrame() {
   UIContext::ensureInit();
   ImGui::SetNextWindowClass(&UIContext::GameViewDockClass);
@@ -42,13 +49,13 @@ void GameEditor::preFrame() {
     ImVec2 avail = ImGui::GetContentRegionAvail();
     ImVec2 desired = fit16x9(avail);
 
-    ImVec2 current = offscreenRenderer.getSceneSize();
+    ImVec2 current = renderer.getSceneSize();
     bool needsResize = ((int)desired.x != (int)current.x) ||
                        ((int)desired.y != (int)current.y);
 
     if (needsResize) {
       VkExtent2D newExtent{(uint32_t)desired.x, (uint32_t)desired.y};
-      offscreenRenderer.resize(newExtent);
+      renderer.onResize(newExtent);
 
       if (editorCamera) {
         float aspect = desired.x > 0.f ? desired.x / desired.y : 16.f / 9.f;
@@ -60,7 +67,6 @@ void GameEditor::preFrame() {
   ImGui::End();
 }
 
-// Draw the widget
 void GameEditor::draw() {
   UIContext::ensureInit();
   ImGui::SetNextWindowClass(&UIContext::GameViewDockClass);
@@ -91,7 +97,7 @@ void GameEditor::draw() {
   ImVec2 avail = ImGui::GetContentRegionAvail();
   ImVec2 imgSize = fit16x9(avail);
 
-  ImGui::Image(offscreenRenderer.getSceneTexture(), imgSize);
+  ImGui::Image(renderer.getSceneTexture(), imgSize);
 
   ImVec2 imageMin = ImGui::GetItemRectMin();
   ImVec2 imageMax = ImGui::GetItemRectMax();
@@ -108,7 +114,7 @@ void GameEditor::draw() {
     uint32_t pixelY = static_cast<uint32_t>(localY);
 
     if (imgSize.x > 0 && imgSize.y > 0)
-      offscreenRenderer.requestPick(pixelX, pixelY);
+      renderer.requestPick(pixelX, pixelY);
   }
 
   if (auto picked = offscreenRenderer.pollPickResult()) {

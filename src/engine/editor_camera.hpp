@@ -4,7 +4,7 @@
 
 namespace Magma {
 
-class Renderer;
+class SceneRenderer;
 class GameObject;
 
 /**
@@ -19,7 +19,7 @@ public:
 
   // Lifecycle helpers
   void onUpdate();
-  void onRender(Renderer &renderer);
+  void onRender(SceneRenderer &renderer);
 
   // Movement helpers used by editor input
   void moveRight(float speed);

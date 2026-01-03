@@ -1,5 +1,4 @@
 #pragma once
-#include <cstdint>
 #include <string>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -56,4 +55,5 @@ private:
   void createShaderModule(const std::vector<char> &code,
                           VkShaderModule *shaderModule);
 };
+
 } // namespace Magma

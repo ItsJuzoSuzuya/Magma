@@ -3,12 +3,14 @@
 #include "core/render_target_info.hpp"
 #include <vector>
 #include <vulkan/vulkan_core.h>
+#include "engine/render/features/object_picker.hpp"
+
 
 namespace Magma {
 
 class GameObject;
 
-class OffscreenTarget : public RenderTarget {
+class OffscreenTarget : public IRenderTarget {
 public:
   explicit OffscreenTarget(const RenderTargetInfo &info);
   ~OffscreenTarget() override;
@@ -16,26 +18,21 @@ public:
   VkExtent2D extent() const override { return targetExtent; }
   uint32_t imageCount() const override { return imageCount_; }
 
-  VkImage &getColorImage(int index) override {
-    return images.at(static_cast<size_t>(index));
-  }
-  VkImageView getColorImageView(int index) const override {
-    return imageViews.at(static_cast<size_t>(index));
-  }
-  VkSampler getColorSampler() const override { return colorSampler; }
-  VkFormat getColorFormat() const override { return imageFormat; }
+  VkImage getColorImage(size_t index) override;
+  VkImageView getColorImageView(size_t index) const override;
+  VkRenderingAttachmentInfo getColorAttachment(size_t index) const override;
   uint32_t getColorAttachmentCount() const override { return 2; }
+  void transitionColorImage(size_t index, ImageTransitionDescription transition) override;
+  VkImageLayout getColorImageLayout(size_t index) const override;
+  VkFormat getColorFormat() const override { return imageFormat; }
 
+  VkImageView getDepthImageView(size_t index) const;
+  VkRenderingAttachmentInfo getDepthAttachment(size_t index) const override;
   VkFormat getDepthFormat() const override { return depthImageFormat; }
-  VkImageView getDepthImageView(int index) const {
-    return depthImageViews.at(static_cast<size_t>(index));
-  }
 
-  VkImage getIdImage(size_t index) { return idImages.at(index); }
-  VkImageView getIdImageView(size_t index) const { return idImageViews.at(index); }
+  VkSampler getColorSampler() const override { return colorSampler; }
 
-  void initImageLayouts();
-  void resize(VkExtent2D newExtent) override;
+  void onResize(VkExtent2D newExtent) override;
   void cleanup() override;
 
 private:
@@ -44,6 +41,7 @@ private:
   std::vector<VkImage> images;
   std::vector<VkImageView> imageViews;
   std::vector<VkDeviceMemory> imageMemories;
+  std::vector<VkImageLayout> imageLayouts;
   VkFormat imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
   void createImages();
   void createImageViews();
@@ -53,17 +51,10 @@ private:
   std::vector<VkImage> depthImages;
   std::vector<VkDeviceMemory> depthImageMemories;
   std::vector<VkImageView> depthImageViews;
+  std::vector<VkImageLayout> depthImageLayouts;
   VkFormat depthImageFormat = VK_FORMAT_D32_SFLOAT;
   void createDepthResources();
   void destroyDepthResources();
-
-  // Id image for object picking
-  std::vector<VkImage> idImages;
-  std::vector<VkDeviceMemory> idImageMemories;
-  std::vector<VkImageView> idImageViews;
-  VkFormat idImageFormat = VK_FORMAT_R32_UINT;
-  void createIdImages();
-  void destroyIdImages();
 
   // Sampler for sampling the color image in shaders / ImGui
   VkSampler colorSampler{VK_NULL_HANDLE};

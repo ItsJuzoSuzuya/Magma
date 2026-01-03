@@ -1,7 +1,6 @@
 #include "swapchain_target.hpp"
-#include "../core/device.hpp"
-#include <array>
-#include <print>
+#include "core/device.hpp"
+#include "core/render_target_info.hpp"
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -9,19 +8,25 @@
 using namespace std;
 namespace Magma {
 
-SwapchainTarget::SwapchainTarget(SwapChain &swapChain) {
-  auto info = swapChain.getRenderInfo();
+SwapchainTarget::SwapchainTarget(VkExtent2D extent, RenderTargetInfo &info) {
+  swapChain = std::make_unique<SwapChain>(extent);
+  info = swapChain->getRenderInfo();
+
   targetExtent = info.extent;
   imageFormat = info.colorFormat;
   depthImageFormat = info.depthFormat;
   imageCount_ = info.imageCount;
 
-  createImages(swapChain.getSwapChain());
+  createImages();
   createImageViews();
   createDepthResources();
 }
 
 SwapchainTarget::~SwapchainTarget() { cleanup(); }
+
+// ----------------------------------------------------------------------------
+// Public Methods
+// ----------------------------------------------------------------------------
 
 void SwapchainTarget::cleanup() {
   VkDevice device = Device::get().device();
@@ -37,29 +42,83 @@ void SwapchainTarget::cleanup() {
   // be destroyed here.
 }
 
-// Resize (Swapchain)
-bool SwapchainTarget::resize(VkExtent2D newExtent, VkSwapchainKHR swapChain) {
-  if (newExtent.width == 0 || newExtent.height == 0)
-    return false;
-
-  Device::waitIdle();
-
-  cleanup();
-  targetExtent = newExtent;
-
-  createImages(swapChain);
-  createImageViews();
-  createDepthResources();
-  return true;
+// Color resources
+VkImage SwapchainTarget::getColorImage(size_t index) {
+  return images[index];
 }
 
-// --- Private helpers ---
+VkImageView SwapchainTarget::getColorImageView(size_t index) const {
+  return imageViews[index];
+}
 
-void SwapchainTarget::createImages(VkSwapchainKHR swapChain) {
+VkRenderingAttachmentInfo SwapchainTarget::getColorAttachment(
+    size_t index) const {
+  VkRenderingAttachmentInfo colorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+  colorAttachment.imageView = imageViews[index];
+  colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  colorAttachment.clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+  return colorAttachment;
+}
+
+VkImageLayout SwapchainTarget::getColorImageLayout(size_t index) const {
+  return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+}
+
+void SwapchainTarget::transitionColorImage(size_t index,
+                                           ImageTransitionDescription transition) {
+  Device::transitionImageLayout(
+      images[index], imageLayouts[index],
+      transition.newLayout, transition.srcAccess,
+      transition.dstAccess, transition.srcStage,
+      transition.dstStage);
+}
+
+
+// Depth resources
+VkImageView SwapchainTarget::getDepthImageView(size_t index) const {
+  return depthImageViews[index];
+}
+
+VkRenderingAttachmentInfo SwapchainTarget::getDepthAttachment(
+    size_t index) const {
+  VkRenderingAttachmentInfo depthAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+  depthAttachment.imageView = depthImageViews[index];
+  depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  depthAttachment.clearValue.depthStencil = {1.0f, 0};
+  return depthAttachment;
+}
+
+void SwapchainTarget::onResize(const VkExtent2D newExtent) {
+  if (newExtent.width == 0 || newExtent.height == 0)
+    return;
+
+  Device::waitIdle();
+  cleanup();
+
+  // Recreate swapchain
+  std::shared_ptr<SwapChain> oldSwapChain = std::move(swapChain);
+  swapChain = std::make_unique<SwapChain>(newExtent, oldSwapChain);
+
+  createImages();
+  createImageViews();
+  createDepthResources();
+
+  targetExtent = newExtent;
+}
+
+// ----------------------------------------------------------------------------
+// Private Methods
+// ----------------------------------------------------------------------------
+
+void SwapchainTarget::createImages() {
   VkDevice device = Device::get().device();
-  vkGetSwapchainImagesKHR(device, swapChain, &imageCount_, nullptr);
+  vkGetSwapchainImagesKHR(device, swapChain->getSwapChain(), &imageCount_, nullptr);
   images.resize(imageCount_);
-  vkGetSwapchainImagesKHR(device, swapChain, &imageCount_, images.data());
+  vkGetSwapchainImagesKHR(device, swapChain->getSwapChain(), &imageCount_, images.data());
 }
 
 void SwapchainTarget::createImageViews() {

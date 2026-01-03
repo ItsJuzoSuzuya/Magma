@@ -2,6 +2,7 @@
 #include "core/frame_info.hpp"
 #include "core/mesh_data.hpp"
 #include "core/device.hpp"
+#include "engine/render/scene_renderer.hpp"
 #include "engine/scene.hpp"
 #include "engine/scene_action.hpp"
 #include "component.hpp"
@@ -165,7 +166,7 @@ bool Mesh::load(const std::string &filepath) {
 }
 
 // Lifecycle 
-void Mesh::onRender(Renderer &renderer) {
+void Mesh::onRender(SceneRenderer &renderer) {
   if (!meshData)
     return;
 

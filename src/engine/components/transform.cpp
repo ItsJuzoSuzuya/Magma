@@ -1,8 +1,8 @@
 #include "transform.hpp"
-#include "../../core/frame_info.hpp"
-#include "../../core/push_constant_data.hpp"
-#include "../../engine/gameobject.hpp"
-#include "../../core/renderer.hpp"
+#include "core/frame_info.hpp"
+#include "core/push_constant_data.hpp"
+#include "engine/gameobject.hpp"
+#include "engine/render/scene_renderer.hpp"
 
 #if defined(MAGMA_WITH_EDITOR)
 #include "imgui.h"
@@ -15,9 +15,11 @@
 using namespace std;
 namespace Magma {
 
-// --- Public --- //
-// Render
-void Transform::onRender(Renderer &renderer) {
+// -----------------------------------------------------------------------------
+// Public Methods
+// -----------------------------------------------------------------------------
+
+void Transform::onRender(SceneRenderer &renderer) {
   PushConstantData push{};
   push.modelMatrix = mat4();
 
@@ -32,12 +34,11 @@ void Transform::onRender(Renderer &renderer) {
 }
 
 #if defined(MAGMA_WITH_EDITOR)
-// Inspector
-void Transform::onInspector() {
-  ImGui::DragFloat3("Position", &position.x, 0.1f);
-  ImGui::DragFloat3("Rotation", &rotation.x, 0.1f);
-  ImGui::DragFloat3("Scale", &scale.x, 0.1f);
-}
+  void Transform::onInspector() {
+    ImGui::DragFloat3("Position", &position.x, 0.1f);
+    ImGui::DragFloat3("Rotation", &rotation.x, 0.1f);
+    ImGui::DragFloat3("Scale", &scale.x, 0.1f);
+  }
 #endif
 
 // Direction vectors
@@ -71,7 +72,10 @@ glm::vec3 Transform::up() const {
                    s1 * s3 + c1 * s2 * c3};
 }
 
-// --- Private --- //
+// -----------------------------------------------------------------------------
+// Private Methods
+// -----------------------------------------------------------------------------
+
 // Matrix calculations
 glm::mat4 Transform::mat4() const {
   const float c1 = glm::cos(rotation.y);

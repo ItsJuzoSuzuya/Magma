@@ -1,5 +1,5 @@
 #include "editor_camera.hpp"
-#include "../../core/renderer.hpp"
+#include "core/renderer.hpp"
 #include "gameobject.hpp"
 
 using namespace std;
@@ -18,7 +18,7 @@ void EditorCamera::onUpdate() {
   camera->onUpdate();
 }
 
-void EditorCamera::onRender(Renderer &renderer) {
+void EditorCamera::onRender(SceneRenderer &renderer) {
   // Push camera UBO to GPU before rendering scene
   camera->onRender(renderer);
 }
