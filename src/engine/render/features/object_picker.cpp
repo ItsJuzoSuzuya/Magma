@@ -3,12 +3,13 @@
 #include "core/buffer.hpp"
 #include "core/device.hpp"
 #include "core/frame_info.hpp"
+#include "core/image_transitions.hpp"
 #include "core/render_target_info.hpp"
 #include "engine/scene.hpp"
 
 namespace Magma {
 
-ObjectPicker::ObjectPicker(const RenderTargetInfo &info): targetExtent{info.extent}, imageCount_{info.imageCount} {
+ObjectPicker::ObjectPicker(VkExtent2D extent, uint32_t imageCount): targetExtent{extent}, imageCount_{imageCount} {
   createImages();
   idImageLayouts.resize(imageCount_, VK_IMAGE_LAYOUT_UNDEFINED);
 }
@@ -35,11 +36,43 @@ VkRenderingAttachmentInfo ObjectPicker::getIdAttachment(uint32_t imageIndex) con
   return idAttachmentInfo;
 }
 
+void ObjectPicker::transitionIdImage(size_t index,
+                         ImageTransitionDescription transition) {
+  VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+  barrier.oldLayout = idImageLayouts.at(static_cast<size_t>(index));
+  barrier.newLayout = transition.newLayout;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image = idImages.at(index);
+  barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 1;
+  barrier.srcAccessMask = transition.srcAccess;
+  barrier.dstAccessMask = transition.dstAccess;
+
+  vkCmdPipelineBarrier(FrameInfo::commandBuffer, transition.srcStage,
+                       transition.dstStage, 0, 0, nullptr, 0, nullptr, 1,
+                       &barrier);
+  idImageLayouts.at(index) = transition.newLayout;
+}
+
+
 void ObjectPicker::requestPick(uint32_t x, uint32_t y) {
   pendingPick.hasRequest = true;
   pendingPick.x = x;
   pendingPick.y = y;
   // result will be fetched later
+}
+
+void ObjectPicker::servicePendingPick() {
+  if (!pendingPick.hasRequest)
+    return;
+
+  GameObject *picked = pickAtPixel(pendingPick.x, pendingPick.y);
+  pendingPick.result = picked;
+  pendingPick.hasRequest = false;
 }
 
 GameObject *ObjectPicker::pollPickResult() {
@@ -167,15 +200,6 @@ GameObject *ObjectPicker::pickAtPixel(uint32_t x, uint32_t y) {
           static_cast<GameObject::id_t>(objectId));
 
     return nullptr;
-  }
-
-  void ObjectPicker::servicePendingPick() {
-    if (!pendingPick.hasRequest)
-      return;
-
-    GameObject *picked = pickAtPixel(pendingPick.x, pendingPick.y);
-    pendingPick.result = picked;
-    pendingPick.hasRequest = false;
   }
 
 } // namespace Magma

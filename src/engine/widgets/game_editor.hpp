@@ -13,13 +13,10 @@ class GameEditor : public Widget {
 public:
   GameEditor(SceneRenderer &renderer, EditorCamera *editorCamera = nullptr);
 
-  // Name of the widget
   const char *name() const override { return "Editor"; }
 
   // Perform resize decision before starting frame.
   void preFrame() override;
-
-  // Draw the widget
   void draw() override;
 
   // Docking prefrence (Center)

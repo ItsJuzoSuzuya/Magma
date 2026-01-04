@@ -26,11 +26,15 @@ OffscreenTarget::~OffscreenTarget() { cleanup(); }
 
 // Color Resources
 VkImage OffscreenTarget::getColorImage(size_t index) {
-  return images.at(static_cast<size_t>(index));
+  return images.at(index);
 }
 
 VkImageView OffscreenTarget::getColorImageView(size_t index) const {
-  return imageViews.at(static_cast<size_t>(index));
+  return imageViews.at(index);
+}
+
+VkImageLayout OffscreenTarget::getColorImageLayout(size_t index) const {
+  return imageLayouts.at(index);
 }
 
 VkRenderingAttachmentInfo OffscreenTarget::getColorAttachment(

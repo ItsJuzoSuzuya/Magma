@@ -61,6 +61,7 @@ set(SOURCES
     src/engine/render/scene_renderer.cpp
     src/engine/render/offscreen_target.cpp
     src/engine/render/swapchain_target.cpp
+    src/engine/render/features/object_picker.cpp
     # systems 
     src/engine/systems/file_manager.cpp
 )

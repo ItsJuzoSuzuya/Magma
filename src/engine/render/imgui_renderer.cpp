@@ -31,6 +31,10 @@ ImGuiRenderer::ImGuiRenderer(std::unique_ptr<SwapchainTarget> target, PipelineSh
   colorLayouts.assign(renderTarget->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
+ImGuiRenderer::~ImGuiRenderer() {
+  vkDestroyPipelineLayout(Device::get().device(), pipelineLayout, nullptr);
+}
+
 // ----------------------------------------------------------------------------
 // Public Methods
 // ----------------------------------------------------------------------------

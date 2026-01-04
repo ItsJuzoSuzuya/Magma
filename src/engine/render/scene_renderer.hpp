@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <vector>
+#include <vulkan/vulkan_core.h>
 
 namespace Magma {
 
@@ -20,8 +22,12 @@ public:
   void destroy() override;
 
   ImVec2 getSceneSize() const;
+  ImTextureID getSceneTexture() const;
+
   VkPipelineLayout getPipelineLayout() const override {
     return pipelineLayout; }
+  
+  ObjectPicker &getObjectPicker() { return *objectPicker; }
 
   void onResize(const VkExtent2D newExtent) override;
   void onRender() override;
@@ -54,9 +60,11 @@ private:
   uint32_t rendererId = 0;
   bool isSwapChainDependentFlag = true;
 
+  std::vector<ImTextureID> sceneTextures;
+
   Camera *activeCamera = nullptr;
 
-  ObjectPicker objectPicker;
+  std::unique_ptr<ObjectPicker> objectPicker;
 
 };
 

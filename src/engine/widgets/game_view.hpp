@@ -3,21 +3,18 @@
 
 namespace Magma {
 
-class OffscreenRenderer;
+class SceneRenderer;
 class GameObject;
 
 class GameView : public Widget {
 public:
-  explicit GameView(OffscreenRenderer &renderer)
-      : offscreenRenderer{renderer} {}
+  explicit GameView(SceneRenderer &renderer)
+      : renderer{renderer} {}
 
-  // Name of the widget
   const char *name() const override { return "Game"; }
 
   // Perform resize decision before starting frame.
   void preFrame() override;
-
-  // Draw the widget
   void draw() override;
 
   // Docking prefrence (Center)
@@ -26,7 +23,7 @@ public:
   }
 
 private:
-  OffscreenRenderer &offscreenRenderer;
+  SceneRenderer &renderer;
 };
 
 } // namespace Magma

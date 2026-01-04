@@ -1,11 +1,10 @@
 #include "game_view.hpp"
-#include "../render/offscreen_renderer.hpp"
+#include "engine/render/scene_renderer.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "ui_context.hpp"
 #include <glm/fwd.hpp>
 
-using namespace std;
 namespace Magma {
 
 static ImVec2 fit16x9(const ImVec2 &avail) {
@@ -36,13 +35,13 @@ void GameView::preFrame() {
     ImVec2 avail = ImGui::GetContentRegionAvail();
     ImVec2 desired = fit16x9(avail);
 
-    ImVec2 current = offscreenRenderer.getSceneSize();
+    ImVec2 current = renderer.getSceneSize();
     bool needsResize = ((int)desired.x != (int)current.x) ||
                        ((int)desired.y != (int)current.y);
 
     if (needsResize) {
       VkExtent2D newExtent{(uint32_t)desired.x, (uint32_t)desired.y};
-      offscreenRenderer.resize(newExtent);
+      renderer.onResize(newExtent);
     }
   }
   ImGui::End();
@@ -54,8 +53,8 @@ void GameView::draw() {
   ImGui::SetNextWindowClass(&UIContext::GameViewDockClass);
   ImGui::Begin(name());
 
-  ImVec2 imgSize = offscreenRenderer.getSceneSize();
-  ImGui::Image(offscreenRenderer.getSceneTexture(), imgSize);
+  ImVec2 imgSize = renderer.getSceneSize();
+  ImGui::Image(renderer.getSceneTexture(), imgSize);
 
   ImVec2 imageMin = ImGui::GetItemRectMin();
   ImVec2 imageMax = ImGui::GetItemRectMax();

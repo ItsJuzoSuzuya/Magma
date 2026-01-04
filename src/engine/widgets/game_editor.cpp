@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <cmath>
 #include <glm/fwd.hpp>
-#include <print>
 
 
 static ImVec2 fit16x9(const ImVec2 &avail) {
@@ -107,17 +106,17 @@ void GameEditor::draw() {
     float localX = mousePos.x - imageMin.x;
     float localY = mousePos.y - imageMin.y;
 
-    localX = clamp(localX, 0.0f, imgSize.x);
-    localY = clamp(localY, 0.0f, imgSize.y);
+    localX = std::clamp(localX, 0.0f, imgSize.x);
+    localY = std::clamp(localY, 0.0f, imgSize.y);
 
     uint32_t pixelX = static_cast<uint32_t>(localX);
     uint32_t pixelY = static_cast<uint32_t>(localY);
 
     if (imgSize.x > 0 && imgSize.y > 0)
-      renderer.requestPick(pixelX, pixelY);
+      renderer.getObjectPicker().requestPick(pixelX, pixelY);
   }
 
-  if (auto picked = offscreenRenderer.pollPickResult()) {
+  if (auto picked = renderer.getObjectPicker().pollPickResult()) {
     Inspector::setContext(picked);
     beginDrag(picked, ImGui::GetIO().MousePos, imageMin, imgSize);
   }

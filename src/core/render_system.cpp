@@ -4,26 +4,16 @@
 #include "deletion_queue.hpp"
 #include "engine/scene.hpp"
 #include "engine/time.hpp"
-#include "engine/widgets/file_browser.hpp"
-#include "engine/widgets/ui_context.hpp"
 #include "renderer.hpp"
 #include "swapchain.hpp"
-#include <print>
 #include <vulkan/vulkan_core.h>
 #include <GLFW/glfw3.h>
 #include <cassert>
 #include <memory>
+#include "engine/widgets/game_view.hpp"
 
 #if defined(MAGMA_WITH_EDITOR)
-  #include "engine/widgets/dock_layout.hpp"
   #include "engine/widgets/game_editor.hpp"
-  #include "engine/widgets/game_view.hpp"
-  #include "engine/widgets/inspector.hpp"
-  #include "engine/widgets/runtime_control.hpp"
-  #include "engine/widgets/scene_tree.hpp"
-  #include "imgui.h"
-  #include "imgui_impl_glfw.h"
-  #include "imgui_impl_vulkan.h"
 #endif
 
 namespace Magma {

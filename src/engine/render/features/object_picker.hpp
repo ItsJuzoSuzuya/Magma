@@ -6,19 +6,26 @@
 namespace Magma {
 
 class RenderTargetInfo;
+class ImageTransitionDescription;
 
 class ObjectPicker {
 public:
-  ObjectPicker(const RenderTargetInfo &info);
+  ObjectPicker(VkExtent2D extent, uint32_t imageCount);
 
   VkImage getIdImage(uint32_t imageIndex) const {
     return idImages[imageIndex]; }
   VkImageView getIdImageView(uint32_t imageIndex) const {
     return idImageViews[imageIndex]; }
+  VkImageLayout getIdImageLayout(uint32_t imageIndex) const {
+    return idImageLayouts[imageIndex]; }
   VkRenderingAttachmentInfo getIdAttachment(uint32_t imageIndex) const;
+
+  void transitionIdImage(size_t index,
+                         ImageTransitionDescription transition);
 
   void requestPick(uint32_t x, uint32_t y);
   GameObject *pollPickResult();
+  void servicePendingPick(); // executes after offscreen rendering
 
 private:
   uint32_t imageCount_ = 0;
@@ -40,7 +47,6 @@ private:
     GameObject *result = nullptr;
   } pendingPick;
 
-    virtual GameObject *pickAtPixel(uint32_t x, uint32_t y);
-    virtual void servicePendingPick(); // executes after offscreen rendering
+    GameObject *pickAtPixel(uint32_t x, uint32_t y);
   };
 }

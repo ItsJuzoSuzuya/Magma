@@ -6,10 +6,12 @@
 #include "core/render_target.hpp"
 #include "core/renderer.hpp"
 #include "engine/components/camera.hpp"
+#include "engine/render/features/object_picker.hpp"
 #include "engine/render/swapchain_target.hpp"
 #include "engine/scene.hpp"
 #include "render_context.hpp"
 #include <cstdint>
+#include <memory>
 #include <print>
 #include <utility>
 #include <vector>
@@ -29,6 +31,8 @@ SceneRenderer::SceneRenderer(std::unique_ptr<IRenderTarget> target,
     : IRenderer(), shaderInfo{shaderInfo} {
   renderContext = std::make_unique<RenderContext>();
   renderTarget = std::move(target);
+  objectPicker = std::make_unique<ObjectPicker>(renderTarget->extent(),
+                                                renderTarget->imageCount());
 
   if (auto *offscreenTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get())) 
     isSwapChainDependentFlag = true;
@@ -45,6 +49,10 @@ SceneRenderer::SceneRenderer(std::unique_ptr<IRenderTarget> target,
   renderContext->createDescriptorSets(LayoutKey::PointLight);
 
   createPipeline();
+}
+
+SceneRenderer::~SceneRenderer() {
+  destroy();
 }
 
 // ----------------------------------------------------------------------------
@@ -67,9 +75,6 @@ void SceneRenderer::onResize(const VkExtent2D newExtent) {
   Device::waitIdle();
 
   renderTarget->onResize(newExtent);
-  sceneColorLayouts.assign(renderTarget->imageCount(),
-                           VK_IMAGE_LAYOUT_UNDEFINED);
-
   createPipeline();
 }
 
@@ -82,6 +87,12 @@ void SceneRenderer::onRender() {
 ImVec2 SceneRenderer::getSceneSize() const {
   return ImVec2(static_cast<float>(renderTarget->extent().width),
                 static_cast<float>(renderTarget->extent().height));
+}
+
+ImTextureID SceneRenderer::getSceneTexture() const {
+  #if defined(MAGMA_WITH_EDITOR)
+    return sceneTextures[FrameInfo::imageIndex];
+  #endif
 }
 
 #if defined(MAGMA_WITH_EDITOR)
@@ -139,16 +150,15 @@ void SceneRenderer::begin() {
   color0.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   color0.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
   color0.clearValue = clearValues[0];
-
   VkRenderingAttachmentInfo color1 = objectPicker->getIdAttachment(idx);
-
-  VkRenderingAttachmentInfo depth = renderTarget->getDepthAttachment(idx);
 
   std::array<VkRenderingAttachmentInfo, 2> colors{};
   colors[0] = color0;
   #if defined(MAGMA_WITH_EDITOR)
     colors[1] = color1;
   #endif
+
+  VkRenderingAttachmentInfo depth = renderTarget->getDepthAttachment(idx);
 
   VkRenderingInfo renderingInfo = {};
   renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -211,26 +221,13 @@ void SceneRenderer::end() {
   const uint32_t idx = currentImageIndex();
   #if defined(MAGMA_WITH_EDITOR)
     // Transition scene color to SHADER_READ_ONLY for ImGui sampling
-    VkImage sceneColor = renderTarget->getColorImage(idx);
-    Device::transitionImageLayout(
-        sceneColor, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-        VK_IMAGE_ASPECT_COLOR_BIT);
-    sceneColorLayouts[idx] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    renderTarget->transitionColorImage(
+        idx, ImageTransition::ColorOptimalToShaderRead);
 
-    servicePendingPick();
+    objectPicker->servicePendingPick();
   #else
-    VkImage sceneColor = renderTarget->getColorImage(idx);
-    Device::transitionImageLayout(
-        sceneColor, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_IMAGE_ASPECT_COLOR_BIT);
-    sceneColorLayouts[idx] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    renderTarget->transitionColorImage(
+        idx, ImageTransition::ColorOptimalToPresent);
   #endif
 }
 
@@ -253,6 +250,19 @@ void SceneRenderer::submitPointLight(const PointLightData &lightData) {
   renderContext->updatePointLightSlice(FrameInfo::frameIndex, rendererId,
                                        (void *)&ssbo, sizeof(ssbo));
 }
+
+// Textures
+#if defined(MAGMA_WITH_EDITOR)
+  void SceneRenderer::createSceneTextures() {
+    sceneTextures.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    for (uint32_t i = 0; i < sceneTextures.size(); ++i) {
+      sceneTextures[i] = (ImTextureID)ImGui_ImplVulkan_AddTexture(
+          renderTarget->getColorSampler(), renderTarget->getColorImageView(i),
+          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
+  }
+#endif
+
 
 // ----------------------------------------------------------------------------
 // Private Methods

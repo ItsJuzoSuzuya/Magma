@@ -15,7 +15,7 @@ public:
   ImGuiRenderer(std::unique_ptr<SwapchainTarget> target, PipelineShaderInfo shaderInfo);
   void initImGui(const Window &window);
 
-  ~ImGuiRenderer() override;
+  ~ImGuiRenderer();
   void destroy() override;
 
   VkDescriptorPool getDescriptorPool() const;

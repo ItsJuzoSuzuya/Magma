@@ -9,7 +9,7 @@ class Camera;
 
 class IRenderer {
 public:
-  virtual ~IRenderer();
+  ~IRenderer() = default;
   virtual void destroy() = 0;
 
   virtual VkPipelineLayout getPipelineLayout() const;

@@ -34,6 +34,13 @@ struct ImageTransition {
       .srcAccess = VK_ACCESS_SHADER_READ_BIT,
       .dstAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
   };
+  inline static constexpr ImageTransitionDescription ColorOptimalToShaderRead = {
+      .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+      .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      .dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+      .srcAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+      .dstAccess = VK_ACCESS_SHADER_READ_BIT,
+  };
 };
 
 }
