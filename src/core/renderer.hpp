@@ -5,11 +5,9 @@
 
 namespace Magma {
 
-class Camera;
-
 class IRenderer {
 public:
-  ~IRenderer() = default;
+  virtual ~IRenderer() = default;
   virtual void destroy() = 0;
 
   virtual VkPipelineLayout getPipelineLayout() const;

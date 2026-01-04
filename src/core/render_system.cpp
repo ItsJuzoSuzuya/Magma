@@ -2,6 +2,7 @@
 #include "core/device.hpp"
 #include "core/window.hpp"
 #include "deletion_queue.hpp"
+#include "engine/render/scene_renderer.hpp"
 #include "engine/scene.hpp"
 #include "engine/time.hpp"
 #include "renderer.hpp"

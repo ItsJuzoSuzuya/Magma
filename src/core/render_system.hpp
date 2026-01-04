@@ -1,5 +1,4 @@
 #pragma once
-#include "engine/render/scene_renderer.hpp"
 #include "engine/render/render_context.hpp"
 #include "device.hpp"
 #include "frame_info.hpp"
@@ -7,12 +6,6 @@
 #include "swapchain.hpp"
 #include <memory>
 #include <vulkan/vulkan_core.h>
-
-#if defined(MAGMA_WITH_EDITOR)
-  #include "engine/editor_camera.hpp"
-  #include "engine/render/imgui_renderer.hpp"
-  #include "imgui_impl_vulkan.h"
-#endif
 
 namespace Magma {
 

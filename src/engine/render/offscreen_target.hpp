@@ -13,7 +13,7 @@ class GameObject;
 class OffscreenTarget : public IRenderTarget {
 public:
   explicit OffscreenTarget(const RenderTargetInfo &info);
-  ~OffscreenTarget() override;
+  ~OffscreenTarget();
 
   VkExtent2D extent() const override { return targetExtent; }
   uint32_t imageCount() const override { return imageCount_; }

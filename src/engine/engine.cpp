@@ -6,6 +6,7 @@
 #include "engine/components/point_light.hpp"
 #include "engine/render/imgui_renderer.hpp"
 #include "engine/render/offscreen_target.hpp"
+#include "engine/render/scene_renderer.hpp"
 #include "gameobject.hpp"
 #include "specifications.hpp"
 #include <memory>

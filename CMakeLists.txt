@@ -45,7 +45,6 @@ set(SOURCES
     src/core/swapchain.cpp
     src/core/mesh_data.cpp
     src/core/pipeline.cpp
-    src/core/renderer.cpp
     src/core/buffer.cpp
     # engine
     src/engine/engine.cpp
