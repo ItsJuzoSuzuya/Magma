@@ -7,6 +7,7 @@
 #include "engine/time.hpp"
 #include "renderer.hpp"
 #include "swapchain.hpp"
+#include <print>
 #include <vulkan/vulkan_core.h>
 #include <GLFW/glfw3.h>
 #include <cassert>
@@ -42,13 +43,15 @@ void RenderSystem::addRenderer(std::unique_ptr<IRenderer> renderer) {
 }
 
 void RenderSystem::onRender() {
+  std::println("RenderSystem::onRender");
   Time::update(glfwGetTime());
 
   #if defined(MAGMA_WITH_EDITOR)
-    if (!firstFrame) {
+    if (firstFrame) {
       for (auto &renderer : renderers) {
-        if (auto *sceneRenderer = dynamic_cast<SceneRenderer*>(renderer.get())) 
+        if (auto *sceneRenderer = static_cast<SceneRenderer*>(renderer.get())) {
           sceneRenderer->createSceneTextures();
+        };
       }
     }
   #endif

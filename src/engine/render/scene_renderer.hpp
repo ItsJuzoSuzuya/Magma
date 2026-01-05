@@ -1,5 +1,4 @@
 #pragma once
-#include "core/frame_info.hpp"
 #include "core/pipeline.hpp"
 #include "core/render_target.hpp"
 #include "core/renderer.hpp"
@@ -7,7 +6,6 @@
 #include "engine/render/features/object_picker.hpp"
 #include "imgui.h"
 #include "render_context.hpp"
-#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -18,7 +16,7 @@ namespace Magma {
 class SceneRenderer : public IRenderer {
 public:
   SceneRenderer(std::unique_ptr<IRenderTarget> target, PipelineShaderInfo &shaderInfo);
-  ~SceneRenderer();
+  ~SceneRenderer() override;
   void destroy() override;
 
   ImVec2 getSceneSize() const;
@@ -60,7 +58,7 @@ private:
   uint32_t rendererId = 0;
   bool isSwapChainDependentFlag = true;
 
-  std::vector<ImTextureID> sceneTextures;
+  std::vector<ImTextureID> sceneTextures = {};
 
   Camera *activeCamera = nullptr;
 

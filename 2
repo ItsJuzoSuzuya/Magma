@@ -252,12 +252,8 @@ void SceneRenderer::submitPointLight(const PointLightData &lightData) {
 // Textures
 #if defined(MAGMA_WITH_EDITOR)
   void SceneRenderer::createSceneTextures() {
-    assert(renderTarget != nullptr && 
+    assert(renderTarget != nullptr &&
            "Cannot create scene textures for null render target!");
-    assert(renderTarget->getColorSampler() != VK_NULL_HANDLE && 
-           "Cannot create scene textures without a valid sampler!");
-    assert(renderTarget->getColorImageView(0) != VK_NULL_HANDLE && 
-           "Cannot create scene textures without valid image views!");
 
     sceneTextures.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     std::println("Creating scene textures for ImGui...");

@@ -41,6 +41,13 @@ struct ImageTransition {
       .srcAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
       .dstAccess = VK_ACCESS_SHADER_READ_BIT,
   };
+  inline static constexpr ImageTransitionDescription ColorOptimalToPresent = {
+      .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+      .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      .dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+      .srcAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+      .dstAccess = 0,
+  };
 };
 
 }

@@ -17,7 +17,8 @@
 
 namespace Magma {
 
-ImGuiRenderer::ImGuiRenderer(std::unique_ptr<SwapchainTarget> target, PipelineShaderInfo shaderInfo) : IRenderer(), shaderInfo{shaderInfo} {
+ImGuiRenderer::ImGuiRenderer(std::unique_ptr<SwapchainTarget> target, 
+    PipelineShaderInfo shaderInfo): IRenderer(), shaderInfo{shaderInfo} {
   renderTarget = std::move(target);
 
   createDescriptorPool();

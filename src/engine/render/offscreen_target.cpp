@@ -3,11 +3,11 @@
 #include "core/frame_info.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <print>
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-using namespace std;
 namespace Magma {
 
 OffscreenTarget::OffscreenTarget(const RenderTargetInfo &info)
@@ -30,6 +30,10 @@ VkImage OffscreenTarget::getColorImage(size_t index) {
 }
 
 VkImageView OffscreenTarget::getColorImageView(size_t index) const {
+  if (index >= imageViews.size())
+    throw std::runtime_error("OffscreenTarget: Color image view index out of range");
+
+  std::println("Getting color image view at index {}", index);
   return imageViews.at(index);
 }
 
