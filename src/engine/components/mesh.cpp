@@ -122,13 +122,6 @@ bool Mesh::load(const std::string &filepath) {
           &normalBuffer
                .data[normalBufferView.byteOffset + normalAccessor.byteOffset]);
 
-      const auto &uvAccessor =
-          gltfModel.accessors[primitive.attributes.at("TEXCOORD_0")];
-      const auto &uvBufferView = gltfModel.bufferViews[uvAccessor.bufferView];
-      const auto &uvBuffer = gltfModel.buffers[uvBufferView.buffer];
-      const float *uvData = reinterpret_cast<const float *>(
-          &uvBuffer.data[uvBufferView.byteOffset + uvAccessor.byteOffset]);
-
       meshData = new MeshData();
 
       for (size_t i = 0; i < vertexAccessor.count; i++) {
