@@ -29,21 +29,11 @@ private:
    * Presents imgui in editor mode or the final rendered image in runtime mode
    * @note The swap chain must be recreated when the window is resized
    * */
-  std::unique_ptr<SwapChain> swapChain = nullptr;
   void recreateSwapChain(VkExtent2D extent);
 
   std::vector<std::unique_ptr<IRenderer>> renderers;
   void resizeSwapChainRenderer(const VkExtent2D extent);
 
-  /*
-  #if defined(MAGMA_WITH_EDITOR)
-
-    void initImGui();
-    ImGui_ImplVulkan_InitInfo getImGuiInitInfo();
-
-    void createDockspace(ImGuiID &dockspace_id, const ImVec2 &size);
-  #endif
-*/
   void destroyAllRenderers();
 
   bool beginFrame();

@@ -17,14 +17,14 @@ struct ImageTransition {
       .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       .srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
       .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-      .srcAccess = 0,
-      .dstAccess = VK_ACCESS_TRANSFER_WRITE_BIT,
+      .srcAccess = VK_ACCESS_NONE,
+      .dstAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
   };
   inline static constexpr ImageTransitionDescription PresentToColorOptimal = {
       .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       .srcStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
       .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-      .srcAccess = 0,
+      .srcAccess = VK_ACCESS_NONE,
       .dstAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
   };
   inline static constexpr ImageTransitionDescription ShaderReadToColorOptimal = {
@@ -46,7 +46,7 @@ struct ImageTransition {
       .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
       .dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
       .srcAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-      .dstAccess = 0,
+      .dstAccess = VK_ACCESS_NONE,
   };
 };
 

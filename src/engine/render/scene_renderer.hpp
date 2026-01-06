@@ -4,6 +4,7 @@
 #include "core/renderer.hpp"
 #include "engine/components/camera.hpp"
 #include "engine/render/features/object_picker.hpp"
+#include "engine/render/swapchain_target.hpp"
 #include "imgui.h"
 #include "render_context.hpp"
 #include <cstdint>
@@ -31,6 +32,16 @@ public:
   void onRender() override;
 
   bool isSwapChainDependent() const override { return isSwapChainDependentFlag; }
+  SwapChain* getSwapChain() const override {
+    #if defined(MAGMA_WITH_EDITOR)
+      if (auto *swapchainTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get()))
+        return swapchainTarget->swapChain();
+      else
+        return nullptr;
+    #else
+      return nullptr;
+    #endif
+  }
 
   void setActiveCamera(Camera *camera) { activeCamera = camera; }
   Camera *getActiveCamera() const { return activeCamera; }
@@ -56,7 +67,7 @@ private:
   std::unique_ptr<IRenderTarget> renderTarget = nullptr;
   std::unique_ptr<RenderContext> renderContext = nullptr;
   uint32_t rendererId = 0;
-  bool isSwapChainDependentFlag = true;
+  bool isSwapChainDependentFlag = false;
 
   std::vector<ImTextureID> sceneTextures = {};
 

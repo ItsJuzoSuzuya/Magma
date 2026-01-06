@@ -6,10 +6,10 @@
 #include <vulkan/vulkan_core.h>
 #include "engine/render/features/object_picker.hpp"
 
-
 namespace Magma {
 
 class GameObject;
+class SwapChain;
 
 class OffscreenTarget : public IRenderTarget {
 public:
@@ -31,10 +31,7 @@ public:
   VkRenderingAttachmentInfo getDepthAttachment(size_t index) const override;
   VkFormat getDepthFormat() const override { return depthImageFormat; }
 
-  VkSampler getColorSampler() const override { 
-    std::println("Getting color sampler");
-    return colorSampler; 
-  }
+  VkSampler getColorSampler() const override { return colorSampler; }
 
   void onResize(VkExtent2D newExtent) override;
   void cleanup() override;
@@ -55,7 +52,7 @@ private:
   std::vector<VkImage> depthImages = {VK_NULL_HANDLE};
   std::vector<VkDeviceMemory> depthImageMemories = {VK_NULL_HANDLE};
   std::vector<VkImageView> depthImageViews = {VK_NULL_HANDLE};
-  std::vector<VkImageLayout> depthImageLayouts = {VK_IMAGE_LAYOUT_UNDEFINED};
+  std::vector<VkImageLayout> depthImageLayouts = {VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
   VkFormat depthImageFormat = VK_FORMAT_D32_SFLOAT;
   void createDepthResources();
   void destroyDepthResources();

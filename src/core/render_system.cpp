@@ -2,6 +2,7 @@
 #include "core/device.hpp"
 #include "core/window.hpp"
 #include "deletion_queue.hpp"
+#include "engine/render/imgui_renderer.hpp"
 #include "engine/render/scene_renderer.hpp"
 #include "engine/scene.hpp"
 #include "engine/time.hpp"
@@ -43,13 +44,18 @@ void RenderSystem::addRenderer(std::unique_ptr<IRenderer> renderer) {
 }
 
 void RenderSystem::onRender() {
-  std::println("RenderSystem::onRender");
   Time::update(glfwGetTime());
 
   #if defined(MAGMA_WITH_EDITOR)
     if (firstFrame) {
       for (auto &renderer : renderers) {
-        if (auto *sceneRenderer = static_cast<SceneRenderer*>(renderer.get())) {
+        if (auto *imguiRenderer = dynamic_cast<ImGuiRenderer*>(renderer.get())) {
+          imguiRenderer->initImGui(window);
+        };
+      }
+
+      for (auto &renderer : renderers) {
+        if (auto *sceneRenderer = dynamic_cast<SceneRenderer*>(renderer.get())) {
           sceneRenderer->createSceneTextures();
         };
       }
@@ -92,7 +98,12 @@ void RenderSystem::createCommandBuffers() {
 
 // Rendering
 bool RenderSystem::beginFrame() {
-  auto result = swapChain->acquireNextImage();
+  VkResult result;
+  for (auto &renderer : renderers) {
+    if (renderer->isSwapChainDependent())
+      result = renderer->getSwapChain()->acquireNextImage();
+  }
+
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
     onWindowResize();
     return false;
@@ -121,7 +132,10 @@ void RenderSystem::endFrame() {
   if (vkEndCommandBuffer(FrameInfo::commandBuffer) != VK_SUCCESS)
     throw std::runtime_error("Failed to record command buffer!");
 
-  auto result = swapChain->submitCommandBuffer(&FrameInfo::commandBuffer);
+  VkResult result;
+  for (auto &renderer : renderers) 
+    if (renderer->isSwapChainDependent())
+      result = renderer->getSwapChain()->submitCommandBuffer(&FrameInfo::commandBuffer);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
       window.wasWindowResized()) {

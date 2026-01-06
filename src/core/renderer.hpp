@@ -1,4 +1,5 @@
 #pragma once
+#include "core/swapchain.hpp"
 #include "engine/render/pipeline_shader_info.hpp"
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -17,6 +18,7 @@ public:
   virtual void onRender() = 0;
 
   virtual bool isSwapChainDependent() const = 0;
+  virtual SwapChain* getSwapChain() const = 0;
 
 private:
   virtual void begin() = 0;

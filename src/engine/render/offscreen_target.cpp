@@ -3,7 +3,6 @@
 #include "core/frame_info.hpp"
 #include <cstddef>
 #include <cstdint>
-#include <print>
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -33,7 +32,6 @@ VkImageView OffscreenTarget::getColorImageView(size_t index) const {
   if (index >= imageViews.size())
     throw std::runtime_error("OffscreenTarget: Color image view index out of range");
 
-  std::println("Getting color image view at index {}", index);
   return imageViews.at(index);
 }
 
@@ -45,7 +43,7 @@ VkRenderingAttachmentInfo OffscreenTarget::getColorAttachment(
     size_t index) const {
   VkRenderingAttachmentInfo colorAttachmentInfo{};
   colorAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-  colorAttachmentInfo.imageView = imageViews.at(static_cast<size_t>(index));
+  colorAttachmentInfo.imageView = imageViews.at(index);
   colorAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
   colorAttachmentInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   colorAttachmentInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -55,13 +53,13 @@ VkRenderingAttachmentInfo OffscreenTarget::getColorAttachment(
 
 // Depth Resources
 VkImageView OffscreenTarget::getDepthImageView(size_t index) const {
-  return depthImageViews.at(static_cast<size_t>(index));
+  return depthImageViews.at(index);
 }
 
 VkRenderingAttachmentInfo OffscreenTarget::getDepthAttachment(size_t index) const {
   VkRenderingAttachmentInfo depthAttachmentInfo{};
   depthAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-  depthAttachmentInfo.imageView = depthImageViews[index];
+  depthAttachmentInfo.imageView = depthImageViews.at(index);
   depthAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
   depthAttachmentInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   depthAttachmentInfo.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -109,11 +107,11 @@ void OffscreenTarget::onResize(VkExtent2D newExtent) {
 void OffscreenTarget::transitionColorImage(size_t index,
                                            ImageTransitionDescription transition) {
   VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-  barrier.oldLayout = imageLayouts.at(static_cast<size_t>(index));
+  barrier.oldLayout = imageLayouts.at(index);
   barrier.newLayout = transition.newLayout;
   barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  barrier.image = images.at(static_cast<size_t>(index));
+  barrier.image = images.at(index);
   barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
   barrier.subresourceRange.baseMipLevel = 0;
   barrier.subresourceRange.levelCount = 1;
@@ -239,6 +237,8 @@ void OffscreenTarget::createDepthResources() {
           "OffscreenRenderTarget: failed to create depth view");
     }
   }
+
+  
 }
 
 void OffscreenTarget::destroyDepthResources() {

@@ -34,6 +34,8 @@ public:
   void onRender() override;
 
   bool isSwapChainDependent() const override { return true; }
+  SwapChain* getSwapChain() const override {
+    return renderTarget->swapChain(); }
 
 private:
   std::unique_ptr<SwapchainTarget> renderTarget;
@@ -63,9 +65,6 @@ private:
   std::vector<std::unique_ptr<Widget>> widgets;
   bool dockBuilt = false;
   void createDockspace(ImGuiID &dockspace_id, const ImVec2 &size);
-
-  // Layout tracking for swapchain color images
-  std::vector<VkImageLayout> colorLayouts; // per-swapchain-image layout state
 };
 
 } // namespace Magma

@@ -10,6 +10,7 @@
 #include <ostream>
 #include <print>
 #include <set>
+#include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_core.h>
 
 
@@ -20,10 +21,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL callback(
       VkDebugUtilsMessageTypeFlagsEXT messageType,
       const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
       void *pUserData) {
-  std::cout << "Severity: " << messageSeverity << std::endl;
+  std::cout << "------------------------------------------------" << std::endl;
+  std::cout << "Severity: " << string_VkDebugUtilsMessageSeverityFlagBitsEXT(messageSeverity) << std::endl;
   std::cout << "Message: " << pCallbackData->pMessage << std::endl;
-  std::cout << "Type: " << messageType << std::endl;
+  std::cout << "Type: " << string_VkDebugUtilsMessageTypeFlagsEXT(messageType) << std::endl;
   std::cout << "UserData: " << &pUserData << std::endl;
+  std::cout << "------------------------------------------------" << std::endl;
   return VK_FALSE;
 }
 
@@ -525,6 +528,7 @@ void Device::createLogicalDevice() {
   vulkan13Features.sType =
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
   vulkan13Features.dynamicRendering = VK_TRUE;
+  vulkan13Features.synchronization2 = VK_TRUE;
 
   VkDeviceCreateInfo createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

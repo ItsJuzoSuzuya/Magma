@@ -9,8 +9,8 @@ using namespace std;
 namespace Magma {
 
 SwapchainTarget::SwapchainTarget(VkExtent2D extent, RenderTargetInfo &info) {
-  swapChain = std::make_unique<SwapChain>(extent);
-  info = swapChain->getRenderInfo();
+  swapChain_ = std::make_unique<SwapChain>(extent);
+  info = swapChain_->getRenderInfo();
 
   targetExtent = info.extent;
   imageFormat = info.colorFormat;
@@ -73,6 +73,7 @@ void SwapchainTarget::transitionColorImage(size_t index,
       transition.newLayout, transition.srcAccess,
       transition.dstAccess, transition.srcStage,
       transition.dstStage);
+  imageLayouts[index] = transition.newLayout;
 }
 
 
@@ -100,8 +101,8 @@ void SwapchainTarget::onResize(const VkExtent2D newExtent) {
   cleanup();
 
   // Recreate swapchain
-  std::shared_ptr<SwapChain> oldSwapChain = std::move(swapChain);
-  swapChain = std::make_unique<SwapChain>(newExtent, oldSwapChain);
+  std::shared_ptr<SwapChain> oldSwapChain = std::move(swapChain_);
+  swapChain_ = std::make_unique<SwapChain>(newExtent, oldSwapChain);
 
   createImages();
   createImageViews();
@@ -116,9 +117,9 @@ void SwapchainTarget::onResize(const VkExtent2D newExtent) {
 
 void SwapchainTarget::createImages() {
   VkDevice device = Device::get().device();
-  vkGetSwapchainImagesKHR(device, swapChain->getSwapChain(), &imageCount_, nullptr);
+  vkGetSwapchainImagesKHR(device, swapChain_->getSwapChain(), &imageCount_, nullptr);
   images.resize(imageCount_);
-  vkGetSwapchainImagesKHR(device, swapChain->getSwapChain(), &imageCount_, images.data());
+  vkGetSwapchainImagesKHR(device, swapChain_->getSwapChain(), &imageCount_, images.data());
 }
 
 void SwapchainTarget::createImageViews() {

@@ -1,6 +1,7 @@
 #include "imgui_renderer.hpp"
 #include "core/device.hpp"
 #include "core/frame_info.hpp"
+#include "core/image_transitions.hpp"
 #include "core/renderer.hpp"
 #include "core/window.hpp"
 #include "engine/widgets/dock_layout.hpp"
@@ -13,11 +14,12 @@
 #include "swapchain_target.hpp"
 #include <array>
 #include <memory>
+#include <print>
 #include <vulkan/vulkan_core.h>
 
 namespace Magma {
 
-ImGuiRenderer::ImGuiRenderer(std::unique_ptr<SwapchainTarget> target, 
+ImGuiRenderer::ImGuiRenderer(std::unique_ptr<SwapchainTarget> target,
     PipelineShaderInfo shaderInfo): IRenderer(), shaderInfo{shaderInfo} {
   renderTarget = std::move(target);
 
@@ -25,11 +27,8 @@ ImGuiRenderer::ImGuiRenderer(std::unique_ptr<SwapchainTarget> target,
   createDescriptorSetLayout();
   std::vector<VkDescriptorSetLayout> descritporSetLayouts = {
       descriptorSetLayout->getDescriptorSetLayout()};
-  createPipelineLayout(
-      descritporSetLayouts);
+  createPipelineLayout(descritporSetLayouts);
   createPipeline();
-
-  colorLayouts.assign(renderTarget->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
 ImGuiRenderer::~ImGuiRenderer() {
@@ -84,12 +83,30 @@ VkDescriptorPool ImGuiRenderer::getDescriptorPool() const {
   return descriptorPool->getDescriptorPool();
 }
 
-// Widget management
 void ImGuiRenderer::addWidget(std::unique_ptr<Widget> widget) {
   widgets.push_back(std::move(widget));
 }
 
-// New Frame
+
+void ImGuiRenderer::onResize(VkExtent2D extent) {
+  renderTarget->onResize(extent);
+  createPipeline();
+}
+
+void ImGuiRenderer::onRender() {
+  newFrame();
+  preFrame();
+
+  begin();
+  record();
+  end();
+}
+
+
+// ----------------------------------------------------------------------------
+// Private Methods
+// ----------------------------------------------------------------------------
+
 void ImGuiRenderer::newFrame() {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
@@ -164,71 +181,23 @@ void ImGuiRenderer::preFrame() {
     widget->preFrame();
 }
 
-void ImGuiRenderer::onResize(VkExtent2D extent) {
-  renderTarget->onResize(extent);
-  createPipeline();
-
-  colorLayouts.assign(renderTarget->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
-}
-
-void ImGuiRenderer::onRender() {
-  begin();
-  record();
-  end();
-}
-
-
-// ----------------------------------------------------------------------------
-// Private Methods
-// ----------------------------------------------------------------------------
-
 // Rendering
 void ImGuiRenderer::begin() {
   // Transition swapchain color image to COLOR_ATTACHMENT_OPTIMAL
   const uint32_t idx = FrameInfo::imageIndex;
-  VkImage swapImage = renderTarget->getColorImage(idx);
-  VkImageLayout current = colorLayouts[idx];
 
-  if (current != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-    VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    VkAccessFlags srcAccess = 0;
+  ImageTransitionDescription colorTransitionDesc = {};
+  VkImageLayout current = renderTarget->getColorImageLayout(idx);
+  if (current == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+    colorTransitionDesc = ImageTransition::PresentToColorOptimal;
+  else if (current != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+    colorTransitionDesc = ImageTransition::UndefinedToColorOptimal;
 
-    if (current == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-      srcStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-      srcAccess = 0;
-    } else if (current == VK_IMAGE_LAYOUT_UNDEFINED) {
-      srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-      srcAccess = 0;
-    }
-
-    Device::transitionImageLayout(
-        swapImage, current, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, srcStage,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, srcAccess,
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-
-    colorLayouts[idx] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-  }
-
-  std::array<VkClearValue, 2> clearValues{};
-  clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
-  clearValues[1].depthStencil = {1.0f, 0};
+  renderTarget->transitionColorImage(idx, colorTransitionDesc);
 
   // Dynamic rendering attachments
-  VkRenderingAttachmentInfo color{};
-  color.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-  color.imageView = renderTarget->getColorImageView(FrameInfo::imageIndex);
-  color.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-  color.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  color.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  color.clearValue = clearValues[0];
-
-  VkRenderingAttachmentInfo depth{};
-  depth.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-  depth.imageView = renderTarget->getDepthImageView(FrameInfo::imageIndex);
-  depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-  depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  depth.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  depth.clearValue = clearValues[1];
+  VkRenderingAttachmentInfo color = renderTarget->getColorAttachment(idx);
+  VkRenderingAttachmentInfo depth = renderTarget->getDepthAttachment(idx);
 
   VkRenderingInfo renderingInfo{};
   renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -277,16 +246,9 @@ void ImGuiRenderer::end() {
 
   // Transition swapchain image to PRESENT for presentation
   const uint32_t idx = FrameInfo::imageIndex;
-  VkImage swapImage = renderTarget->getColorImage(idx);
 
-  Device::transitionImageLayout(
-      swapImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-      VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_IMAGE_ASPECT_COLOR_BIT);
-
-  colorLayouts[idx] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  renderTarget->transitionColorImage(
+      idx, ImageTransition::ColorOptimalToPresent);
 }
 
 ImGui_ImplVulkan_InitInfo ImGuiRenderer::getImGuiInitInfo() {

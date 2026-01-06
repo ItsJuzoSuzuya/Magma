@@ -10,6 +10,7 @@
 #include "engine/render/swapchain_target.hpp"
 #include "engine/scene.hpp"
 #include "render_context.hpp"
+#include <cassert>
 #include <cstdint>
 #include <memory>
 #include <print>
@@ -34,8 +35,10 @@ SceneRenderer::SceneRenderer(std::unique_ptr<IRenderTarget> target,
   objectPicker = std::make_unique<ObjectPicker>(renderTarget->extent(),
                                                 renderTarget->imageCount());
 
-  if (auto *offscreenTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get())) 
+  if (auto *offscreenTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get())) {
+    std::print("Creating SceneRenderer with SwapchainTarget\n");
     isSwapChainDependentFlag = true;
+  }
 
   // Self-register with the context to get our slice index
   rendererId = renderContext->registerRenderer();
@@ -129,31 +132,10 @@ void SceneRenderer::begin() {
     objectPicker->transitionIdImage(idx, idTransitionDesc);
   #endif
 
-  const uint32_t colorAttachmentCount = renderTarget->getColorAttachmentCount();
-  std::vector<VkClearValue> clearValues(colorAttachmentCount + 1);
-  clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
-  #if defined(MAGMA_WITH_EDITOR)
-    clearValues[1].color = {};
-    clearValues[1].color.uint32[0] = 0;
-    clearValues[1].color.uint32[1] = 0;
-    clearValues[1].color.uint32[2] = 0;
-    clearValues[1].color.uint32[3] = 0;
-  #endif
-  clearValues[colorAttachmentCount].depthStencil = {1.0f, 0};
-
-  VkRenderingAttachmentInfo color0 = {};
-  color0.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-  color0.imageView = renderTarget->getColorImageView(idx);
-  color0.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-  color0.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  color0.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  color0.clearValue = clearValues[0];
-  VkRenderingAttachmentInfo color1 = objectPicker->getIdAttachment(idx);
-
   std::array<VkRenderingAttachmentInfo, 2> colors{};
-  colors[0] = color0;
+  colors[0] = renderTarget->getColorAttachment(idx);
   #if defined(MAGMA_WITH_EDITOR)
-    colors[1] = color1;
+    colors[1] = objectPicker->getIdAttachment(idx);
   #endif
 
   VkRenderingAttachmentInfo depth = renderTarget->getDepthAttachment(idx);
@@ -254,18 +236,16 @@ void SceneRenderer::submitPointLight(const PointLightData &lightData) {
   void SceneRenderer::createSceneTextures() {
     assert(renderTarget != nullptr && 
            "Cannot create scene textures for null render target!");
-    assert(renderTarget->getColorSampler() != VK_NULL_HANDLE && 
-           "Cannot create scene textures without a valid sampler!");
-    assert(renderTarget->getColorImageView(0) != VK_NULL_HANDLE && 
-           "Cannot create scene textures without valid image views!");
 
     sceneTextures.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    std::println("Creating scene textures for ImGui...");
     for (uint32_t i = 0; i < sceneTextures.size(); ++i) {
-      std::println("  Scene texture for image {}:", i);
+      VkSampler sampler = renderTarget->getColorSampler();
+      VkImageView view  = renderTarget->getColorImageView(i);
+
+      assert(sampler != VK_NULL_HANDLE && view != VK_NULL_HANDLE && "SceneTextures: invalid sampler or image view (are you using OffscreenTarget and MAGMA_WITH_EDITOR=ON?)");
+
       sceneTextures[i] = (ImTextureID)ImGui_ImplVulkan_AddTexture(
-          renderTarget->getColorSampler(), renderTarget->getColorImageView(i),
-          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+          sampler, view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
   }
 #endif

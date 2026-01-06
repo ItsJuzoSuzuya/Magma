@@ -14,6 +14,7 @@ public:
 
   uint32_t imageCount() const override { return imageCount_; }
   VkExtent2D extent() const override { return targetExtent; }
+  SwapChain* swapChain() const { return swapChain_.get(); }
 
   VkImage getColorImage(size_t index) override;
   VkImageView getColorImageView(size_t index) const  override;
@@ -33,23 +34,23 @@ public:
   void cleanup() override;
 
 private:
-  std::unique_ptr<SwapChain> swapChain = nullptr;
+  std::unique_ptr<SwapChain> swapChain_ = nullptr;
   VkExtent2D targetExtent = {0, 0};
 
   // Swapchain images (owned by swapchain) - we keep views
   uint32_t imageCount_ = 0;
-  std::vector<VkImage> images;
-  std::vector<VkImageView> imageViews;
-  std::vector<VkImageLayout> imageLayouts;
+  std::vector<VkImage> images = {VK_NULL_HANDLE};
+  std::vector<VkImageView> imageViews = {VK_NULL_HANDLE};
+  std::vector<VkImageLayout> imageLayouts = {VK_IMAGE_LAYOUT_UNDEFINED};
   VkFormat imageFormat = VK_FORMAT_B8G8R8A8_SRGB;
   void createImages();
   void createImageViews();
 
   // Depth (owned)
-  std::vector<VkImage> depthImages;
-  std::vector<VkDeviceMemory> depthImageMemories;
-  std::vector<VkImageView> depthImageViews;
-  std::vector<VkImageLayout> depthImageLayouts;
+  std::vector<VkImage> depthImages = {VK_NULL_HANDLE};
+  std::vector<VkDeviceMemory> depthImageMemories = {VK_NULL_HANDLE};
+  std::vector<VkImageView> depthImageViews = {VK_NULL_HANDLE};
+  std::vector<VkImageLayout> depthImageLayouts = {VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
   VkFormat depthImageFormat = VK_FORMAT_D32_SFLOAT;
   void createDepthResources();
   void destroyDepthResources();
