@@ -48,6 +48,15 @@ struct ImageTransition {
       .srcAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
       .dstAccess = VK_ACCESS_NONE,
   };
+  inline static constexpr ImageTransitionDescription UndefinedToDepthOptimal = {
+      .newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+      .srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+      .dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+      .srcAccess = VK_ACCESS_NONE,
+      .dstAccess = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+      .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+  };
+
 };
 
 }

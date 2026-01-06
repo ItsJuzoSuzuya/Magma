@@ -7,6 +7,12 @@
 #include "engine/render/imgui_renderer.hpp"
 #include "engine/render/offscreen_target.hpp"
 #include "engine/render/scene_renderer.hpp"
+#include "engine/widgets/file_browser.hpp"
+#include "engine/widgets/game_editor.hpp"
+#include "engine/widgets/game_view.hpp"
+#include "engine/widgets/inspector.hpp"
+#include "engine/widgets/runtime_control.hpp"
+#include "engine/widgets/scene_tree.hpp"
 #include "gameobject.hpp"
 #include "specifications.hpp"
 #include <memory>
@@ -20,32 +26,51 @@ namespace Magma {
 
 Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
   window = std::make_unique<Window>(specifications);
-
   renderSystem = std::make_unique<RenderSystem>(*window);
 
-  RenderTargetInfo rtInfo = {};
-  std::unique_ptr<SwapchainTarget> swapchainTarget =
-      std::make_unique<SwapchainTarget>(window->getExtent(), rtInfo);
-
   PipelineShaderInfo imguiShaderInfo = {
-      .vertFile = "src/shaders/shader.vert.spv",
-      .fragFile = "src/shaders/imgui.frag.spv"
+    .vertFile = "src/shaders/shader.vert.spv",
+    .fragFile = "src/shaders/imgui.frag.spv"
   };
-  auto imguiRenderer =
-      std::make_unique<ImGuiRenderer>(std::move(swapchainTarget), imguiShaderInfo);
-  renderSystem->addRenderer(std::move(imguiRenderer));
+  PipelineShaderInfo editorShaderInfo = {
+    .vertFile = "src/shaders/shader.vert.spv",
+    .fragFile = "src/shaders/editor.frag.spv"
+  };
+  PipelineShaderInfo gameShaderInfo = {
+    .vertFile = "src/shaders/shader.vert.spv",
+    .fragFile = "src/shaders/shader.frag.spv"
+  };
 
+  RenderTargetInfo rtInfo = {};
+  auto swapchainTarget = std::make_unique<SwapchainTarget>(window->getExtent(),
+                                                           rtInfo);
   rtInfo.extent = {800, 600};
-  std::unique_ptr<OffscreenTarget> offscreenTarget =
-      std::make_unique<OffscreenTarget>(rtInfo);
+  auto offscreenTarget1 = std::make_unique<OffscreenTarget>(rtInfo);
+  auto editorRenderer =
+    std::make_unique<SceneRenderer>(std::move(offscreenTarget1), 
+                                    editorShaderInfo);
+  auto offscreenTarget2 = std::make_unique<OffscreenTarget>(rtInfo);
+  auto gameRenderer = 
+    std::make_unique<SceneRenderer>(std::move(offscreenTarget2), 
+                                    gameShaderInfo);
 
-  PipelineShaderInfo sceneShaderInfo = {
-      .vertFile = "src/shaders/shader.vert.spv",
-      .fragFile = "src/shaders/editor.frag.spv"
-  };
-  auto sceneRenderer =
-      std::make_unique<SceneRenderer>(std::move(offscreenTarget), sceneShaderInfo);
-  renderSystem->addRenderer(std::move(sceneRenderer));
+  auto imguiRenderer = 
+    std::make_unique<ImGuiRenderer>(std::move(swapchainTarget),
+                                    imguiShaderInfo);
+  imguiRenderer->addWidget(std::make_unique<RuntimeControl>());
+  imguiRenderer->addWidget(std::make_unique<SceneTree>());
+  imguiRenderer->addWidget(std::make_unique<Inspector>());
+  imguiRenderer->addWidget(std::make_unique<FileBrowser>());
+
+  imguiRenderer->addWidget(std::make_unique<GameEditor>(
+      *editorRenderer.get()));
+  imguiRenderer->addWidget(std::make_unique<GameView>(*gameRenderer.get()));
+  imguiRenderer->initImGui(*window.get());
+  renderSystem->addRenderer(std::move(imguiRenderer));
+  renderSystem->addRenderer(std::move(editorRenderer));
+  renderSystem->addRenderer(std::move(gameRenderer));
+
+
 
   scene = std::make_unique<Scene>();
 

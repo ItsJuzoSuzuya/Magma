@@ -1,5 +1,6 @@
 #include "swapchain_target.hpp"
 #include "core/device.hpp"
+#include "core/frame_info.hpp"
 #include "core/render_target_info.hpp"
 #include <stdexcept>
 #include <vector>
@@ -20,6 +21,10 @@ SwapchainTarget::SwapchainTarget(VkExtent2D extent, RenderTargetInfo &info) {
   createImages();
   createImageViews();
   createDepthResources();
+
+  // Initialize image layouts
+  imageLayouts.resize(images.size(), VK_IMAGE_LAYOUT_UNDEFINED);
+  depthImageLayouts.resize(depthImages.size(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
 SwapchainTarget::~SwapchainTarget() { cleanup(); }
@@ -43,7 +48,7 @@ void SwapchainTarget::cleanup() {
 }
 
 // Color resources
-VkImage SwapchainTarget::getColorImage(size_t index) {
+VkImage SwapchainTarget::getColorImage(size_t index) const {
   return images[index];
 }
 
@@ -63,23 +68,42 @@ VkRenderingAttachmentInfo SwapchainTarget::getColorAttachment(
 }
 
 VkImageLayout SwapchainTarget::getColorImageLayout(size_t index) const {
-  return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  assert(index < imageLayouts.size() && "SwapchainTarget: Index out of bounds in getColorImageLayout");
+
+  return imageLayouts.at(index);
 }
 
 void SwapchainTarget::transitionColorImage(size_t index,
                                            ImageTransitionDescription transition) {
-  Device::transitionImageLayout(
-      images[index], imageLayouts[index],
-      transition.newLayout, transition.srcAccess,
-      transition.dstAccess, transition.srcStage,
-      transition.dstStage);
+  assert(index < imageLayouts.size() && "SwapchainTarget: Index out of bounds in transitionColorImage");
+
+  VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+  barrier.oldLayout = imageLayouts.at(index);
+  barrier.newLayout = transition.newLayout;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image = images.at(index);
+  barrier.subresourceRange.aspectMask = transition.aspectMask;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 1;
+  barrier.srcAccessMask = transition.srcAccess;
+  barrier.dstAccessMask = transition.dstAccess;
+
+  vkCmdPipelineBarrier(FrameInfo::commandBuffer, transition.srcStage,
+                       transition.dstStage, 0, 0, nullptr, 0, nullptr, 1,
+                       &barrier);
+
   imageLayouts[index] = transition.newLayout;
 }
 
 
 // Depth resources
 VkImageView SwapchainTarget::getDepthImageView(size_t index) const {
-  return depthImageViews[index];
+  assert(index < depthImageViews.size() && "SwapchainTarget: Index out of bounds in getDepthImageView");
+
+  return depthImageViews.at(index);
 }
 
 VkRenderingAttachmentInfo SwapchainTarget::getDepthAttachment(
@@ -91,6 +115,36 @@ VkRenderingAttachmentInfo SwapchainTarget::getDepthAttachment(
   depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
   depthAttachment.clearValue.depthStencil = {1.0f, 0};
   return depthAttachment;
+}
+
+VkImageLayout SwapchainTarget::getDepthImageLayout(size_t index) const {
+  assert(index < depthImageLayouts.size() && "SwapchainTarget: Index out of bounds in getDepthImageLayout");
+
+  return depthImageLayouts.at(index);
+}
+
+void SwapchainTarget::transitionDepthImage(size_t index, ImageTransitionDescription transition) {
+  assert(index < depthImageLayouts.size() && "SwapchainTarget: Index out of bounds in transitionDepthImage");
+
+  VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+  barrier.oldLayout = depthImageLayouts.at(index);
+  barrier.newLayout = transition.newLayout;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image = depthImages.at(index);
+  barrier.subresourceRange.aspectMask = transition.aspectMask;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 1;
+  barrier.srcAccessMask = transition.srcAccess;
+  barrier.dstAccessMask = transition.dstAccess;
+
+  vkCmdPipelineBarrier(FrameInfo::commandBuffer, transition.srcStage,
+                       transition.dstStage, 0, 0, nullptr, 0, nullptr, 1,
+                       &barrier);
+
+  depthImageLayouts.at(index) = transition.newLayout;
 }
 
 void SwapchainTarget::onResize(const VkExtent2D newExtent) {

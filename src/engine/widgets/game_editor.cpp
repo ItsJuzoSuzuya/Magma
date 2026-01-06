@@ -33,8 +33,10 @@ static ImVec2 fit16x9(const ImVec2 &avail) {
 
 namespace Magma {
 
-GameEditor::GameEditor(SceneRenderer &renderer, EditorCamera *editorCamera)
-    : renderer(renderer), editorCamera(editorCamera) {}
+GameEditor::GameEditor(SceneRenderer &renderer)
+    : renderer(renderer){
+      editorCamera = std::make_unique<EditorCamera>();
+    }
 
 // ----------------------------------------------------------------------------
 // Public Methods

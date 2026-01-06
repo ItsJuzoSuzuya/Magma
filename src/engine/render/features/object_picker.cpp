@@ -6,6 +6,7 @@
 #include "core/image_transitions.hpp"
 #include "core/render_target_info.hpp"
 #include "engine/scene.hpp"
+#include <vulkan/vulkan_core.h>
 
 namespace Magma {
 
@@ -157,9 +158,11 @@ GameObject *ObjectPicker::pickAtPixel(uint32_t x, uint32_t y) {
 
     VkImage idImage = idImages[FrameInfo::imageIndex];
 
+    VkCommandBuffer cb = Device::get().beginSingleTimeCommands();
+
     // Transition ID image for readback (from shader read-only to transfer src)
-    Device::transitionImageLayout(
-        idImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    Device::transitionImageLayoutCmd(
+        cb, idImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
         VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT,
@@ -176,16 +179,18 @@ GameObject *ObjectPicker::pickAtPixel(uint32_t x, uint32_t y) {
     region.imageOffset = {static_cast<int32_t>(x), static_cast<int32_t>(y), 0};
     region.imageExtent = {1, 1, 1};
 
-    Device::get().copyImageToBuffer(FrameInfo::commandBuffer, stagingBuffer.getBuffer(),
+    Device::get().copyImageToBuffer(cb, stagingBuffer.getBuffer(),
                                     idImage, region);
 
     // Transition back to shader read-only
-    Device::transitionImageLayout(
-        idImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    Device::transitionImageLayoutCmd(
+        cb, idImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
         VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT,
         VK_IMAGE_ASPECT_COLOR_BIT);
+
+    Device::get().endSingleTimeCommands(cb);
 
     uint32_t objectId = 0;
     void *data = stagingBuffer.mappedData();

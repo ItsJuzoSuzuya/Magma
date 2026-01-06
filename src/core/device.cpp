@@ -252,6 +252,30 @@ void Device::transitionImageLayout(VkImage image, VkImageLayout oldLayout,
                        nullptr, 0, nullptr, 1, &barrier);
 }
 
+void Device::transitionImageLayoutCmd(
+    VkCommandBuffer commandBuffer,
+    VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout,
+    VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage,
+    VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
+    VkImageAspectFlags aspectMask) {
+  VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+  barrier.oldLayout = oldLayout;
+  barrier.newLayout = newLayout;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image = image;
+  barrier.subresourceRange.aspectMask = aspectMask;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 1;
+  barrier.srcAccessMask = srcAccessMask;
+  barrier.dstAccessMask = dstAccessMask;
+
+  vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0,
+                       nullptr, 0, nullptr, 1, &barrier);
+}
+
 // Command Buffers
 VkCommandBuffer Device::allocateCommandBuffer(VkCommandBufferLevel level) {
   VkCommandBufferAllocateInfo allocInfo = {};

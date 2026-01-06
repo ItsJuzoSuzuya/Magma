@@ -15,6 +15,9 @@ OffscreenTarget::OffscreenTarget(const RenderTargetInfo &info)
   createImages();
   createDepthResources();
   createColorSampler();
+
+  imageLayouts.resize(images.size(), VK_IMAGE_LAYOUT_UNDEFINED);
+  depthImageLayouts.resize(depthImages.size(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
 OffscreenTarget::~OffscreenTarget() { cleanup(); }
@@ -24,23 +27,28 @@ OffscreenTarget::~OffscreenTarget() { cleanup(); }
 // -----------------------------------------------------------------------------
 
 // Color Resources
-VkImage OffscreenTarget::getColorImage(size_t index) {
+VkImage OffscreenTarget::getColorImage(size_t index) const {
+  assert(index < images.size() && "OffscreenTarget: Color image index out of range");
+
   return images.at(index);
 }
 
 VkImageView OffscreenTarget::getColorImageView(size_t index) const {
-  if (index >= imageViews.size())
-    throw std::runtime_error("OffscreenTarget: Color image view index out of range");
+  assert(index < imageViews.size() && "OffscreenTarget: Color image view index out of range");
 
   return imageViews.at(index);
 }
 
 VkImageLayout OffscreenTarget::getColorImageLayout(size_t index) const {
+  assert(index < imageLayouts.size() && "OffscreenTarget: Color image layout index out of range");
+
   return imageLayouts.at(index);
 }
 
 VkRenderingAttachmentInfo OffscreenTarget::getColorAttachment(
     size_t index) const {
+  assert(index < imageViews.size() && "OffscreenTarget: Color attachment index out of range");
+
   VkRenderingAttachmentInfo colorAttachmentInfo{};
   colorAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
   colorAttachmentInfo.imageView = imageViews.at(index);
@@ -53,10 +61,14 @@ VkRenderingAttachmentInfo OffscreenTarget::getColorAttachment(
 
 // Depth Resources
 VkImageView OffscreenTarget::getDepthImageView(size_t index) const {
+  assert(index < depthImageViews.size() && "OffscreenTarget: Depth image view index out of range");
+
   return depthImageViews.at(index);
 }
 
 VkRenderingAttachmentInfo OffscreenTarget::getDepthAttachment(size_t index) const {
+  assert(index < depthImageViews.size() && "OffscreenTarget: Depth attachment index out of range");
+
   VkRenderingAttachmentInfo depthAttachmentInfo{};
   depthAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
   depthAttachmentInfo.imageView = depthImageViews.at(index);
@@ -65,6 +77,36 @@ VkRenderingAttachmentInfo OffscreenTarget::getDepthAttachment(size_t index) cons
   depthAttachmentInfo.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
   depthAttachmentInfo.clearValue.depthStencil = {1.0f, 0};
   return depthAttachmentInfo;
+}
+
+VkImageLayout OffscreenTarget::getDepthImageLayout(size_t index) const {
+  assert(index < depthImageLayouts.size() && "OffscreenTarget: Depth image layout index out of range");
+
+  return depthImageLayouts.at(index);
+}
+
+void OffscreenTarget::transitionDepthImage(size_t index, ImageTransitionDescription transition) {
+  assert(index < depthImages.size() && "OffscreenTarget: Depth image index out of range");
+
+  VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+  barrier.oldLayout = depthImageLayouts.at(index);
+  barrier.newLayout = transition.newLayout;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image = depthImages.at(index);
+  barrier.subresourceRange.aspectMask = transition.aspectMask;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 1;
+  barrier.srcAccessMask = transition.srcAccess;
+  barrier.dstAccessMask = transition.dstAccess;
+
+  vkCmdPipelineBarrier(FrameInfo::commandBuffer, transition.srcStage,
+                       transition.dstStage, 0, 0, nullptr, 0, nullptr, 1,
+                       &barrier);
+
+  depthImageLayouts.at(index) = transition.newLayout;
 }
 
 
@@ -106,6 +148,8 @@ void OffscreenTarget::onResize(VkExtent2D newExtent) {
 
 void OffscreenTarget::transitionColorImage(size_t index,
                                            ImageTransitionDescription transition) {
+  assert(index < images.size() && "OffscreenTarget: Color image index out of range");
+
   VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
   barrier.oldLayout = imageLayouts.at(index);
   barrier.newLayout = transition.newLayout;
@@ -123,7 +167,7 @@ void OffscreenTarget::transitionColorImage(size_t index,
   vkCmdPipelineBarrier(FrameInfo::commandBuffer, transition.srcStage,
                        transition.dstStage, 0, 0, nullptr, 0, nullptr, 1,
                        &barrier);
-  imageLayouts.at(static_cast<size_t>(index)) = transition.newLayout;
+  imageLayouts.at(index) = transition.newLayout;
 }
 
 // -----------------------------------------------------------------------------

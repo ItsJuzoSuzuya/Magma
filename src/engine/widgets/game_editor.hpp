@@ -1,7 +1,9 @@
 #pragma once
+#include "engine/editor_camera.hpp"
 #include "imgui.h"
 #include "widget.hpp"
 #include <glm/vec3.hpp>
+#include <memory>
 
 namespace Magma {
 
@@ -11,7 +13,7 @@ class EditorCamera;
 
 class GameEditor : public Widget {
 public:
-  GameEditor(SceneRenderer &renderer, EditorCamera *editorCamera = nullptr);
+  GameEditor(SceneRenderer &renderer);
 
   const char *name() const override { return "Editor"; }
 
@@ -26,7 +28,7 @@ public:
 
 private:
   SceneRenderer &renderer;
-  EditorCamera *editorCamera = nullptr;
+  std::unique_ptr<EditorCamera> editorCamera = nullptr;
 
   // Drag state
   GameObject *draggedObject = nullptr;

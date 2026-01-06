@@ -49,12 +49,6 @@ void RenderSystem::onRender() {
   #if defined(MAGMA_WITH_EDITOR)
     if (firstFrame) {
       for (auto &renderer : renderers) {
-        if (auto *imguiRenderer = dynamic_cast<ImGuiRenderer*>(renderer.get())) {
-          imguiRenderer->initImGui(window);
-        };
-      }
-
-      for (auto &renderer : renderers) {
         if (auto *sceneRenderer = dynamic_cast<SceneRenderer*>(renderer.get())) {
           sceneRenderer->createSceneTextures();
         };

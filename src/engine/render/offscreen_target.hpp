@@ -19,7 +19,7 @@ public:
   VkExtent2D extent() const override { return targetExtent; }
   uint32_t imageCount() const override { return imageCount_; }
 
-  VkImage getColorImage(size_t index) override;
+  VkImage getColorImage(size_t index) const override;
   VkImageView getColorImageView(size_t index) const override;
   VkRenderingAttachmentInfo getColorAttachment(size_t index) const override;
   uint32_t getColorAttachmentCount() const override { return 2; }
@@ -29,6 +29,8 @@ public:
 
   VkImageView getDepthImageView(size_t index) const;
   VkRenderingAttachmentInfo getDepthAttachment(size_t index) const override;
+  VkImageLayout getDepthImageLayout(size_t index) const override;
+  void transitionDepthImage(size_t index, ImageTransitionDescription transition) override;
   VkFormat getDepthFormat() const override { return depthImageFormat; }
 
   VkSampler getColorSampler() const override { return colorSampler; }
@@ -52,7 +54,7 @@ private:
   std::vector<VkImage> depthImages = {VK_NULL_HANDLE};
   std::vector<VkDeviceMemory> depthImageMemories = {VK_NULL_HANDLE};
   std::vector<VkImageView> depthImageViews = {VK_NULL_HANDLE};
-  std::vector<VkImageLayout> depthImageLayouts = {VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+  std::vector<VkImageLayout> depthImageLayouts = {VK_IMAGE_LAYOUT_UNDEFINED};
   VkFormat depthImageFormat = VK_FORMAT_D32_SFLOAT;
   void createDepthResources();
   void destroyDepthResources();

@@ -17,7 +17,7 @@ namespace Magma {
 class SceneRenderer : public IRenderer {
 public:
   SceneRenderer(std::unique_ptr<IRenderTarget> target, PipelineShaderInfo &shaderInfo);
-  ~SceneRenderer() override;
+  ~SceneRenderer();
   void destroy() override;
 
   ImVec2 getSceneSize() const;
@@ -32,16 +32,7 @@ public:
   void onRender() override;
 
   bool isSwapChainDependent() const override { return isSwapChainDependentFlag; }
-  SwapChain* getSwapChain() const override {
-    #if defined(MAGMA_WITH_EDITOR)
-      if (auto *swapchainTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get()))
-        return swapchainTarget->swapChain();
-      else
-        return nullptr;
-    #else
-      return nullptr;
-    #endif
-  }
+  SwapChain* getSwapChain() const override;
 
   void setActiveCamera(Camera *camera) { activeCamera = camera; }
   Camera *getActiveCamera() const { return activeCamera; }

@@ -35,10 +35,8 @@ SceneRenderer::SceneRenderer(std::unique_ptr<IRenderTarget> target,
   objectPicker = std::make_unique<ObjectPicker>(renderTarget->extent(),
                                                 renderTarget->imageCount());
 
-  if (auto *offscreenTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get())) {
-    std::print("Creating SceneRenderer with SwapchainTarget\n");
+  if (auto *offscreenTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get())) 
     isSwapChainDependentFlag = true;
-  }
 
   // Self-register with the context to get our slice index
   rendererId = renderContext->registerRenderer();
@@ -87,6 +85,18 @@ void SceneRenderer::onRender() {
   end();
 }
 
+
+SwapChain* SceneRenderer::getSwapChain() const {
+  #if defined(MAGMA_WITH_EDITOR)
+    if (auto *swapchainTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get()))
+      return swapchainTarget->swapChain();
+    else
+      return nullptr;
+  #else
+    return nullptr;
+  #endif
+}
+
 ImVec2 SceneRenderer::getSceneSize() const {
   return ImVec2(static_cast<float>(renderTarget->extent().width),
                 static_cast<float>(renderTarget->extent().height));
@@ -120,6 +130,11 @@ void SceneRenderer::begin() {
   else if (colorLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) 
     colorTransitionDesc = ImageTransition::UndefinedToColorOptimal;
   renderTarget->transitionColorImage(idx, colorTransitionDesc);
+
+  VkImageLayout depthLayout = renderTarget->getDepthImageLayout(idx);
+  if (depthLayout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+    renderTarget->transitionDepthImage(
+        idx, ImageTransition::UndefinedToDepthOptimal);
 
   #if defined(MAGMA_WITH_EDITOR)
     // Transition ID image to COLOR_ATTACHMENT_OPTIMAL

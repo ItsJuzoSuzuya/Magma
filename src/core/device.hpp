@@ -66,6 +66,13 @@ public:
       VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
       VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT);
 
+  static void transitionImageLayoutCmd(
+      VkCommandBuffer commandBuffer,
+      VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout,
+      VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage,
+      VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
+      VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT);
+
   VkCommandBuffer allocateCommandBuffer(VkCommandBufferLevel level);
   VkCommandBuffer beginSingleTimeCommands();
   void submitCommands(VkCommandBuffer &commandBuffer);

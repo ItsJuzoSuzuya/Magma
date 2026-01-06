@@ -195,6 +195,12 @@ void ImGuiRenderer::begin() {
 
   renderTarget->transitionColorImage(idx, colorTransitionDesc);
 
+  VkImageLayout depthCurrent =
+      renderTarget->getDepthImageLayout(idx);
+  if (current != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+    renderTarget->transitionDepthImage(
+        idx, ImageTransition::UndefinedToDepthOptimal);
+
   // Dynamic rendering attachments
   VkRenderingAttachmentInfo color = renderTarget->getColorAttachment(idx);
   VkRenderingAttachmentInfo depth = renderTarget->getDepthAttachment(idx);
