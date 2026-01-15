@@ -37,10 +37,25 @@ VkRenderingAttachmentInfo ObjectPicker::getIdAttachment(uint32_t imageIndex) con
   return idAttachmentInfo;
 }
 
+void ObjectPicker::onResize(VkExtent2D newExtent) {
+  if (newExtent.width == 0 || newExtent.height == 0)
+    return;
+  if (newExtent.width == targetExtent.width &&
+      newExtent.height == targetExtent.height)
+    return;
+
+  destroyImages();
+
+  targetExtent = newExtent;
+
+  createImages();
+  idImageLayouts.resize(imageCount_, VK_IMAGE_LAYOUT_UNDEFINED);
+}
+
 void ObjectPicker::transitionIdImage(size_t index,
                          ImageTransitionDescription transition) {
   VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-  barrier.oldLayout = idImageLayouts.at(static_cast<size_t>(index));
+  barrier.oldLayout = idImageLayouts.at(index);
   barrier.newLayout = transition.newLayout;
   barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -156,7 +171,7 @@ GameObject *ObjectPicker::pickAtPixel(uint32_t x, uint32_t y) {
                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     stagingBuffer.map();
 
-    VkImage idImage = idImages[FrameInfo::imageIndex];
+    VkImage idImage = idImages[FrameInfo::frameIndex];
 
     VkCommandBuffer cb = Device::get().beginSingleTimeCommands();
 

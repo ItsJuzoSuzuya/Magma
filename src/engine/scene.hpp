@@ -1,8 +1,10 @@
 #pragma once
 #include "components/camera.hpp"
+#include "engine/render/scene_renderer.hpp"
 #include "gameobject.hpp"
 #include <functional>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 namespace Magma {
@@ -27,12 +29,14 @@ public:
   static Scene *current() { return activeScene; }
   void setActive() { activeScene = this; }
 
-  static void setActiveCamera(Camera *camera) { activeCamera = camera; }
-  static Camera *getActiveCamera() { return activeCamera; }
+  static void setActiveCamera(GameObject *camera) {  
+    activeCamera = camera; }
+  static GameObject *getActiveCamera() { 
+    return activeCamera; }
 
   std::vector<std::unique_ptr<GameObject>> &getGameObjects();
   GameObject *findGameObjectById(GameObject::id_t id);
-  GameObject &addGameObject(std::unique_ptr<GameObject> gameObject);
+  GameObject &addGameObject(std::unique_ptr<GameObject> gameObject, bool hidden = false);
   void removeGameObject(GameObject *gameObject);
 
   #if defined(MAGMA_WITH_EDITOR)
@@ -59,7 +63,7 @@ public:
 
 private:
   inline static Scene *activeScene = nullptr;
-  inline static Camera *activeCamera = nullptr;
+  inline static GameObject* activeCamera;
 
   std::vector<std::unique_ptr<GameObject>> gameObjects;
 

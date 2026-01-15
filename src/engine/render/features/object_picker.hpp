@@ -11,6 +11,9 @@ class ImageTransitionDescription;
 class ObjectPicker {
 public:
   ObjectPicker(VkExtent2D extent, uint32_t imageCount);
+  ~ObjectPicker() { destroyImages(); }
+
+  void onResize(VkExtent2D newExtent);
 
   VkImage getIdImage(uint32_t imageIndex) const {
     return idImages[imageIndex]; }

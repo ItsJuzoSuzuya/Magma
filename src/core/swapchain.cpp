@@ -65,7 +65,7 @@ VkResult SwapChain::acquireNextImage() {
     return VK_ERROR_OUT_OF_DATE_KHR;
 
   if (FrameInfo::imageIndex >= renderInfo.imageCount)
-    return VK_ERROR_OUT_OF_DATE_KHR;
+    throw std::runtime_error("Acquired image index is out of bounds!");
 
   // If that image is still in use, wait for its fence
   if (imagesInUseFences[FrameInfo::imageIndex] != VK_NULL_HANDLE)

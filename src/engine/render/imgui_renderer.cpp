@@ -94,9 +94,6 @@ void ImGuiRenderer::onResize(VkExtent2D extent) {
 }
 
 void ImGuiRenderer::onRender() {
-  newFrame();
-  preFrame();
-
   begin();
   record();
   end();
@@ -238,8 +235,14 @@ void ImGuiRenderer::record() {
     widget->draw();
 
   ImGui::Render();
+  ImDrawData *draw_data = ImGui::GetDrawData();
+  if (draw_data == nullptr) 
+    return;
+
+
   ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
                                   FrameInfo::commandBuffer);
+
   ImGuiIO &io = ImGui::GetIO();
   if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
     ImGui::UpdatePlatformWindows();

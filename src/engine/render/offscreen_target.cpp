@@ -20,7 +20,9 @@ OffscreenTarget::OffscreenTarget(const RenderTargetInfo &info)
   depthImageLayouts.resize(depthImages.size(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
-OffscreenTarget::~OffscreenTarget() { cleanup(); }
+OffscreenTarget::~OffscreenTarget() { 
+  cleanup(); 
+}
 
 // -----------------------------------------------------------------------------
 // Public Methods
@@ -28,26 +30,30 @@ OffscreenTarget::~OffscreenTarget() { cleanup(); }
 
 // Color Resources
 VkImage OffscreenTarget::getColorImage(size_t index) const {
-  assert(index < images.size() && "OffscreenTarget: Color image index out of range");
+  assert(index < images.size() && 
+      "OffscreenTarget: Color image index out of range");
 
   return images.at(index);
 }
 
 VkImageView OffscreenTarget::getColorImageView(size_t index) const {
-  assert(index < imageViews.size() && "OffscreenTarget: Color image view index out of range");
+  assert(index < imageViews.size() && 
+      "OffscreenTarget: Color image view index out of range");
 
   return imageViews.at(index);
 }
 
 VkImageLayout OffscreenTarget::getColorImageLayout(size_t index) const {
-  assert(index < imageLayouts.size() && "OffscreenTarget: Color image layout index out of range");
+  assert(index < imageLayouts.size() && 
+      "OffscreenTarget: Color image layout index out of range");
 
   return imageLayouts.at(index);
 }
 
 VkRenderingAttachmentInfo OffscreenTarget::getColorAttachment(
     size_t index) const {
-  assert(index < imageViews.size() && "OffscreenTarget: Color attachment index out of range");
+  assert(index < imageViews.size() && 
+      "OffscreenTarget: Color attachment index out of range");
 
   VkRenderingAttachmentInfo colorAttachmentInfo{};
   colorAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -61,13 +67,15 @@ VkRenderingAttachmentInfo OffscreenTarget::getColorAttachment(
 
 // Depth Resources
 VkImageView OffscreenTarget::getDepthImageView(size_t index) const {
-  assert(index < depthImageViews.size() && "OffscreenTarget: Depth image view index out of range");
+  assert(index < depthImageViews.size() && 
+      "OffscreenTarget: Depth image view index out of range");
 
   return depthImageViews.at(index);
 }
 
 VkRenderingAttachmentInfo OffscreenTarget::getDepthAttachment(size_t index) const {
-  assert(index < depthImageViews.size() && "OffscreenTarget: Depth attachment index out of range");
+  assert(index < depthImageViews.size() 
+      && "OffscreenTarget: Depth attachment index out of range");
 
   VkRenderingAttachmentInfo depthAttachmentInfo{};
   depthAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -80,13 +88,15 @@ VkRenderingAttachmentInfo OffscreenTarget::getDepthAttachment(size_t index) cons
 }
 
 VkImageLayout OffscreenTarget::getDepthImageLayout(size_t index) const {
-  assert(index < depthImageLayouts.size() && "OffscreenTarget: Depth image layout index out of range");
+  assert(index < depthImageLayouts.size() && 
+      "OffscreenTarget: Depth image layout index out of range");
 
   return depthImageLayouts.at(index);
 }
 
 void OffscreenTarget::transitionDepthImage(size_t index, ImageTransitionDescription transition) {
-  assert(index < depthImages.size() && "OffscreenTarget: Depth image index out of range");
+  assert(index < depthImages.size() && 
+      "OffscreenTarget: Depth image index out of range");
 
   VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
   barrier.oldLayout = depthImageLayouts.at(index);
@@ -119,13 +129,6 @@ void OffscreenTarget::cleanup() {
   }
 
   destroyDepthResources();
-
-  for (auto v : imageViews) {
-    if (v != VK_NULL_HANDLE)
-      vkDestroyImageView(device, v, nullptr);
-  }
-  imageViews.clear();
-
   destroyColorResources();
 }
 
@@ -136,7 +139,6 @@ void OffscreenTarget::onResize(VkExtent2D newExtent) {
       newExtent.height == targetExtent.height)
     return;
 
-  Device::waitIdle();
   cleanup();
 
   targetExtent = newExtent;
@@ -144,11 +146,15 @@ void OffscreenTarget::onResize(VkExtent2D newExtent) {
   createImages();
   createDepthResources();
   createColorSampler();
+
+  imageLayouts.resize(images.size(), VK_IMAGE_LAYOUT_UNDEFINED);
+  depthImageLayouts.resize(depthImages.size(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
 void OffscreenTarget::transitionColorImage(size_t index,
                                            ImageTransitionDescription transition) {
-  assert(index < images.size() && "OffscreenTarget: Color image index out of range");
+  assert(index < images.size() && 
+      "OffscreenTarget: Color image index out of range");
 
   VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
   barrier.oldLayout = imageLayouts.at(index);
@@ -227,12 +233,19 @@ void OffscreenTarget::createImageViews() {
 
 void OffscreenTarget::destroyColorResources() {
   VkDevice device = Device::get().device();
+
+  for (auto v : imageViews) {
+    if (v != VK_NULL_HANDLE)
+      vkDestroyImageView(device, v, nullptr);
+  }
+
   for (size_t i = 0; i < images.size(); ++i) {
     if (images[i] != VK_NULL_HANDLE)
       vkDestroyImage(device, images[i], nullptr);
     if (imageMemories[i] != VK_NULL_HANDLE)
       vkFreeMemory(device, imageMemories[i], nullptr);
   }
+
   images.clear();
   imageMemories.clear();
   imageViews.clear();

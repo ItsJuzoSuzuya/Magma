@@ -37,6 +37,8 @@ public:
   Pipeline(const Pipeline &) = delete;
   Pipeline &operator=(const Pipeline &) = delete;
 
+  VkPipeline getVkPipeline() const { return graphicsPipeline; }
+
   static void defaultPipelineConfig(PipelineConfigInfo &configInfo);
 
   void bind(VkCommandBuffer commandBuffer);

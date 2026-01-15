@@ -17,13 +17,6 @@ namespace Magma {
 Scene::Scene() {
   if (activeScene == nullptr)
     setActive();
-
-  auto &camera = GameObject::create("Main Camera");
-  camera.addComponent<Transform>();
-  Camera *camComp = camera.addComponent<Camera>();
-  camComp->setPerspectiveProjection(glm::radians(60.0f), 16.0f / 9.0f, 0.1f,
-                                    100.0f);
-  Scene::setActiveCamera(camComp);
 }
 
 Scene::~Scene() {
@@ -75,7 +68,7 @@ GameObject *Scene::findGameObjectById(GameObject::id_t id) {
   return nullptr;
 }
 
-GameObject &Scene::addGameObject(std::unique_ptr<GameObject> gameObject) {
+GameObject &Scene::addGameObject(std::unique_ptr<GameObject> gameObject, bool hidden) {
   assert(gameObject != nullptr &&
          "GameObject cannot be null when adding to scene");
 

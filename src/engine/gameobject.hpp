@@ -90,8 +90,9 @@ public:
     return ptr;
   }
 
+  void onUpdate();
   /**
-   * Render (recursive)
+   * Render (recursively)
    * @param renderer SceneRenderer to use for rendering
    * @note This function is called by Scene::onRender() or by the parent
    * GameObject.
@@ -105,10 +106,10 @@ public:
 private:
   inline static id_t nextId = 1;
 
-  GameObject(id_t id) : id{id}, name("GameObject " + std::to_string(id)) {};
+  GameObject(id_t id) : id{id}, name("GameObject_" + std::to_string(id)) {};
   GameObject(id_t id, std::string name) : id{id}, name{name} {};
   GameObject(id_t id, GameObject *parent)
-      : id{id}, parent{parent}, name("GameObject " + std::to_string(id)) {};
+      : id{id}, parent{parent}, name("GameObject_" + std::to_string(id)) {};
   GameObject(id_t id, GameObject *parent, std::string name)
       : id{id}, parent{parent}, name{name} {};
 

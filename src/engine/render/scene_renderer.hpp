@@ -3,6 +3,7 @@
 #include "core/render_target.hpp"
 #include "core/renderer.hpp"
 #include "engine/components/camera.hpp"
+#include "engine/editor_camera.hpp"
 #include "engine/render/features/object_picker.hpp"
 #include "engine/render/swapchain_target.hpp"
 #include "imgui.h"
@@ -20,13 +21,18 @@ public:
   ~SceneRenderer();
   void destroy() override;
 
+  uint32_t rendererId = 0;
+
+  void createSceneTextures();
   ImVec2 getSceneSize() const;
-  ImTextureID getSceneTexture() const;
+  ImTextureID getSceneTexture(size_t index) const;
 
   VkPipelineLayout getPipelineLayout() const override {
     return pipelineLayout; }
   
   ObjectPicker &getObjectPicker() { return *objectPicker; }
+
+  void addCameraToScene();
 
   void onResize(const VkExtent2D newExtent) override;
   void onRender() override;
@@ -34,35 +40,30 @@ public:
   bool isSwapChainDependent() const override { return isSwapChainDependentFlag; }
   SwapChain* getSwapChain() const override;
 
-  void setActiveCamera(Camera *camera) { activeCamera = camera; }
-  Camera *getActiveCamera() const { return activeCamera; }
-
   void uploadCameraUBO(const CameraUBO &ubo);
   void submitPointLight(const PointLightData &lightData);
 
-  void createSceneTextures();
 
 private:
-  void begin() override;
-  void record() override;
-  void end() override;
+  std::unique_ptr<Pipeline> pipeline = nullptr;
+  PipelineShaderInfo shaderInfo;
+  void createPipeline() override;
 
   VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
   void createPipelineLayout(
       const std::vector<VkDescriptorSetLayout> &layouts) override;
 
-  std::unique_ptr<Pipeline> pipeline = nullptr;
-  PipelineShaderInfo shaderInfo;
-  void createPipeline() override;
+  void begin() override;
+  void record() override;
+  void end() override;
 
   std::unique_ptr<IRenderTarget> renderTarget = nullptr;
   std::unique_ptr<RenderContext> renderContext = nullptr;
-  uint32_t rendererId = 0;
   bool isSwapChainDependentFlag = false;
 
   std::vector<ImTextureID> sceneTextures = {};
 
-  Camera *activeCamera = nullptr;
+  std::unique_ptr<EditorCamera> camera = nullptr;
 
   std::unique_ptr<ObjectPicker> objectPicker;
 

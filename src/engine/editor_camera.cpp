@@ -1,26 +1,15 @@
 #include "editor_camera.hpp"
-#include "core/renderer.hpp"
+#include "engine/scene.hpp"
 #include "gameobject.hpp"
 
 using namespace std;
 namespace Magma {
 
-EditorCamera::EditorCamera() {
+EditorCamera::EditorCamera(): GameObject(UINT32_MAX, "Editor Camera") {
   // Create a transform and a camera bound to it
-  cameraObject = new GameObject(UINT32_MAX, "Editor Camera");
-  transform = cameraObject->addComponent<Transform>();
-  camera = cameraObject->addComponent<Camera>();
+  transform = addComponent<Transform>();
+  camera = addComponent<Camera>();
   camera->setPerspectiveProjection(glm::radians(90.f), 16.f / 9.f, 0.1f, 100.f);
-}
-
-void EditorCamera::onUpdate() {
-  // Keep camera's internal view in sync with transform
-  camera->onUpdate();
-}
-
-void EditorCamera::onRender(SceneRenderer &renderer) {
-  // Push camera UBO to GPU before rendering scene
-  camera->onRender(renderer);
 }
 
 void EditorCamera::moveRight(float speed) {

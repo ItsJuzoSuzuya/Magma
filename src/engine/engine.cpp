@@ -53,6 +53,7 @@ Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
   auto gameRenderer = 
     std::make_unique<SceneRenderer>(std::move(offscreenTarget2), 
                                     gameShaderInfo);
+  gameRenderer->addCameraToScene();
 
   auto imguiRenderer = 
     std::make_unique<ImGuiRenderer>(std::move(swapchainTarget),
@@ -69,8 +70,6 @@ Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
   renderSystem->addRenderer(std::move(imguiRenderer));
   renderSystem->addRenderer(std::move(editorRenderer));
   renderSystem->addRenderer(std::move(gameRenderer));
-
-
 
   scene = std::make_unique<Scene>();
 

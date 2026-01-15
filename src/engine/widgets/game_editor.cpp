@@ -1,4 +1,5 @@
 #include "game_editor.hpp"
+#include "core/frame_info.hpp"
 #include "engine/components/transform.hpp"
 #include "engine/editor_camera.hpp"
 #include "engine/render/scene_renderer.hpp"
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <glm/fwd.hpp>
+#include <print>
 
 
 static ImVec2 fit16x9(const ImVec2 &avail) {
@@ -98,7 +100,7 @@ void GameEditor::draw() {
   ImVec2 avail = ImGui::GetContentRegionAvail();
   ImVec2 imgSize = fit16x9(avail);
 
-  ImGui::Image(renderer.getSceneTexture(), imgSize);
+  ImGui::Image(renderer.getSceneTexture(FrameInfo::frameIndex), imgSize);
 
   ImVec2 imageMin = ImGui::GetItemRectMin();
   ImVec2 imageMax = ImGui::GetItemRectMax();

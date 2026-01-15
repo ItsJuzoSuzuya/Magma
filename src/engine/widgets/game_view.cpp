@@ -1,9 +1,11 @@
 #include "game_view.hpp"
+#include "core/frame_info.hpp"
 #include "engine/render/scene_renderer.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "ui_context.hpp"
 #include <glm/fwd.hpp>
+#include <print>
 
 namespace Magma {
 
@@ -54,7 +56,7 @@ void GameView::draw() {
   ImGui::Begin(name());
 
   ImVec2 imgSize = renderer.getSceneSize();
-  ImGui::Image(renderer.getSceneTexture(), imgSize);
+  ImGui::Image(renderer.getSceneTexture(FrameInfo::frameIndex), imgSize);
 
   ImVec2 imageMin = ImGui::GetItemRectMin();
   ImVec2 imageMax = ImGui::GetItemRectMax();

@@ -43,6 +43,7 @@ public:
 
 private:
   Transform *ownerTransform = nullptr;
+  SceneRenderer *targetRenderer = nullptr;
 
   float fov;
   float aspectRatio;

@@ -30,6 +30,7 @@ namespace Magma {
 SceneRenderer::SceneRenderer(std::unique_ptr<IRenderTarget> target,
                              PipelineShaderInfo &shaderInfo)
     : IRenderer(), shaderInfo{shaderInfo} {
+  camera = std::make_unique<EditorCamera>();
   renderContext = std::make_unique<RenderContext>();
   renderTarget = std::move(target);
   objectPicker = std::make_unique<ObjectPicker>(renderTarget->extent(),
@@ -72,16 +73,30 @@ void SceneRenderer::destroy() {
   }
 }
 
+void SceneRenderer::addCameraToScene() {
+  Scene::setActiveCamera(camera.get());
+}
+
 void SceneRenderer::onResize(const VkExtent2D newExtent) {
   Device::waitIdle();
 
+  for (auto &tex : sceneTextures) 
+    ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)tex);
+
   renderTarget->onResize(newExtent);
+  objectPicker->onResize(newExtent);
+
   createPipeline();
+
+  sceneTextures.clear();
+  createSceneTextures();
 }
 
 void SceneRenderer::onRender() {
   begin();
   record();
+  camera->onRender(*this);
+  Scene::onRender(*this);
   end();
 }
 
@@ -102,15 +117,13 @@ ImVec2 SceneRenderer::getSceneSize() const {
                 static_cast<float>(renderTarget->extent().height));
 }
 
-ImTextureID SceneRenderer::getSceneTexture() const {
-  return sceneTextures[FrameInfo::imageIndex];
-}
+ImTextureID SceneRenderer::getSceneTexture(size_t index) const {
+  assert(index >= 0 &&
+         index < renderTarget->imageCount() &&
+         "SceneRenderer: Invalid image index in FrameInfo!");
 
-#if defined(MAGMA_WITH_EDITOR)
-  int currentImageIndex() { return FrameInfo::frameIndex; }
-#else
-  int currentImageIndex() { return FrameInfo::imageIndex; }
-#endif
+  return sceneTextures.at(index);
+}
 
 // Rendering 
 void SceneRenderer::begin() {
@@ -120,7 +133,7 @@ void SceneRenderer::begin() {
       FrameInfo::frameIndex >= SwapChain::MAX_FRAMES_IN_FLIGHT)
     throw std::runtime_error("Invalid frame index in FrameInfo!");
 
-  const uint32_t idx = currentImageIndex();
+  const uint32_t idx = FrameInfo::imageIndex;
 
   // Transition scene color image to COLOR_ATTACHMENT_OPTIMAL
   ImageTransitionDescription colorTransitionDesc = {};
@@ -213,7 +226,7 @@ void SceneRenderer::end() {
 
   vkCmdEndRendering(FrameInfo::commandBuffer);
 
-  const uint32_t idx = currentImageIndex();
+  const uint32_t idx = FrameInfo::imageIndex;
   #if defined(MAGMA_WITH_EDITOR)
     // Transition scene color to SHADER_READ_ONLY for ImGui sampling
     renderTarget->transitionColorImage(
@@ -252,12 +265,10 @@ void SceneRenderer::submitPointLight(const PointLightData &lightData) {
     assert(renderTarget != nullptr && 
            "Cannot create scene textures for null render target!");
 
-    sceneTextures.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    sceneTextures.resize(renderTarget->imageCount());
     for (uint32_t i = 0; i < sceneTextures.size(); ++i) {
       VkSampler sampler = renderTarget->getColorSampler();
       VkImageView view  = renderTarget->getColorImageView(i);
-
-      assert(sampler != VK_NULL_HANDLE && view != VK_NULL_HANDLE && "SceneTextures: invalid sampler or image view (are you using OffscreenTarget and MAGMA_WITH_EDITOR=ON?)");
 
       sceneTextures[i] = (ImTextureID)ImGui_ImplVulkan_AddTexture(
           sampler, view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -331,6 +342,7 @@ void SceneRenderer::createPipeline() {
   }
   pipelineConfigInfo.depthFormat = renderTarget->getDepthFormat();
 
+  pipeline.reset();
   pipeline = make_unique<Pipeline>(shaderInfo.vertFile, shaderInfo.fragFile, pipelineConfigInfo);
 }
 

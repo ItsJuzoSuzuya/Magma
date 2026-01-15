@@ -133,6 +133,18 @@ void GameObject::removeChild(GameObject *child) {
   }
 #endif
 
+void GameObject::onUpdate(){
+  for (const auto &component : components) {
+    if (component.second)
+      component.second->onUpdate();
+  }
+
+  for (const auto &child : children) {
+    if (child)
+      child->onUpdate();
+  }
+}
+
 // Rendering
 void GameObject::onRender(SceneRenderer &renderer) {
   for (const auto &component : components) {

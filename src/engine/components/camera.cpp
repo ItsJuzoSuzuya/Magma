@@ -122,10 +122,6 @@ void Camera::pushCameraDataToGPU(Buffer *uboBuffer) {
 
 // --- Lifecycle ---
 void Camera::onRender(SceneRenderer &renderer) {
-  Camera *active = renderer.getActiveCamera();
-  if (active != this)
-    return;
-
   if (ownerTransform)
     setView(ownerTransform->position, ownerTransform->rotation);
 
@@ -136,11 +132,11 @@ void Camera::onRender(SceneRenderer &renderer) {
 
 #if defined(MAGMA_WITH_EDITOR)
 void Camera::onInspector() {
-  Camera *activeCamera = Scene::getActiveCamera();
-  bool isActive = (activeCamera == this);
+  GameObject *activeCamera = Scene::getActiveCamera();
+  bool isActive = (activeCamera == owner);
   if(ImGui::Checkbox("Active Camera", &isActive)) {
     if(isActive) 
-      Scene::setActiveCamera(this);
+      Scene::setActiveCamera(owner);
     else 
       Scene::setActiveCamera(nullptr);
   }

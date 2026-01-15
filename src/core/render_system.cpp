@@ -92,6 +92,15 @@ void RenderSystem::createCommandBuffers() {
 
 // Rendering
 bool RenderSystem::beginFrame() {
+  #if defined(MAGMA_WITH_EDITOR)
+    for (auto &renderer : renderers) {
+      if (auto imguiRenderer = dynamic_cast<ImGuiRenderer*>(renderer.get())) {
+        imguiRenderer->newFrame();
+        imguiRenderer->preFrame();
+      }
+    }
+  #endif
+
   VkResult result;
   for (auto &renderer : renderers) {
     if (renderer->isSwapChainDependent())
@@ -119,7 +128,12 @@ bool RenderSystem::beginFrame() {
 
 void RenderSystem::renderFrame() {
   for (auto &renderer : renderers) 
-    renderer->onRender();
+    if (!renderer->isSwapChainDependent())
+      renderer->onRender();
+
+  for (auto &renderer : renderers)
+    if (renderer->isSwapChainDependent())
+      renderer->onRender();
 }
 
 void RenderSystem::endFrame() {

@@ -152,17 +152,17 @@ void SwapchainTarget::onResize(const VkExtent2D newExtent) {
     return;
 
   Device::waitIdle();
-  cleanup();
 
   // Recreate swapchain
   std::shared_ptr<SwapChain> oldSwapChain = std::move(swapChain_);
   swapChain_ = std::make_unique<SwapChain>(newExtent, oldSwapChain);
 
+  cleanup();
+  targetExtent = newExtent;
+
   createImages();
   createImageViews();
   createDepthResources();
-
-  targetExtent = newExtent;
 }
 
 // ----------------------------------------------------------------------------
