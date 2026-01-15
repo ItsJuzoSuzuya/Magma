@@ -15,6 +15,11 @@
 
 namespace Magma {
 
+enum class CameraSource {
+  Editor,
+  Scene
+};
+
 class SceneRenderer : public IRenderer {
 public:
   SceneRenderer(std::unique_ptr<IRenderTarget> target, PipelineShaderInfo &shaderInfo);
@@ -22,6 +27,13 @@ public:
   void destroy() override;
 
   uint32_t rendererId = 0;
+
+  void setCameraSource(CameraSource source) {
+    cameraSource = source; 
+  }
+  static EditorCamera* getEditorCamera(){
+    return editorCamera.get(); 
+  }
 
   void createSceneTextures();
   ImVec2 getSceneSize() const;
@@ -31,8 +43,6 @@ public:
     return pipelineLayout; }
   
   ObjectPicker &getObjectPicker() { return *objectPicker; }
-
-  void addCameraToScene();
 
   void onResize(const VkExtent2D newExtent) override;
   void onRender() override;
@@ -63,7 +73,8 @@ private:
 
   std::vector<ImTextureID> sceneTextures = {};
 
-  std::unique_ptr<EditorCamera> camera = nullptr;
+  CameraSource cameraSource = CameraSource::Editor;
+  inline static std::unique_ptr<EditorCamera> editorCamera = std::make_unique<EditorCamera>();
 
   std::unique_ptr<ObjectPicker> objectPicker;
 

@@ -13,7 +13,7 @@ class GameObject;
  * It owns the transform and camera instances and exposes simple movement
  * APIs for the editor (e.g., when user presses WASD in the offscreen view).
  */
-class EditorCamera: public GameObject {
+class EditorCamera: GameObject {
 public:
   EditorCamera();
   ~EditorCamera() = default;

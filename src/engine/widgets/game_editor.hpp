@@ -28,7 +28,6 @@ public:
 
 private:
   SceneRenderer &renderer;
-  std::unique_ptr<EditorCamera> editorCamera = nullptr;
 
   // Drag state
   GameObject *draggedObject = nullptr;

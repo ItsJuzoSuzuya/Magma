@@ -36,9 +36,7 @@ static ImVec2 fit16x9(const ImVec2 &avail) {
 namespace Magma {
 
 GameEditor::GameEditor(SceneRenderer &renderer)
-    : renderer(renderer){
-      editorCamera = std::make_unique<EditorCamera>();
-    }
+    : renderer(renderer){}
 
 // ----------------------------------------------------------------------------
 // Public Methods
@@ -59,11 +57,6 @@ void GameEditor::preFrame() {
     if (needsResize) {
       VkExtent2D newExtent{(uint32_t)desired.x, (uint32_t)desired.y};
       renderer.onResize(newExtent);
-
-      if (editorCamera) {
-        float aspect = desired.x > 0.f ? desired.x / desired.y : 16.f / 9.f;
-        editorCamera->setAspectRatio(aspect);
-      }
     }
   }
 
@@ -82,6 +75,7 @@ void GameEditor::draw() {
 
   if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
     const float cameraSpeed = 1.5f * Time::getDeltaTime();
+    EditorCamera *editorCamera = SceneRenderer::getEditorCamera();
 
     if (ImGui::IsKeyDown(ImGuiKey_D))
       editorCamera->moveRight(cameraSpeed);
@@ -146,7 +140,7 @@ void GameEditor::beginDrag(GameObject *picked, const ImVec2 &mousePos,
   dragStartImageSize = imageSize;
 
   auto t = picked->getComponent<Transform>();
-  if (!t || !editorCamera) {
+  if (!t) {
     dragStartWorldPos = glm::vec3(0.f);
     dragPixelOffset = ImVec2(0, 0);
     dragStartNDCDepth = 0.f;
@@ -155,8 +149,8 @@ void GameEditor::beginDrag(GameObject *picked, const ImVec2 &mousePos,
 
   dragStartWorldPos = t->position;
 
-  glm::mat4 proj = editorCamera->getProjection();
-  glm::mat4 view = editorCamera->getView();
+  glm::mat4 proj = SceneRenderer::getEditorCamera()->getProjection();
+  glm::mat4 view = SceneRenderer::getEditorCamera()->getView();
   glm::mat4 projView = proj * view;
 
   // Project object to clip space
@@ -187,7 +181,7 @@ void GameEditor::beginDrag(GameObject *picked, const ImVec2 &mousePos,
 }
 
 void GameEditor::handleMouseDrag() {
-  if (!draggedObject || !editorCamera)
+  if (!draggedObject)
     return;
 
   ImGuiIO &io = ImGui::GetIO();
@@ -214,8 +208,8 @@ void GameEditor::handleMouseDrag() {
   float ndcY = 1.f - (desiredObjPixelY / dragStartImageSize.y) * 2.f;
   float ndcZ = dragStartNDCDepth;
 
-  glm::mat4 proj = editorCamera->getProjection();
-  glm::mat4 view = editorCamera->getView();
+  glm::mat4 proj = SceneRenderer::getEditorCamera()->getProjection();
+  glm::mat4 view = SceneRenderer::getEditorCamera()->getView();
   glm::mat4 invProjView = glm::inverse(proj * view);
 
   glm::vec4 ndcPos(ndcX, ndcY, ndcZ, 1.f);

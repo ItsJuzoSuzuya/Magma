@@ -6,6 +6,7 @@
 #include "core/render_target.hpp"
 #include "core/renderer.hpp"
 #include "engine/components/camera.hpp"
+#include "engine/editor_camera.hpp"
 #include "engine/render/features/object_picker.hpp"
 #include "engine/render/swapchain_target.hpp"
 #include "engine/scene.hpp"
@@ -30,7 +31,6 @@ namespace Magma {
 SceneRenderer::SceneRenderer(std::unique_ptr<IRenderTarget> target,
                              PipelineShaderInfo &shaderInfo)
     : IRenderer(), shaderInfo{shaderInfo} {
-  camera = std::make_unique<EditorCamera>();
   renderContext = std::make_unique<RenderContext>();
   renderTarget = std::move(target);
   objectPicker = std::make_unique<ObjectPicker>(renderTarget->extent(),
@@ -73,10 +73,6 @@ void SceneRenderer::destroy() {
   }
 }
 
-void SceneRenderer::addCameraToScene() {
-  Scene::setActiveCamera(camera.get());
-}
-
 void SceneRenderer::onResize(const VkExtent2D newExtent) {
   Device::waitIdle();
 
@@ -95,7 +91,18 @@ void SceneRenderer::onResize(const VkExtent2D newExtent) {
 void SceneRenderer::onRender() {
   begin();
   record();
-  camera->onRender(*this);
+
+  if (cameraSource == CameraSource::Editor && editorCamera) {
+    Camera *cam = editorCamera->getCamera();
+    cam->onUpdate();
+    cam->onRender(*this);
+  } else if (cameraSource == CameraSource::Scene) {
+    if (auto* activeCam = Scene::getActiveCamera()) {
+      if (auto* cam = activeCam->getComponent<Camera>()) 
+        cam->onUpdate();
+    }
+  }
+
   Scene::onRender(*this);
   end();
 }
