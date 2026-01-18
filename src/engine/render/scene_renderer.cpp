@@ -96,11 +96,10 @@ void SceneRenderer::onRender() {
     Camera *cam = editorCamera->getCamera();
     cam->onUpdate();
     cam->onRender(*this);
-  } else if (cameraSource == CameraSource::Scene) {
-    if (auto* activeCam = Scene::getActiveCamera()) {
-      if (auto* cam = activeCam->getComponent<Camera>()) 
-        cam->onUpdate();
-    }
+
+    Transform *t = editorCamera->getTransform();
+    t->onUpdate();
+    t->onRender(*this);
   }
 
   Scene::onRender(*this);

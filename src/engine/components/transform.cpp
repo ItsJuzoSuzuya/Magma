@@ -1,6 +1,7 @@
 #include "transform.hpp"
 #include "core/frame_info.hpp"
 #include "core/push_constant_data.hpp"
+#include "engine/components/camera.hpp"
 #include "engine/gameobject.hpp"
 #include "engine/render/scene_renderer.hpp"
 
@@ -23,7 +24,7 @@ void Transform::onRender(SceneRenderer &renderer) {
   PushConstantData push{};
   push.modelMatrix = mat4();
 
-  if(owner)
+  if(owner && !owner->getComponent<Camera>())
     push.objectId = static_cast<uint32_t>(owner->id);
   else 
     push.objectId = 0;

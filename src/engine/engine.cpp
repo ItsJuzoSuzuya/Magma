@@ -49,12 +49,12 @@ Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
   auto editorRenderer =
     std::make_unique<SceneRenderer>(std::move(offscreenTarget1), 
                                     editorShaderInfo);
-  editorRenderer->setCameraSource(CameraSource::Editor);
+  editorRenderer->cameraSource = CameraSource::Editor;
   auto offscreenTarget2 = std::make_unique<OffscreenTarget>(rtInfo);
   auto gameRenderer = 
     std::make_unique<SceneRenderer>(std::move(offscreenTarget2), 
                                     gameShaderInfo);
-  gameRenderer->setCameraSource(CameraSource::Scene);
+  gameRenderer->cameraSource = CameraSource::Scene;
 
   auto imguiRenderer = 
     std::make_unique<ImGuiRenderer>(std::move(swapchainTarget),

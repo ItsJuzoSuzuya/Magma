@@ -127,6 +127,8 @@ void Camera::onRender(SceneRenderer &renderer) {
 
   CameraUBO ubo{};
   ubo.projectionView = getProjection() * getView();
+  
+
   renderer.uploadCameraUBO(ubo);
 }
 

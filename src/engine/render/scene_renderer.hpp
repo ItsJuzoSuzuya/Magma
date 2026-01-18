@@ -26,14 +26,12 @@ public:
   ~SceneRenderer();
   void destroy() override;
 
-  uint32_t rendererId = 0;
 
-  void setCameraSource(CameraSource source) {
-    cameraSource = source; 
-  }
-  static EditorCamera* getEditorCamera(){
-    return editorCamera.get(); 
-  }
+  uint32_t rendererId = 0;
+  CameraSource cameraSource = CameraSource::Editor;
+
+  static EditorCamera* getEditorCamera() {
+    return editorCamera.get(); }
 
   void createSceneTextures();
   ImVec2 getSceneSize() const;
@@ -73,7 +71,6 @@ private:
 
   std::vector<ImTextureID> sceneTextures = {};
 
-  CameraSource cameraSource = CameraSource::Editor;
   inline static std::unique_ptr<EditorCamera> editorCamera = std::make_unique<EditorCamera>();
 
   std::unique_ptr<ObjectPicker> objectPicker;

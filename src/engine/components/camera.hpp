@@ -25,7 +25,9 @@ public:
   void setAspectRatio(float aspect);
 
   const glm::mat4 &getProjection() const { return projectionMatrix; }
+
   const glm::mat4 &getView() const { return viewMatrix; }
+  void setView(const glm::vec3 &position, const glm::vec3 &rotaion);
 
   bool canSee(const glm::vec3 &position) const;
 
@@ -54,7 +56,6 @@ private:
   void calculateProjectionMatrix();
 
   glm::mat4 viewMatrix{1.f};
-  void setView(const glm::vec3 &position, const glm::vec3 &rotaion);
 
   void pushCameraDataToGPU(Buffer *uboBuffer);
 };

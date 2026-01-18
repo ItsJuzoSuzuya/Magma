@@ -13,10 +13,13 @@ class GameObject;
  * It owns the transform and camera instances and exposes simple movement
  * APIs for the editor (e.g., when user presses WASD in the offscreen view).
  */
-class EditorCamera: GameObject {
+class EditorCamera {
 public:
   EditorCamera();
   ~EditorCamera() = default;
+
+  void onUpdate();
+  void onRender(SceneRenderer &renderer);
 
   // Movement helpers used by editor input
   void moveRight(float speed);
@@ -31,9 +34,11 @@ public:
   Transform *getTransform() { return transform; }
   Camera *getCamera() { return camera; }
   const glm::mat4 &getProjection() const { return camera->getProjection(); }
-  const glm::mat4 &getView() const { return camera->getView(); }
+  const glm::mat4 &getView() const { 
+    return camera->getView(); }
 
 private:
+  GameObject *cameraObject = nullptr;
   Transform *transform = nullptr;
   Camera *camera = nullptr;
 };

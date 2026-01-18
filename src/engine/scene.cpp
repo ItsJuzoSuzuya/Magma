@@ -2,6 +2,7 @@
 #include "core/device.hpp"
 #include "core/renderer.hpp"
 #include "components/transform.hpp"
+#include "engine/render/scene_renderer.hpp"
 #include "gameobject.hpp"
 #include "scene_action.hpp"
 #include <memory>
@@ -20,9 +21,8 @@ Scene::Scene() {
 
   auto &camera = GameObject::create("Main Camera");
   camera.addComponent<Transform>();
-  Camera *camComp = camera.addComponent<Camera>();
-  camComp->setPerspectiveProjection(glm::radians(60.0f), 16.0f / 9.0f, 0.1f,
-                                    100.0f);
+  camera.addComponent<Camera>()->
+    setPerspectiveProjection(glm::radians(60.0f), 16.0f / 9.0f, 0.1f, 100.0f);
   Scene::setActiveCamera(&camera);
 }
 
@@ -135,8 +135,13 @@ void Scene::onRender(SceneRenderer &renderer) {
   if (activeScene == nullptr)
     return;
 
+  if(renderer.cameraSource == CameraSource::Scene) {
+    activeCamera->onUpdate();
+    activeCamera->onRender(renderer);
+  }
+
   for (auto &gameObject : activeScene->gameObjects) {
-    if (gameObject)
+    if (gameObject && gameObject.get() != activeCamera)
       gameObject->onRender(renderer);
   }
 }
