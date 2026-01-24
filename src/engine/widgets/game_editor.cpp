@@ -2,6 +2,7 @@
 #include "core/frame_info.hpp"
 #include "engine/components/transform.hpp"
 #include "engine/editor_camera.hpp"
+#include "engine/render/features/object_picker.hpp"
 #include "engine/render/scene_renderer.hpp"
 #include "engine/time.hpp"
 #include "imgui.h"
@@ -111,10 +112,10 @@ void GameEditor::draw() {
     uint32_t pixelY = static_cast<uint32_t>(localY);
 
     if (imgSize.x > 0 && imgSize.y > 0)
-      renderer.getObjectPicker().requestPick(pixelX, pixelY);
+      renderer.getFeature<ObjectPicker>().requestPick(pixelX, pixelY);
   }
 
-  if (auto picked = renderer.getObjectPicker().pollPickResult()) {
+  if (auto picked = renderer.getFeature<ObjectPicker>().pollPickResult()) {
     Inspector::setContext(picked);
     beginDrag(picked, ImGui::GetIO().MousePos, imageMin, imgSize);
   }

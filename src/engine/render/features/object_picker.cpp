@@ -19,6 +19,46 @@ ObjectPicker::ObjectPicker(VkExtent2D extent, uint32_t imageCount): targetExtent
 // Public Methods
 // -----------------------------------------------------------------------------
 
+void ObjectPicker::onResize(VkExtent2D newExtent) {
+  if (newExtent.width == 0 || newExtent.height == 0)
+    return;
+  if (newExtent.width == targetExtent.width &&
+      newExtent.height == targetExtent.height)
+    return;
+
+  destroyImages();
+
+  targetExtent = newExtent;
+
+  createImages();
+  idImageLayouts.resize(imageCount_, VK_IMAGE_LAYOUT_UNDEFINED);
+}
+
+void ObjectPicker::prepare(uint32_t imageIndex) {
+    // Transition ID image to COLOR_ATTACHMENT_OPTIMAL
+    VkImageLayout idLayout = getIdImageLayout(imageIndex);
+    if (idLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) 
+      transitionIdImage(
+          imageIndex, ImageTransition::ShaderReadToColorOptimal);
+    else if (idLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) 
+      transitionIdImage(
+          imageIndex, ImageTransition::UndefinedToColorOptimal);
+}
+
+void ObjectPicker::pushColorAttachments(
+    std::vector<VkRenderingAttachmentInfo> &colors,
+    uint32_t imageIndex) {
+  VkRenderingAttachmentInfo idAttachment = getIdAttachment(imageIndex);
+  colors.emplace_back(idAttachment);
+}
+
+void ObjectPicker::finish(uint32_t imageIndex) {
+  transitionIdImage(
+      imageIndex, ImageTransition::ColorOptimalToShaderRead);
+
+  servicePendingPick();
+}
+
 VkRenderingAttachmentInfo ObjectPicker::getIdAttachment(uint32_t imageIndex) const {
   VkClearValue clearValue;
   clearValue.color = {};
@@ -35,21 +75,6 @@ VkRenderingAttachmentInfo ObjectPicker::getIdAttachment(uint32_t imageIndex) con
   idAttachmentInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
   idAttachmentInfo.clearValue = clearValue;
   return idAttachmentInfo;
-}
-
-void ObjectPicker::onResize(VkExtent2D newExtent) {
-  if (newExtent.width == 0 || newExtent.height == 0)
-    return;
-  if (newExtent.width == targetExtent.width &&
-      newExtent.height == targetExtent.height)
-    return;
-
-  destroyImages();
-
-  targetExtent = newExtent;
-
-  createImages();
-  idImageLayouts.resize(imageCount_, VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
 void ObjectPicker::transitionIdImage(size_t index,

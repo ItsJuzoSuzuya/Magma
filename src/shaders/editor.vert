@@ -15,10 +15,14 @@ layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec3 fragPositionWorld;
 layout(location = 2) out vec3 fragNormalWorld;
 
+layout(location = 3) flat out uint fragObjectID;
+
 void main() {
   vec4 worldPos = push.model * vec4(inPosition, 1.0);
   fragPositionWorld = worldPos.xyz;
   fragNormalWorld = mat3(push.model) * inNormal;
 
   gl_Position = ubo.projView * worldPos;
+
+  fragObjectID = push.objectID;
 }

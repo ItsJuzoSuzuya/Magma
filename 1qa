@@ -1,0 +1,26 @@
+#pragma once
+
+#include <cstdint>
+#include <vector>
+#include <vulkan/vulkan_core.h>
+namespace Magma {
+
+class VkRenderingAttachmentInfo;
+
+class RenderFeature {
+public:
+  virtual ~RenderFeature() = default;
+
+  virtual void prepare(VkCommandBuffer commandBuffer,
+                       uint32_t imageIndex) = 0;
+
+  virtual void pushColorAttachments(
+      std::vector<VkRenderingAttachmentInfo> &colors,
+      uint32_t imageIndex) {}
+  virtual void record(VkCommandBuffer commandBuffer,
+                      uint32_t imageIndex) = 0;
+
+
+};
+
+}

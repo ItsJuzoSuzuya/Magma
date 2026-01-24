@@ -12,9 +12,9 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 #include "swapchain_target.hpp"
-#include <array>
 #include <memory>
 #include <print>
+#include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_core.h>
 
 namespace Magma {
@@ -183,18 +183,17 @@ void ImGuiRenderer::begin() {
   // Transition swapchain color image to COLOR_ATTACHMENT_OPTIMAL
   const uint32_t idx = FrameInfo::imageIndex;
 
-  ImageTransitionDescription colorTransitionDesc = {};
   VkImageLayout current = renderTarget->getColorImageLayout(idx);
   if (current == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-    colorTransitionDesc = ImageTransition::PresentToColorOptimal;
+    renderTarget->transitionColorImage(
+        idx, ImageTransition::PresentToColorOptimal);
   else if (current != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-    colorTransitionDesc = ImageTransition::UndefinedToColorOptimal;
-
-  renderTarget->transitionColorImage(idx, colorTransitionDesc);
+    renderTarget->transitionColorImage(
+        idx, ImageTransition::UndefinedToColorOptimal);
 
   VkImageLayout depthCurrent =
       renderTarget->getDepthImageLayout(idx);
-  if (current != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+  if (depthCurrent != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
     renderTarget->transitionDepthImage(
         idx, ImageTransition::UndefinedToDepthOptimal);
 
@@ -258,6 +257,7 @@ void ImGuiRenderer::end() {
 
   renderTarget->transitionColorImage(
       idx, ImageTransition::ColorOptimalToPresent);
+
 }
 
 ImGui_ImplVulkan_InitInfo ImGuiRenderer::getImGuiInitInfo() {

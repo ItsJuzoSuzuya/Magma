@@ -163,6 +163,9 @@ void SwapchainTarget::onResize(const VkExtent2D newExtent) {
   createImages();
   createImageViews();
   createDepthResources();
+
+  imageLayouts.resize(images.size(), VK_IMAGE_LAYOUT_UNDEFINED);
+  depthImageLayouts.resize(depthImages.size(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
 // ----------------------------------------------------------------------------

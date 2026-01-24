@@ -33,7 +33,7 @@ Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
     .fragFile = "src/shaders/imgui.frag.spv"
   };
   PipelineShaderInfo editorShaderInfo = {
-    .vertFile = "src/shaders/shader.vert.spv",
+    .vertFile = "src/shaders/editor.vert.spv",
     .fragFile = "src/shaders/editor.frag.spv"
   };
   PipelineShaderInfo gameShaderInfo = {
@@ -50,6 +50,9 @@ Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
     std::make_unique<SceneRenderer>(std::move(offscreenTarget1), 
                                     editorShaderInfo);
   editorRenderer->cameraSource = CameraSource::Editor;
+  editorRenderer->addRenderFeature(
+      std::make_unique<ObjectPicker>(rtInfo.extent, rtInfo.imageCount));
+
   auto offscreenTarget2 = std::make_unique<OffscreenTarget>(rtInfo);
   auto gameRenderer = 
     std::make_unique<SceneRenderer>(std::move(offscreenTarget2), 

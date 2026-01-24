@@ -14,14 +14,12 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
-#include <print>
 #include <utility>
 #include <vector>
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_core.h>
 
 #if defined(MAGMA_WITH_EDITOR)
-  #include "core/render_target_info.hpp"
   #include "imgui_impl_vulkan.h"
   #include "offscreen_target.hpp"
 #endif
@@ -33,8 +31,6 @@ SceneRenderer::SceneRenderer(std::unique_ptr<IRenderTarget> target,
     : IRenderer(), shaderInfo{shaderInfo} {
   renderContext = std::make_unique<RenderContext>();
   renderTarget = std::move(target);
-  objectPicker = std::make_unique<ObjectPicker>(renderTarget->extent(),
-                                                renderTarget->imageCount());
 
   if (auto *offscreenTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get())) 
     isSwapChainDependentFlag = true;
@@ -73,6 +69,10 @@ void SceneRenderer::destroy() {
   }
 }
 
+void SceneRenderer::addRenderFeature(std::unique_ptr<RenderFeature> feature){
+  renderFeatures.push_back(std::move(feature));
+}
+
 void SceneRenderer::onResize(const VkExtent2D newExtent) {
   Device::waitIdle();
 
@@ -80,7 +80,8 @@ void SceneRenderer::onResize(const VkExtent2D newExtent) {
     ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)tex);
 
   renderTarget->onResize(newExtent);
-  objectPicker->onResize(newExtent);
+  for (auto &feature : renderFeatures)
+    feature->onResize(newExtent);
 
   createPipeline();
 
@@ -142,35 +143,27 @@ void SceneRenderer::begin() {
   const uint32_t idx = FrameInfo::imageIndex;
 
   // Transition scene color image to COLOR_ATTACHMENT_OPTIMAL
-  ImageTransitionDescription colorTransitionDesc = {};
   VkImageLayout colorLayout = renderTarget->getColorImageLayout(idx);
   if (colorLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) 
-    colorTransitionDesc = ImageTransition::ShaderReadToColorOptimal;
+    renderTarget->transitionColorImage(
+        idx, ImageTransition::ShaderReadToColorOptimal);
   else if (colorLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) 
-    colorTransitionDesc = ImageTransition::UndefinedToColorOptimal;
-  renderTarget->transitionColorImage(idx, colorTransitionDesc);
+    renderTarget->transitionColorImage(
+        idx, ImageTransition::UndefinedToColorOptimal);
 
   VkImageLayout depthLayout = renderTarget->getDepthImageLayout(idx);
   if (depthLayout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
     renderTarget->transitionDepthImage(
         idx, ImageTransition::UndefinedToDepthOptimal);
 
-  #if defined(MAGMA_WITH_EDITOR)
-    // Transition ID image to COLOR_ATTACHMENT_OPTIMAL
-    ImageTransitionDescription idTransitionDesc = {};
-    VkImageLayout idLayout = objectPicker->getIdImageLayout(idx);
-    if (idLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) 
-      idTransitionDesc = ImageTransition::ShaderReadToColorOptimal;
-    else if (idLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) 
-      idTransitionDesc = ImageTransition::UndefinedToColorOptimal;
-    objectPicker->transitionIdImage(idx, idTransitionDesc);
-  #endif
+  for (auto &feature : renderFeatures)
+    feature->prepare(idx);
 
-  std::array<VkRenderingAttachmentInfo, 2> colors{};
-  colors[0] = renderTarget->getColorAttachment(idx);
-  #if defined(MAGMA_WITH_EDITOR)
-    colors[1] = objectPicker->getIdAttachment(idx);
-  #endif
+
+  std::vector<VkRenderingAttachmentInfo> colors{};
+  colors.emplace_back(renderTarget->getColorAttachment(idx));
+  for (auto &feature : renderFeatures)
+    feature->pushColorAttachments(colors, idx);
 
   VkRenderingAttachmentInfo depth = renderTarget->getDepthAttachment(idx);
 
@@ -178,7 +171,7 @@ void SceneRenderer::begin() {
   renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
   renderingInfo.renderArea.offset = {0, 0};
   renderingInfo.renderArea.extent = renderTarget->extent();
-  renderingInfo.colorAttachmentCount = renderTarget->getColorAttachmentCount();
+  renderingInfo.colorAttachmentCount = colors.size();
   renderingInfo.pColorAttachments = colors.data();
   renderingInfo.pDepthAttachment = &depth;
   renderingInfo.layerCount = 1;
@@ -237,12 +230,14 @@ void SceneRenderer::end() {
     // Transition scene color to SHADER_READ_ONLY for ImGui sampling
     renderTarget->transitionColorImage(
         idx, ImageTransition::ColorOptimalToShaderRead);
-
-    objectPicker->servicePendingPick();
   #else
     renderTarget->transitionColorImage(
         idx, ImageTransition::ColorOptimalToPresent);
   #endif
+
+  for (auto &feature : renderFeatures)
+    feature->finish(idx);
+
 }
 
 // Render Context Updates

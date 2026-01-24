@@ -5,7 +5,6 @@
 #include "engine/components/camera.hpp"
 #include "engine/editor_camera.hpp"
 #include "engine/render/features/object_picker.hpp"
-#include "engine/render/swapchain_target.hpp"
 #include "imgui.h"
 #include "render_context.hpp"
 #include <cstdint>
@@ -26,10 +25,19 @@ public:
   ~SceneRenderer();
   void destroy() override;
 
-
   uint32_t rendererId = 0;
-  CameraSource cameraSource = CameraSource::Editor;
 
+  template<typename T>
+  T &getFeature() {
+    for (auto &feature : renderFeatures) {
+      if (auto casted = dynamic_cast<T*>(feature.get()))
+        return *casted;
+    }
+    throw std::runtime_error("RenderFeature of requested type not found.");
+  }
+  void addRenderFeature(std::unique_ptr<RenderFeature> feature);
+
+  CameraSource cameraSource = CameraSource::Editor;
   static EditorCamera* getEditorCamera() {
     return editorCamera.get(); }
 
@@ -39,8 +47,6 @@ public:
 
   VkPipelineLayout getPipelineLayout() const override {
     return pipelineLayout; }
-  
-  ObjectPicker &getObjectPicker() { return *objectPicker; }
 
   void onResize(const VkExtent2D newExtent) override;
   void onRender() override;
@@ -65,6 +71,7 @@ private:
   void record() override;
   void end() override;
 
+  std::vector<std::unique_ptr<RenderFeature>> renderFeatures = {};
   std::unique_ptr<IRenderTarget> renderTarget = nullptr;
   std::unique_ptr<RenderContext> renderContext = nullptr;
   bool isSwapChainDependentFlag = false;
@@ -72,9 +79,6 @@ private:
   std::vector<ImTextureID> sceneTextures = {};
 
   inline static std::unique_ptr<EditorCamera> editorCamera = std::make_unique<EditorCamera>();
-
-  std::unique_ptr<ObjectPicker> objectPicker;
-
 };
 
 } // namespace Magma

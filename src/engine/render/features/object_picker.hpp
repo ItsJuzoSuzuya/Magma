@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/gameobject.hpp"
+#include "engine/render/features/render_feature.hpp"
 #include <vector>
 #include <vulkan/vulkan_core.h>
 namespace Magma {
@@ -8,12 +9,18 @@ namespace Magma {
 class RenderTargetInfo;
 class ImageTransitionDescription;
 
-class ObjectPicker {
+class ObjectPicker: public RenderFeature {
 public:
   ObjectPicker(VkExtent2D extent, uint32_t imageCount);
   ~ObjectPicker() { destroyImages(); }
 
-  void onResize(VkExtent2D newExtent);
+  void onResize(VkExtent2D newExtent) override;
+
+  void prepare(uint32_t imageIndex) override;
+  void pushColorAttachments(
+      std::vector<VkRenderingAttachmentInfo> &colors,
+      uint32_t imageIndex) override;
+  void finish(uint32_t imageIndex) override;
 
   VkImage getIdImage(uint32_t imageIndex) const {
     return idImages[imageIndex]; }
