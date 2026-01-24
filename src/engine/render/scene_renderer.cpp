@@ -32,7 +32,7 @@ SceneRenderer::SceneRenderer(std::unique_ptr<IRenderTarget> target,
   renderContext = std::make_unique<RenderContext>();
   renderTarget = std::move(target);
 
-  if (auto *offscreenTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get())) 
+  if (auto *swapchainTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get())) 
     isSwapChainDependentFlag = true;
 
   // Self-register with the context to get our slice index
@@ -314,7 +314,7 @@ void SceneRenderer::createPipeline() {
   Pipeline::defaultPipelineConfig(pipelineConfigInfo);
   pipelineConfigInfo.pipelineLayout = pipelineLayout;
 
-  uint32_t colorAttachmentCount = renderTarget->getColorAttachmentCount();
+  uint32_t colorAttachmentCount = renderTarget->getColorAttachmentCount() + renderFeatures.size();
   if (pipelineConfigInfo.colorBlendAttachments.size() < colorAttachmentCount) {
     auto first = pipelineConfigInfo.colorBlendAttachments.empty()
                      ? VkPipelineColorBlendAttachmentState{}

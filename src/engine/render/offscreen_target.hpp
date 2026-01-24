@@ -22,7 +22,7 @@ public:
   VkImage getColorImage(size_t index) const override;
   VkImageView getColorImageView(size_t index) const override;
   VkRenderingAttachmentInfo getColorAttachment(size_t index) const override;
-  uint32_t getColorAttachmentCount() const override { return 2; }
+  uint32_t getColorAttachmentCount() const override { return 1; }
   void transitionColorImage(size_t index, ImageTransitionDescription transition) override;
   VkImageLayout getColorImageLayout(size_t index) const override;
   VkFormat getColorFormat() const override { return imageFormat; }
