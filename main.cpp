@@ -1,6 +1,5 @@
-#include "engine/engine.hpp"
-#include "engine/specifications.hpp"
-#include <print>
+import engine;
+import std;
 
 // Main code
 int main(int, char **) {

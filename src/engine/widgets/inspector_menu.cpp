@@ -1,52 +1,68 @@
-#include "inspector_menu.hpp"
-#include "../components/mesh.hpp"
-#include "../components/point_light.hpp"
-#include "../components/transform.hpp"
-#include "../gameobject.hpp"
+module;
 #include "imgui.h"
 
-using namespace std;
+module widgets:inspector_menu;
+
 namespace Magma {
 
-// Draw: Popup menu for scene
-void InspectorMenu::draw() {
-  if (openPopupRequested) {
-    ImGui::OpenPopup(name());
-    openPopupRequested = false;
+/**
+ * Inspector Menu Widget
+ */
+export class InspectorMenu : public Widget {
+public:
+  const char *name() const override { return "Inspector Menu"; }
+
+  /**
+   * Queue opening Menu 
+   */
+  static void queueContextMenuFor(GameObject *target) {
+    contextTarget = target;
+    openPopupRequested = true;
   }
 
-  // Popup menu
-  if (ImGui::BeginPopup(name())) {
-    if (contextTarget) {
-      ImGui::TextUnformatted(contextTarget->name.c_str());
-      ImGui::Separator();
-      drawAddComponentMenu();
-    } else {
-      ImGui::TextUnformatted("Scene");
-      ImGui::Separator();
-      if (ImGui::MenuItem("Add Entity"))
-        GameObject::create();
-      if (ImGui::MenuItem("Delete"))
-        ; // No scene deletion for now
+  // Render
+  void draw() override {
+    if (openPopupRequested) {
+      ImGui::OpenPopup(name());
+      openPopupRequested = false;
     }
 
-    ImGui::EndPopup();
+    // Popup menu
+    if (ImGui::BeginPopup(name())) {
+      if (contextTarget) {
+        ImGui::TextUnformatted(contextTarget->name.c_str());
+        ImGui::Separator();
+        drawAddComponentMenu();
+      } else {
+        ImGui::TextUnformatted("Scene");
+        ImGui::Separator();
+        if (ImGui::MenuItem("Add Entity"))
+          GameObject::create();
+        if (ImGui::MenuItem("Delete"))
+          ; // No scene deletion for now
+      }
+
+      ImGui::EndPopup();
+    }
   }
-}
 
-void InspectorMenu::drawAddComponentMenu() {
-  if (!contextTarget)
-    return;
+private:
+  inline static GameObject *contextTarget = nullptr;
+  inline static bool openPopupRequested = false;
 
-  if (ImGui::BeginMenu("Add Component")) {
-    if (ImGui::MenuItem("Transform"))
-      contextTarget->addComponent<Transform>();
-    if (ImGui::MenuItem("Mesh"))
-      contextTarget->addComponent<Mesh>();
-    if (ImGui::MenuItem("Point Light"))
-      contextTarget->addComponent<PointLight>();
-    ImGui::EndMenu();
+  void drawAddComponentMenu() {
+    if (!contextTarget)
+      return;
+
+    if (ImGui::BeginMenu("Add Component")) {
+      if (ImGui::MenuItem("Transform"))
+        contextTarget->addComponent<Transform>();
+      if (ImGui::MenuItem("Mesh"))
+        contextTarget->addComponent<Mesh>();
+      if (ImGui::MenuItem("Point Light"))
+        contextTarget->addComponent<PointLight>();
+      ImGui::EndMenu();
+    }
   }
-}
-
+};
 } // namespace Magma

@@ -1,35 +1,16 @@
-#include "mesh.hpp"
-#include "core/frame_info.hpp"
-#include "core/mesh_data.hpp"
-#include "core/device.hpp"
-#include "engine/render/scene_renderer.hpp"
-#include "engine/scene.hpp"
-#include "engine/scene_action.hpp"
-#include "component.hpp"
-#include "core/window.hpp"
-#include <X11/X.h>
-#include <algorithm>
-#include <cstdint>
-#include <cstdio>
-#include <filesystem>
-#include <iterator>
-#include <memory>
-#include <print>
-
+module;
+#include <tiny_gltf.h>
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "tiny_gltf.h"
 
-#if defined(MAGMA_WITH_EDITOR)
-#include "imgui.h"
-#endif
-
-
+module components:mesh;
+import std;
+import core;
 
 namespace fs = std::filesystem;
 
-namespace Magma {
+export namespace Magma {
 
 namespace string_utils {
 inline std::string toLower(std::string str) {
@@ -46,291 +27,303 @@ inline bool hasAllowedExt(const fs::path &path) {
 }
 } // namespace string_utils
 
-Mesh::Mesh(GameObject *owner)
-    : Component(owner) {}
+export class Mesh {
+public:
+  Mesh(GameObject *owner)
+      : Component(owner) {}
 
-Mesh::~Mesh() {
-  if (meshData) {
-    delete meshData;
-    meshData = nullptr;
-    vertexBuffer = nullptr;
-    indexBuffer = nullptr;
+  ~Mesh() {
+    if (meshData) {
+      delete meshData;
+      meshData = nullptr;
+      vertexBuffer = nullptr;
+      indexBuffer = nullptr;
+    }
   }
-}
-
-// --------------------------------------------------------------
-// Public Methods
-// --------------------------------------------------------------
-
 #if defined(MAGMA_WITH_EDITOR)
-  bool Mesh::load() {
-    if (sourcePath.empty()) {
-      std::println("No source path set for mesh.");
+    bool load() {
+      if (sourcePath.empty()) {
+        std::println("No source path set for mesh.");
+        return false;
+      }
+      return load(sourcePath);
+    }
+#endif
+
+  bool load(const std::string &filepath) {
+    if (meshData) {
+      delete meshData;
+      meshData = nullptr;
+      vertexBuffer = nullptr;
+      indexBuffer = nullptr;
+    }
+
+    tinygltf::Model gltfModel;
+    tinygltf::TinyGLTF loader;
+    std::string err;
+    std::string warn;
+
+    bool result = loader.LoadASCIIFromFile(&gltfModel, &err, &warn, filepath);
+
+    if (!warn.empty())
+      println("Warning: {}", warn);
+
+    if (!err.empty()) {
+      println("Error: {}", err);
       return false;
     }
-    return load(sourcePath);
-  }
-#endif
 
-bool Mesh::load(const std::string &filepath) {
-  if (meshData) {
-    delete meshData;
-    meshData = nullptr;
-    vertexBuffer = nullptr;
-    indexBuffer = nullptr;
-  }
-
-  tinygltf::Model gltfModel;
-  tinygltf::TinyGLTF loader;
-  std::string err;
-  std::string warn;
-
-  bool result = loader.LoadASCIIFromFile(&gltfModel, &err, &warn, filepath);
-
-  if (!warn.empty())
-    println("Warning: {}", warn);
-
-  if (!err.empty()) {
-    println("Error: {}", err);
-    return false;
-  }
-
-  if (!result) {
-    println("Failed to load glTF model: {}", filepath);
-    return false;
-  } else {
-    println("Loading glTF model: {}", filepath);
-  }
-
-  for (const auto &mesh : gltfModel.meshes) {
-    for (const auto &primitive : mesh.primitives) {
-      const auto &vertexAccessor =
-          gltfModel.accessors[primitive.attributes.at("POSITION")];
-      const auto &vertexBufferView =
-          gltfModel.bufferViews[vertexAccessor.bufferView];
-      const auto &vertexBuffer = gltfModel.buffers[vertexBufferView.buffer];
-      const float *vertexData = reinterpret_cast<const float *>(
-          &vertexBuffer
-               .data[vertexBufferView.byteOffset + vertexAccessor.byteOffset]);
-
-      const auto &normalAccessor =
-          gltfModel.accessors[primitive.attributes.at("NORMAL")];
-      const auto &normalBufferView =
-          gltfModel.bufferViews[normalAccessor.bufferView];
-      const auto &normalBuffer = gltfModel.buffers[normalBufferView.buffer];
-      const float *normalData = reinterpret_cast<const float *>(
-          &normalBuffer
-               .data[normalBufferView.byteOffset + normalAccessor.byteOffset]);
-
-      const auto &uvAccessor =
-          gltfModel.accessors[primitive.attributes.at("TEXCOORD_0")];
-      const auto &uvBufferView = gltfModel.bufferViews[uvAccessor.bufferView];
-      const auto &uvBuffer = gltfModel.buffers[uvBufferView.buffer];
-      const float *uvData = reinterpret_cast<const float *>(
-          &uvBuffer.data[uvBufferView.byteOffset + uvAccessor.byteOffset]);
-
-      meshData = new MeshData();
-
-      for (size_t i = 0; i < vertexAccessor.count; i++) {
-        MeshData::Vertex vertex;
-        vertex.position = {vertexData[i * 3], vertexData[i * 3 + 1],
-                           vertexData[i * 3 + 2]};
-        vertex.normal = {normalData[i * 3], normalData[i * 3 + 1],
-                         normalData[i * 3 + 2]};
-        meshData->vertices.push_back(vertex);
-      }
-
-      if (primitive.indices >= 0) {
-        const auto &indexAccessor = gltfModel.accessors[primitive.indices];
-        const auto &indexBufferView =
-            gltfModel.bufferViews[indexAccessor.bufferView];
-        const auto &indexBuffer = gltfModel.buffers[indexBufferView.buffer];
-        const uint32_t *indexData = reinterpret_cast<const uint32_t *>(
-            &indexBuffer.data[0] + indexBufferView.byteOffset +
-            indexAccessor.byteOffset);
-
-        for (size_t i = 0; i < indexAccessor.count; i++)
-          meshData->indices.push_back(indexData[i]);
-      }
-    }
-  }
-
-  createVertexBuffer();
-  createIndexBuffer();
-
-  #if defined(MAGMA_WITH_EDITOR)
-    sourcePath = filepath;
-  #endif
-
-  return true;
-}
-
-// Lifecycle 
-void Mesh::onRender(SceneRenderer &renderer) {
-  if (!meshData)
-    return;
-
-  VkBuffer vertexBuffers[] = {vertexBuffer->getBuffer()};
-  VkDeviceSize offsets[] = {0};
-  vkCmdBindVertexBuffers(FrameInfo::commandBuffer, 0, 1, vertexBuffers,
-                         offsets);
-
-  if (hasIndexBuffer){
-    assert(indexBuffer != nullptr &&
-           "Index buffer must be created before rendering indexed mesh!");
-    vkCmdBindIndexBuffer(FrameInfo::commandBuffer, indexBuffer->getBuffer(), 0,
-                         VK_INDEX_TYPE_UINT32);
-  }
-}
-
-void Mesh::draw() {
-  if(!meshData)
-    return;
-
-  if (hasIndexBuffer)
-    vkCmdDrawIndexed(FrameInfo::commandBuffer,
-                     static_cast<uint32_t>(meshData->indices.size()), 1, 0, 0,
-                     0);
-  else
-    vkCmdDraw(FrameInfo::commandBuffer,
-              static_cast<uint32_t>(meshData->vertices.size()), 1, 0, 0);
-}
-
-#if defined(MAGMA_WITH_EDITOR)
-  void Mesh::onInspector() {
-    if (meshData) {
-      ImGui::Text("Vertices: %zu", meshData->vertices.size());
-      ImGui::Text("Indices: %zu", meshData->indices.size());
+    if (!result) {
+      println("Failed to load glTF model: {}", filepath);
+      return false;
+    } else {
+      println("Loading glTF model: {}", filepath);
     }
 
-    if (!assetsScanned) {
-      scanAssetsOnce();
-      assetsScanned = true;
-    }
+    for (const auto &mesh : gltfModel.meshes) {
+      for (const auto &primitive : mesh.primitives) {
+        const auto &vertexAccessor =
+            gltfModel.accessors[primitive.attributes.at("POSITION")];
+        const auto &vertexBufferView =
+            gltfModel.bufferViews[vertexAccessor.bufferView];
+        const auto &vertexBuffer = gltfModel.buffers[vertexBufferView.buffer];
+        const float *vertexData = reinterpret_cast<const float *>(
+            &vertexBuffer
+                 .data[vertexBufferView.byteOffset + vertexAccessor.byteOffset]);
 
-    if (pathBuffer[0] == 0) {
-      if (!sourcePath.empty()) {
-        snprintf(pathBuffer, size(sourcePath), "%s", sourcePath.c_str());
-      } else {
-        snprintf(pathBuffer, size(sourcePath), "assets/");
-      }
-    }
+        const auto &normalAccessor =
+            gltfModel.accessors[primitive.attributes.at("NORMAL")];
+        const auto &normalBufferView =
+            gltfModel.bufferViews[normalAccessor.bufferView];
+        const auto &normalBuffer = gltfModel.buffers[normalBufferView.buffer];
+        const float *normalData = reinterpret_cast<const float *>(
+            &normalBuffer
+                 .data[normalBufferView.byteOffset + normalAccessor.byteOffset]);
 
-    ImGui::Spacing();
-    ImGui::TextDisabled("Asset: ");
+        const auto &uvAccessor =
+            gltfModel.accessors[primitive.attributes.at("TEXCOORD_0")];
+        const auto &uvBufferView = gltfModel.bufferViews[uvAccessor.bufferView];
+        const auto &uvBuffer = gltfModel.buffers[uvBufferView.buffer];
+        const float *uvData = reinterpret_cast<const float *>(
+            &uvBuffer.data[uvBufferView.byteOffset + uvAccessor.byteOffset]);
 
-    bool pressedEnter = ImGui::InputText(
-        "##mesh_path", pathBuffer, IM_ARRAYSIZE(pathBuffer),
-        ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll );
+        meshData = new MeshData();
 
-    if (ImGui::IsItemHovered() && Window::hasDroppedText) {
-      std::string dropped = Window::getDroppedText();
-      snprintf(pathBuffer, sizeof(pathBuffer), "%s", dropped.c_str());
+        for (size_t i = 0; i < vertexAccessor.count; i++) {
+          MeshData::Vertex vertex;
+          vertex.position = {vertexData[i * 3], vertexData[i * 3 + 1],
+                             vertexData[i * 3 + 2]};
+          vertex.normal = {normalData[i * 3], normalData[i * 3 + 1],
+                           normalData[i * 3 + 2]};
+          meshData->vertices.push_back(vertex);
+        }
 
-      if (find_if(assets.begin(), assets.end(), [&dropped](const std::string &asset) {
-            return asset == dropped;
-          }) != assets.end()) {
-        sourcePath = dropped;
-        Scene::current()->defer(SceneAction::loadMesh(owner));
-      }
-      Window::resetHasDropped();
-    }
+        if (primitive.indices >= 0) {
+          const auto &indexAccessor = gltfModel.accessors[primitive.indices];
+          const auto &indexBufferView =
+              gltfModel.bufferViews[indexAccessor.bufferView];
+          const auto &indexBuffer = gltfModel.buffers[indexBufferView.buffer];
+          const uint32_t *indexData = reinterpret_cast<const uint32_t *>(
+              &indexBuffer.data[0] + indexBufferView.byteOffset +
+              indexAccessor.byteOffset);
 
-    if (pressedEnter) {
-      std::string typed = pathBuffer;
-
-      if (find_if(assets.begin(), assets.end(), [&typed](const std::string &asset) {
-            return asset == typed;
-          }) != assets.end()) {
-        sourcePath = typed;
-        Scene::current()->defer(SceneAction::loadMesh(owner));
-      }
-    }
-
-    // Display current source
-    if (!sourcePath.empty()) {
-      ImGui::Spacing();
-      ImGui::TextDisabled("Current Source: %s", sourcePath.c_str());
-    }
-  }
-#endif
-
-// --------------------------------------------------------------
-// Private Methods
-// --------------------------------------------------------------
-
-void Mesh::createVertexBuffer() {
-  assert(meshData != nullptr &&
-         "Cannot create vertex buffer before loading mesh data!");
-
-  uint32_t vertexCount = static_cast<uint32_t>(meshData->vertices.size());
-  uint32_t vertexSize = sizeof(meshData->vertices[0]);
-  uint32_t bufferSize = vertexSize * vertexCount;
-
-
-  Buffer stagingBuffer(vertexSize, vertexCount,
-                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  stagingBuffer.map();
-  stagingBuffer.writeToBuffer((void *)meshData->vertices.data());
-
-  vertexBuffer = std::make_unique<Buffer>(vertexSize, vertexCount,
-                                     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                                         VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-  Device::get().copyBuffer(stagingBuffer.getBuffer(), vertexBuffer->getBuffer(),
-                    bufferSize);
-}
-
-void Mesh::createIndexBuffer() {
-  assert(meshData != nullptr &&
-         "Cannot create index buffer before loading mesh data!");
-
-  uint32_t indexCount = static_cast<uint32_t>(meshData->indices.size());
-  hasIndexBuffer = indexCount > 0;
-
-  if (!hasIndexBuffer)
-    return;
-
-  uint32_t indexSize = sizeof(meshData->indices[0]);
-  uint32_t bufferSize = indexSize * indexCount;
-
-  Buffer stagingBuffer(indexSize, indexCount,
-                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  stagingBuffer.map();
-  stagingBuffer.writeToBuffer((void *)meshData->indices.data());
-
-  indexBuffer = std::make_unique<Buffer>(indexSize, indexCount,
-                                    VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-                                        VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-  Device::get().copyBuffer(stagingBuffer.getBuffer(), indexBuffer->getBuffer(),
-                    bufferSize);
-}
-
-#if defined(MAGMA_WITH_EDITOR)
-  void Mesh::scanAssetsOnce() {
-    const fs::path assetDir = "assets/";
-    try {
-      if (fs::exists(assetDir) && fs::is_directory(assetDir)) {
-        for (auto it = fs::recursive_directory_iterator(assetDir);
-             it != fs::recursive_directory_iterator(); it++) {
-          if (it->is_regular_file() && string_utils::hasAllowedExt(it->path()))
-            assets.push_back(it->path().string());
+          for (size_t i = 0; i < indexAccessor.count; i++)
+            meshData->indices.push_back(indexData[i]);
         }
       }
-    } catch (const fs::filesystem_error &e) {
-      std::println("Filesystem error: {}", e.what());
     }
 
-    std::sort(assets.begin(), assets.end());
-    assets.erase(std::unique(assets.begin(), assets.end()), assets.end());
+    createVertexBuffer();
+    createIndexBuffer();
+
+    #if defined(MAGMA_WITH_EDITOR)
+      sourcePath = filepath;
+    #endif
+
+    return true;
   }
+
+  // Lifecycle 
+  void onRender(SceneRenderer &renderer) {
+    if (!meshData)
+      return;
+
+    VkBuffer vertexBuffers[] = {vertexBuffer->getBuffer()};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(FrameInfo::commandBuffer, 0, 1, vertexBuffers,
+                           offsets);
+
+    if (hasIndexBuffer){
+      assert(indexBuffer != nullptr &&
+             "Index buffer must be created before rendering indexed mesh!");
+      vkCmdBindIndexBuffer(FrameInfo::commandBuffer, indexBuffer->getBuffer(), 0,
+                           VK_INDEX_TYPE_UINT32);
+    }
+  }
+
+  void draw() {
+    if(!meshData)
+      return;
+
+    if (hasIndexBuffer)
+      vkCmdDrawIndexed(FrameInfo::commandBuffer,
+                       static_cast<uint32_t>(meshData->indices.size()), 1, 0, 0,
+                       0);
+    else
+      vkCmdDraw(FrameInfo::commandBuffer,
+                static_cast<uint32_t>(meshData->vertices.size()), 1, 0, 0);
+  }
+
+#if defined(MAGMA_WITH_EDITOR)
+    void onInspector() {
+      if (meshData) {
+        ImGui::Text("Vertices: %zu", meshData->vertices.size());
+        ImGui::Text("Indices: %zu", meshData->indices.size());
+      }
+
+      if (!assetsScanned) {
+        scanAssetsOnce();
+        assetsScanned = true;
+      }
+
+      if (pathBuffer[0] == 0) {
+        if (!sourcePath.empty()) {
+          snprintf(pathBuffer, size(sourcePath), "%s", sourcePath.c_str());
+        } else {
+          snprintf(pathBuffer, size(sourcePath), "assets/");
+        }
+      }
+
+      ImGui::Spacing();
+      ImGui::TextDisabled("Asset: ");
+
+      bool pressedEnter = ImGui::InputText(
+          "##mesh_path", pathBuffer, IM_ARRAYSIZE(pathBuffer),
+          ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll );
+
+      if (ImGui::IsItemHovered() && Window::hasDroppedText) {
+        std::string dropped = Window::getDroppedText();
+        snprintf(pathBuffer, sizeof(pathBuffer), "%s", dropped.c_str());
+
+        if (find_if(assets.begin(), assets.end(), [&dropped](const std::string &asset) {
+              return asset == dropped;
+            }) != assets.end()) {
+          sourcePath = dropped;
+          Scene::current()->defer(SceneAction::loadMesh(owner));
+        }
+        Window::resetHasDropped();
+      }
+
+      if (pressedEnter) {
+        std::string typed = pathBuffer;
+
+        if (find_if(assets.begin(), assets.end(), [&typed](const std::string &asset) {
+              return asset == typed;
+            }) != assets.end()) {
+          sourcePath = typed;
+          Scene::current()->defer(SceneAction::loadMesh(owner));
+        }
+      }
+
+      // Display current source
+      if (!sourcePath.empty()) {
+        ImGui::Spacing();
+        ImGui::TextDisabled("Current Source: %s", sourcePath.c_str());
+      }
+    }
 #endif
+
+private: 
+  MeshData *meshData = nullptr;
+
+  // --- Buffers ---
+  std::unique_ptr<Buffer> vertexBuffer;
+  std::unique_ptr<Buffer> indexBuffer;
+  bool hasIndexBuffer = false;
+
+  void createVertexBuffer() {
+    assert(meshData != nullptr &&
+           "Cannot create vertex buffer before loading mesh data!");
+
+    uint32_t vertexCount = static_cast<uint32_t>(meshData->vertices.size());
+    uint32_t vertexSize = sizeof(meshData->vertices[0]);
+    uint32_t bufferSize = vertexSize * vertexCount;
+
+
+    Buffer stagingBuffer(vertexSize, vertexCount,
+                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    stagingBuffer.map();
+    stagingBuffer.writeToBuffer((void *)meshData->vertices.data());
+
+    vertexBuffer = std::make_unique<Buffer>(vertexSize, vertexCount,
+                                       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                           VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    Device::get().copyBuffer(stagingBuffer.getBuffer(), vertexBuffer->getBuffer(),
+                      bufferSize);
+  }
+
+  void createIndexBuffer() {
+    assert(meshData != nullptr &&
+           "Cannot create index buffer before loading mesh data!");
+
+    uint32_t indexCount = static_cast<uint32_t>(meshData->indices.size());
+    hasIndexBuffer = indexCount > 0;
+
+    if (!hasIndexBuffer)
+      return;
+
+    uint32_t indexSize = sizeof(meshData->indices[0]);
+    uint32_t bufferSize = indexSize * indexCount;
+
+    Buffer stagingBuffer(indexSize, indexCount,
+                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    stagingBuffer.map();
+    stagingBuffer.writeToBuffer((void *)meshData->indices.data());
+
+    indexBuffer = std::make_unique<Buffer>(indexSize, indexCount,
+                                      VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+                                          VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    Device::get().copyBuffer(stagingBuffer.getBuffer(), indexBuffer->getBuffer(),
+                      bufferSize);
+  }
+
+#if defined(MAGMA_WITH_EDITOR)
+    std::string sourcePath;
+    char pathBuffer[256] = "";
+    int popupSelection = -1;
+    std::vector<std::string> filteredAssets;
+
+    // --- Assets Cache ---
+
+    inline static std::vector<std::string> assets;
+    inline static bool assetsScanned = false;
+
+    void scanAssetsOnce() {
+      const fs::path assetDir = "assets/";
+      try {
+        if (fs::exists(assetDir) && fs::is_directory(assetDir)) {
+          for (auto it = fs::recursive_directory_iterator(assetDir);
+               it != fs::recursive_directory_iterator(); it++) {
+            if (it->is_regular_file() && string_utils::hasAllowedExt(it->path()))
+              assets.push_back(it->path().string());
+          }
+        }
+      } catch (const fs::filesystem_error &e) {
+        std::println("Filesystem error: {}", e.what());
+      }
+
+      std::sort(assets.begin(), assets.end());
+      assets.erase(std::unique(assets.begin(), assets.end()), assets.end());
+    }
+#endif
+};
 
 } // namespace Magma

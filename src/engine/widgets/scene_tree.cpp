@@ -1,31 +1,48 @@
-#include "scene_tree.hpp"
-#include "../scene.hpp"
+module;
 #include "imgui.h"
-#include "ui_context.hpp"
 
-using namespace std;
+module widgets:scene_tree;
+import std;
+
 namespace Magma {
 
-void SceneTree::preFrame() {
-  UIContext::ensureInit();
-  ImGui::SetNextWindowClass(&UIContext::AppDockClass);
-  ImGui::Begin(name());
-  ImGui::End();
-}
+export class SceneTree : public Widget {
+public:
+  // Name of the widget
+  const char *name() const override { return "Scene Tree"; }
 
-void SceneTree::draw() {
-  UIContext::ensureInit();
+  // Lifecycle
+  void preFrame() override {
+    UIContext::ensureInit();
+    ImGui::SetNextWindowClass(&UIContext::AppDockClass);
+    ImGui::Begin(name());
+    ImGui::End();
+  }
 
-  ImGui::SetNextWindowClass(&UIContext::AppDockClass);
-  ImGui::Begin(name());
+  void draw() override {
+    UIContext::ensureInit();
 
-  if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) 
-    SceneMenu::queueContextMenuFor(nullptr);
+    ImGui::SetNextWindowClass(&UIContext::AppDockClass);
+    ImGui::Begin(name());
 
-  Scene::drawSceneTree();
-  sceneMenu.draw();
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) 
+      SceneMenu::queueContextMenuFor(nullptr);
 
-  ImGui::End();
-}
+    Scene::drawSceneTree();
+    sceneMenu.draw();
+
+    ImGui::End();
+  }
+
+
+  // Docking prefrence (Left 25%)
+  std::optional<DockHint> dockHint() const override {
+    return DockHint{DockSide::Left, 0.25f};
+  }
+
+private:
+  // Scene Menu
+  SceneMenu sceneMenu = {};
+};
 
 } // namespace Magma

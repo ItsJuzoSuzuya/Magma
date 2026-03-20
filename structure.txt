@@ -1,0 +1,253 @@
+.
+├── 1qa
+├── assets
+│   ├── barrel
+│   │   ├── barrel_BaseColor.png
+│   │   ├── Barrel.bin
+│   │   ├── Barrel.gltf
+│   │   ├── barrel_Metallic-barrel_Roughness.png
+│   │   └── barrel_Normal.png
+│   ├── cube
+│   │   ├── .bin
+│   │   ├── gltf.zip
+│   │   ├── license.txt
+│   │   └── scene.gltf
+│   └── fonts
+│       └── fa7-solid.otf
+├── .cache
+│   └── clangd
+│       └── index
+│           ├── buffer.cpp.787A27361723D239.idx
+│           ├── buffer.hpp.771142A11D84F77D.idx
+│           ├── camera.cpp.4361D958C169C1A1.idx
+│           ├── camera.hpp.5B54EA62D294605E.idx
+│           ├── component.hpp.6AD60595E538712F.idx
+│           ├── deletion_queue.hpp.5DBCD4FDA74F461C.idx
+│           ├── descriptors.cpp.8990D59B6B0C8A6E.idx
+│           ├── descriptors.hpp.12043BEE367DDD3B.idx
+│           ├── device.cpp.47AA349D2AE51D2E.idx
+│           ├── device.hpp.7E678EAC6ED51425.idx
+│           ├── dock_layout.cpp.3064017DAEA6BCF0.idx
+│           ├── dock_layout.hpp.AB4DC4B5B34B65A1.idx
+│           ├── editor_camera.cpp.6EE4ED0FD38B3202.idx
+│           ├── editor_camera.hpp.4B32DFFE96DF71D3.idx
+│           ├── engine.cpp.68D07499A519471E.idx
+│           ├── engine.hpp.FE07DEAE589FE676.idx
+│           ├── file_browser.cpp.44A0DDE2C34479FF.idx
+│           ├── file_browser.hpp.E71DCFA0CDA5069C.idx
+│           ├── file_manager.cpp.210F6F8D4304ADD9.idx
+│           ├── file_manager.hpp.6DE8D29CA67E6D2D.idx
+│           ├── frame_info.hpp.D60C1C52EFB43763.idx
+│           ├── game_editor.cpp.F0E94AFCAD9D19BF.idx
+│           ├── game_editor.hpp.D70D1EA07C97C661.idx
+│           ├── gameobject.cpp.620278620185BE5E.idx
+│           ├── gameobject.hpp.58A5341BFB6BED4A.idx
+│           ├── game_view.cpp.9A9E2598CD43EE09.idx
+│           ├── game_view.hpp.D2B26098C4C94D2D.idx
+│           ├── icons.hpp.3462181176259F27.idx
+│           ├── image_transitions.hpp.DC4826C8CC565EAE.idx
+│           ├── imconfig.h.769BBF7C2756D439.idx
+│           ├── imgui.cpp.B210B5ACF7763447.idx
+│           ├── imgui_draw.cpp.6E9A0EEF0224DA7F.idx
+│           ├── imgui.h.AB5A06D33FAE6FF1.idx
+│           ├── imgui_impl_glfw.cpp.832F3AFCB4D5CABC.idx
+│           ├── imgui_impl_glfw.h.A488405F3B7E8013.idx
+│           ├── imgui_impl_vulkan.cpp.EFB037747EFDA835.idx
+│           ├── imgui_impl_vulkan.h.F9141B0B591B8601.idx
+│           ├── imgui_internal.h.9DBD373F9BE53960.idx
+│           ├── imgui_renderer.cpp.D33BE2313AC7B4F0.idx
+│           ├── imgui_renderer.hpp.000BB19E1C24F4CC.idx
+│           ├── imgui_tables.cpp.C489D20509789D66.idx
+│           ├── imgui_widgets.cpp.8C7F61B9258EFC90.idx
+│           ├── imstb_rectpack.h.D5D0E80963E63E90.idx
+│           ├── imstb_textedit.h.128DB0ACED1B245E.idx
+│           ├── imstb_truetype.h.8BF7FC1747E94FD8.idx
+│           ├── inspector.cpp.AC5F41E82CA05A5B.idx
+│           ├── inspector.hpp.BD7B3F7671B88E25.idx
+│           ├── inspector_menu.cpp.4C6AD1AE5CBCC4B5.idx
+│           ├── inspector_menu.hpp.5698291B8D9CBC60.idx
+│           ├── json.hpp.E79D138159CC57D8.idx
+│           ├── main.cpp.C32412319AEBEA85.idx
+│           ├── mesh.cpp.AFD6399151D3F827.idx
+│           ├── mesh_data.cpp.C968E984321D018B.idx
+│           ├── mesh_data.hpp.AA90ED1CC6BFDAEB.idx
+│           ├── mesh.hpp.894777E8B76D8233.idx
+│           ├── object_picker.cpp.F472F51B7E456327.idx
+│           ├── object_picker.hpp.75D39CE3C27B49F5.idx
+│           ├── offscreen_renderer.cpp.01110A1640B1587D.idx
+│           ├── offscreen_renderer.hpp.59BA075F7452CF6F.idx
+│           ├── offscreen_target.cpp.8F2D06D481EC8C19.idx
+│           ├── offscreen_target.hpp.4AF2FEE951BD42A7.idx
+│           ├── pipeline.cpp.069E906D18A28987.idx
+│           ├── pipeline.hpp.90706F8BEB48DE49.idx
+│           ├── pipeline_shader_info.hpp.6D1B6D52E9567069.idx
+│           ├── point_light.cpp.EC09D3D3430A5F8F.idx
+│           ├── point_light.hpp.62E9DCD6E0927D6D.idx
+│           ├── push_constant_data.hpp.228544AB59F4FAED.idx
+│           ├── queue_family_indices.hpp.7AB4E09F38B43380.idx
+│           ├── render_context.cpp.4DC180F69D986693.idx
+│           ├── render_context.hpp.D683B4EAA7CFDD96.idx
+│           ├── renderer.cpp.E301FDCADF94D853.idx
+│           ├── renderer.hpp.4C1D05A0758260C7.idx
+│           ├── render_feature.hpp.A2CDF2F948A4FEA3.idx
+│           ├── render_system.cpp.26DC4820F058B26F.idx
+│           ├── render_system.hpp.9AE9C92E4FC0EB25.idx
+│           ├── render_target.hpp.D92600F95804195C.idx
+│           ├── render_target_info.hpp.557F52C56318C446.idx
+│           ├── runtime_control.cpp.9ABC9F12DE7D07CC.idx
+│           ├── runtime_control.hpp.5B2D27E70680FDA1.idx
+│           ├── scene_action.hpp.A6373B3C036A170E.idx
+│           ├── scene.cpp.6DA11DF47D02933F.idx
+│           ├── scene.hpp.1ABD32BD5C7FA7C4.idx
+│           ├── scene_menu.cpp.2D65EC6EE92D2F48.idx
+│           ├── scene_menu.hpp.2C072D8CA9AE6725.idx
+│           ├── scene_renderer.cpp.D76C9306C561AD3D.idx
+│           ├── scene_renderer.hpp.9C56202932CFCDA8.idx
+│           ├── scene_tree.cpp.1DC41CC32E85C426.idx
+│           ├── scene_tree.hpp.E7B4B343A216C5A2.idx
+│           ├── specifications.hpp.6FCD685B54587FD0.idx
+│           ├── stb_image.h.A7281B326414CB14.idx
+│           ├── stb_image_write.h.C25B29AD87176FD1.idx
+│           ├── swapchain.cpp.294B8339458EB6CE.idx
+│           ├── swapchain.hpp.E0A87D6B84FDDC7F.idx
+│           ├── swapchain_target.cpp.07444E89DD21A989.idx
+│           ├── swapchain_target.hpp.DF106E9374720544.idx
+│           ├── time.hpp.84682F3226A4A0A6.idx
+│           ├── tiny_gltf.h.ADA1604FA451B628.idx
+│           ├── transform.cpp.996901E18ABD7EF2.idx
+│           ├── transform.hpp.D793CE774050904E.idx
+│           ├── ui_context.hpp.01741BFD987362A6.idx
+│           ├── widget.hpp.E8F6F0A4B21F036B.idx
+│           ├── window.cpp.F73F23A8AA9CA1C3.idx
+│           └── window.hpp.E0BFFB4AA7D66FAB.idx
+├── CMakeLists.txt
+├── .gitignore
+├── imgui.ini
+├── main.cpp
+├── src
+│   ├── core
+│   │   ├── buffer.cpp
+│   │   ├── buffer.hpp
+│   │   ├── deletion_queue.hpp
+│   │   ├── descriptors.cpp
+│   │   ├── descriptors.hpp
+│   │   ├── device.cpp
+│   │   ├── device.hpp
+│   │   ├── frame_info.hpp
+│   │   ├── icons.hpp
+│   │   ├── image_transitions.hpp
+│   │   ├── mesh_data.cpp
+│   │   ├── mesh_data.hpp
+│   │   ├── pipeline.cpp
+│   │   ├── pipeline.hpp
+│   │   ├── push_constant_data.hpp
+│   │   ├── queue_family_indices.hpp
+│   │   ├── renderer.hpp
+│   │   ├── render_system.cpp
+│   │   ├── render_system.hpp
+│   │   ├── render_target.hpp
+│   │   ├── render_target_info.hpp
+│   │   ├── swapchain.cpp
+│   │   ├── swapchain.hpp
+│   │   ├── window.cpp
+│   │   └── window.hpp
+│   ├── engine
+│   │   ├── components
+│   │   │   ├── camera.cpp
+│   │   │   ├── camera.hpp
+│   │   │   ├── component.hpp
+│   │   │   ├── mesh.cpp
+│   │   │   ├── mesh.hpp
+│   │   │   ├── point_light.cpp
+│   │   │   ├── point_light.hpp
+│   │   │   ├── transform.cpp
+│   │   │   └── transform.hpp
+│   │   ├── editor_camera.cpp
+│   │   ├── editor_camera.hpp
+│   │   ├── engine.cpp
+│   │   ├── engine.hpp
+│   │   ├── gameobject.cpp
+│   │   ├── gameobject.hpp
+│   │   ├── render
+│   │   │   ├── features
+│   │   │   │   ├── object_picker.cpp
+│   │   │   │   ├── object_picker.hpp
+│   │   │   │   └── render_feature.hpp
+│   │   │   ├── imgui_renderer.cpp
+│   │   │   ├── imgui_renderer.hpp
+│   │   │   ├── offscreen_target.cpp
+│   │   │   ├── offscreen_target.hpp
+│   │   │   ├── pipeline_shader_info.hpp
+│   │   │   ├── render_context.cpp
+│   │   │   ├── render_context.hpp
+│   │   │   ├── scene_renderer.cpp
+│   │   │   ├── scene_renderer.hpp
+│   │   │   ├── swapchain_target.cpp
+│   │   │   └── swapchain_target.hpp
+│   │   ├── scene_action.hpp
+│   │   ├── scene.cpp
+│   │   ├── scene.hpp
+│   │   ├── specifications.hpp
+│   │   ├── systems
+│   │   │   ├── file_manager.cpp
+│   │   │   └── file_manager.hpp
+│   │   ├── time.hpp
+│   │   └── widgets
+│   │       ├── dock_layout.cpp
+│   │       ├── dock_layout.hpp
+│   │       ├── file_browser.cpp
+│   │       ├── file_browser.hpp
+│   │       ├── game_editor.cpp
+│   │       ├── game_editor.hpp
+│   │       ├── game_view.cpp
+│   │       ├── game_view.hpp
+│   │       ├── inspector.cpp
+│   │       ├── inspector.hpp
+│   │       ├── inspector_menu.cpp
+│   │       ├── inspector_menu.hpp
+│   │       ├── runtime_control.cpp
+│   │       ├── runtime_control.hpp
+│   │       ├── scene_menu.cpp
+│   │       ├── scene_menu.hpp
+│   │       ├── scene_tree.cpp
+│   │       ├── scene_tree.hpp
+│   │       ├── ui_context.hpp
+│   │       ├── widget.hpp
+│   │       └── wiget_manger.hpp
+│   ├── external
+│   │   ├── imgui
+│   │   │   ├── imconfig.h
+│   │   │   ├── imgui.cpp
+│   │   │   ├── imgui_demo.cpp
+│   │   │   ├── imgui_draw.cpp
+│   │   │   ├── imgui.h
+│   │   │   ├── imgui_impl_glfw.cpp
+│   │   │   ├── imgui_impl_glfw.h
+│   │   │   ├── imgui_impl_vulkan.cpp
+│   │   │   ├── imgui_impl_vulkan.h
+│   │   │   ├── imgui_internal.h
+│   │   │   ├── imgui_tables.cpp
+│   │   │   ├── imgui_widgets.cpp
+│   │   │   ├── imstb_rectpack.h
+│   │   │   ├── imstb_textedit.h
+│   │   │   └── imstb_truetype.h
+│   │   ├── json.hpp
+│   │   ├── stb_image.h
+│   │   ├── stb_image_write.h
+│   │   ├── tiny_gltf.h
+│   │   └── vk_format.hpp
+│   └── shaders
+│       ├── compile.sh
+│       ├── editor.frag
+│       ├── editor.frag.spv
+│       ├── editor.vert
+│       ├── editor.vert.spv
+│       ├── imgui.frag
+│       ├── imgui.frag.spv
+│       ├── shader.frag
+│       ├── shader.frag.spv
+│       ├── shader.vert
+│       └── shader.vert.spv
+└── structure.txt
+
+19 directories, 232 files

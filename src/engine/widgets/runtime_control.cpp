@@ -1,77 +1,107 @@
-#include "runtime_control.hpp"
-#include "../core/icons.hpp"
+module;
 #include "imgui.h"
-#include "ui_context.hpp"
 
-using namespace std;
+module wigets:runtime_control;
+import std;
+
 namespace Magma {
 
-// Draw the widget
-void RuntimeControl::draw() {
-  UIContext::ensureInit();
+/**
+ * @brief A runtime control widget for the ImGuiRenderer.
+ * This widget provides controls for managing runtime aspects of the application,
+ * such as starting, stopping, and pausing the simulation or game.
+ */
+export class RuntimeControl: public Widget {
+public:
+  enum RunState {
+    Stopped,
+    Running,
+    Paused
+  };
 
-  if (UIContext::TopBarDockId != 0)
-      ImGui::SetNextWindowDockID(UIContext::TopBarDockId, ImGuiCond_Always);
-  ImGui::SetNextWindowClass(&UIContext::AppDockClass);
+  // Name of the widget
+  const char *name() const override { return "Runtime Control"; }
 
-  ImGuiWindowFlags flags =
-      ImGuiWindowFlags_NoTitleBar |
-      ImGuiWindowFlags_NoResize |
-      ImGuiWindowFlags_NoMove |
-      ImGuiWindowFlags_NoCollapse |
-      ImGuiWindowFlags_NoSavedSettings |
-      ImGuiWindowFlags_NoScrollbar |
-      ImGuiWindowFlags_NoScrollWithMouse;
+  // Draw the widget
+  void draw() override {
+    UIContext::ensureInit();
 
-  ImGui::Begin(name(), nullptr, flags);
-  drawButtons();
-  ImGui::End();
-}
+    if (UIContext::TopBarDockId != 0)
+        ImGui::SetNextWindowDockID(UIContext::TopBarDockId, ImGuiCond_Always);
+    ImGui::SetNextWindowClass(&UIContext::AppDockClass);
 
-// --- Private methods ---
+    ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoTitleBar |
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoSavedSettings |
+        ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoScrollWithMouse;
 
-void RuntimeControl::drawButtons() {
-  ImGuiStyle& style = ImGui::GetStyle();
-
-  // Decide which buttons to show based on state
-  bool showPlay      = (state == RunState::Stopped || state == RunState::Paused);
-  bool showPause     = (state == RunState::Running);
-  bool showStop      = (state != RunState::Stopped);
-
-  // Compute total width for centering
-  int buttonCount =
-      (showPlay ? 1 : 0) +
-      (showPause ? 1 : 0) +
-      (showStop ? 1 : 0);
-
-  if (buttonCount == 0) return;
-
-  const float size = 20.0f; 
-  const float spacing = style.ItemSpacing.x;
-  const float totalWidth = buttonCount * size + (buttonCount - 1) * spacing;
-  const float regionWidth = ImGui::GetContentRegionAvail().x;
-  float startX = (regionWidth - totalWidth) * 0.5f;
-  if (startX < 0.f) startX = 0.f;
-
-  ImGui::SetCursorPosX(ImGui::GetCursorPosX() + startX);
-
-  if (showPlay) {
-    if (ImGui::Button(ICON_PLAY, ImVec2(size, size)))
-      state = RunState::Running;
-    ImGui::SameLine(0, spacing);
+    ImGui::Begin(name(), nullptr, flags);
+    drawButtons();
+    ImGui::End();
   }
 
-  if (showPause) {
-    if (ImGui::Button(ICON_PAUSE, ImVec2(size, size))) 
-      state = RunState::Paused;
-    if (showStop)
+  // Docking preference: place the runtime control on the top
+  std::optional<DockHint> dockHint() const override {
+    return DockHint{DockSide::Up, 0.01f};
+  }
+
+  // Get the current runtime state
+  static RunState getState() {
+    return state;
+  }
+  
+private:
+  inline static RunState state = Stopped;
+  void beginPlaySession();
+  void endPlaySession();
+
+  void drawButtons() {
+    ImGuiStyle& style = ImGui::GetStyle();
+
+    // Decide which buttons to show based on state
+    bool showPlay      = (state == RunState::Stopped || state == RunState::Paused);
+    bool showPause     = (state == RunState::Running);
+    bool showStop      = (state != RunState::Stopped);
+
+    // Compute total width for centering
+    int buttonCount =
+        (showPlay ? 1 : 0) +
+        (showPause ? 1 : 0) +
+        (showStop ? 1 : 0);
+
+    if (buttonCount == 0) return;
+
+    const float size = 20.0f; 
+    const float spacing = style.ItemSpacing.x;
+    const float totalWidth = buttonCount * size + (buttonCount - 1) * spacing;
+    const float regionWidth = ImGui::GetContentRegionAvail().x;
+    float startX = (regionWidth - totalWidth) * 0.5f;
+    if (startX < 0.f) startX = 0.f;
+
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + startX);
+
+    if (showPlay) {
+      if (ImGui::Button(ICON_PLAY, ImVec2(size, size)))
+        state = RunState::Running;
       ImGui::SameLine(0, spacing);
-  }
+    }
 
-  if (showStop) {
-    if (ImGui::Button(ICON_STOP, ImVec2(size, size)))
-      state = RunState::Stopped;
+    if (showPause) {
+      if (ImGui::Button(ICON_PAUSE, ImVec2(size, size))) 
+        state = RunState::Paused;
+      if (showStop)
+        ImGui::SameLine(0, spacing);
+    }
+
+    if (showStop) {
+      if (ImGui::Button(ICON_STOP, ImVec2(size, size)))
+        state = RunState::Stopped;
+    }
   }
-}
+};
 
 }

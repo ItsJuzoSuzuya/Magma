@@ -1,11 +1,4 @@
-#include "scene.hpp"
-#include "core/device.hpp"
-#include "core/renderer.hpp"
-#include "components/transform.hpp"
-#include "engine/render/scene_renderer.hpp"
-#include "gameobject.hpp"
-#include "scene_action.hpp"
-#include <memory>
+module;
 
 #if defined(MAGMA_WITH_EDITOR)
   #include "imgui.h"
@@ -13,151 +6,185 @@
   #include "widgets/scene_menu.hpp"
 #endif
 
-namespace Magma {
+module engine:scene;
+import std;
+import components;
 
-Scene::Scene() {
-  if (activeScene == nullptr)
-    setActive();
+export namespace Magma{
 
-  auto &camera = GameObject::create("Main Camera");
-  camera.addComponent<Transform>();
-  camera.addComponent<Camera>()->
-    setPerspectiveProjection(glm::radians(60.0f), 16.0f / 9.0f, 0.1f, 100.0f);
-  Scene::setActiveCamera(&camera);
-}
 
-Scene::~Scene() {
-  Device::waitIdle();
+export class Scene {
+public:
+  Scene() {
+    if (activeScene == nullptr)
+      setActive();
 
-  if (activeScene == this)
-    activeScene = nullptr;
-}
+    auto &camera = GameObject::create("Main Camera");
+    camera.addComponent<Transform>();
+    camera.addComponent<Camera>()->
+      setPerspectiveProjection(glm::radians(60.0f), 16.0f / 9.0f, 0.1f, 100.0f);
+    Scene::setActiveCamera(&camera);
+  }
 
-// ----------------------------------------------------------------------------
-// Public Methods
-// ----------------------------------------------------------------------------
+  ~Scene(){
+    Device::waitIdle();
 
-// GameObject management 
-std::vector<std::unique_ptr<GameObject>> &Scene::getGameObjects() {
-  return gameObjects;
-}
+    if (activeScene == this)
+      activeScene = nullptr;
+  }
 
-GameObject *Scene::findGameObjectById(GameObject::id_t id) {
-  if (activeScene == nullptr)
-    return nullptr;
+  Scene(const Scene &) = delete;
+  Scene &operator=(const Scene &) = delete;
+  Scene(Scene &&) = default;
+  Scene &operator=(Scene &&) = default;
 
-  std::function<GameObject *(GameObject *)> findObjectInChildren =
-      [&](GameObject *node) -> GameObject * {
-    if (!node)
+  static Scene *current() { return activeScene; }
+  void setActive() { activeScene = this; }
+
+  static void setActiveCamera(Magma::GameObject *camera) {  
+    activeCamera = camera; }
+  static GameObject *getActiveCamera() { 
+    return activeCamera; }
+
+  std::vector<std::unique_ptr<GameObject>> &getGameObjects(){
+    return gameObjects;
+  }
+  GameObject *findGameObjectById(GameObject::id_t id){
+    if (activeScene == nullptr)
       return nullptr;
 
-    if (node->id == id)
-      return node;
+    std::function<GameObject *(GameObject *)> findObjectInChildren =
+        [&](GameObject *node) -> GameObject * {
+      if (!node)
+        return nullptr;
 
-    auto children = node->getChildren();
-    for (auto *child : children) {
-      if (auto obj = findObjectInChildren(child))
+      if (node->id == id)
+        return node;
+
+      auto children = node->getChildren();
+      for (auto *child : children) {
+        if (auto obj = findObjectInChildren(child))
+          return obj;
+      }
+      return nullptr;
+    };
+
+    for (const auto &go : activeScene->gameObjects) {
+      if (!go) 
+        continue;
+
+      if (go->id == id) 
+        return go.get();
+
+      if (auto obj = findObjectInChildren(go.get())) 
         return obj;
     }
     return nullptr;
-  };
-
-  for (const auto &go : activeScene->gameObjects) {
-    if (!go) 
-      continue;
-
-    if (go->id == id) 
-      return go.get();
-
-    if (auto obj = findObjectInChildren(go.get())) 
-      return obj;
   }
-  return nullptr;
-}
+  GameObject &addGameObject(std::unique_ptr<GameObject> gameObject, bool hidden = false){
 
-GameObject &Scene::addGameObject(std::unique_ptr<GameObject> gameObject, bool hidden) {
-  assert(gameObject != nullptr &&
-         "GameObject cannot be null when adding to scene");
+    assert(gameObject != nullptr &&
+           "GameObject cannot be null when adding to scene");
 
-  GameObject &ref = *gameObject;
-  gameObjects.push_back(std::move(gameObject));
-  return ref;
-}
+    GameObject &ref = *gameObject;
+    gameObjects.push_back(std::move(gameObject));
+    return ref;
+  }
+  void removeGameObject(GameObject *gameObject){
+    defer(SceneAction::remove(gameObject));
+  }
 
-void Scene::removeGameObject(GameObject *gameObject) {
-  defer(SceneAction::remove(gameObject));
-}
+  #if defined(MAGMA_WITH_EDITOR)
+    static void drawSceneTree(){
+      if (activeScene == nullptr)
+        return;
 
-// Scene Tree (Editor Only)
-#if defined(MAGMA_WITH_EDITOR)
-void Scene::drawSceneTree() {
-  if (activeScene == nullptr)
-    return;
+      for (auto &gameObject : activeScene->gameObjects) {
+        if (gameObject == nullptr)
+          continue;
 
-  for (auto &gameObject : activeScene->gameObjects) {
-    if (gameObject == nullptr)
-      continue;
+        ImGuiTreeNodeFlags flags =
+            ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanFullWidth;
 
-    ImGuiTreeNodeFlags flags =
-        ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanFullWidth;
+        // If no children, display as leaf node
+        if (!gameObject->hasChildren()) {
+          flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+          ImGui::TreeNodeEx(gameObject->name.c_str(), flags);
 
-    // If no children, display as leaf node
-    if (!gameObject->hasChildren()) {
-      flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-      ImGui::TreeNodeEx(gameObject->name.c_str(), flags);
+          if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+            SceneMenu::queueContextMenuFor(gameObject.get());
+          if (ImGui::IsItemClicked())
+            Inspector::setContext(gameObject.get());
 
-      if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-        SceneMenu::queueContextMenuFor(gameObject.get());
-      if (ImGui::IsItemClicked())
-        Inspector::setContext(gameObject.get());
+          continue;
+        }
 
-      continue;
+        // Else display as tree node
+        bool open = ImGui::TreeNodeEx(gameObject->name.c_str(), flags);
+
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+          SceneMenu::queueContextMenuFor(gameObject.get());
+        if (ImGui::IsItemClicked())
+          Inspector::setContext(gameObject.get());
+
+        if (open) {
+          gameObject->drawChildren();
+          ImGui::TreePop();
+        }
+      }
+    }
+  #endif
+
+  /**
+   * Render GameObjects recursively
+   * @param renderer Renderer to use for rendering
+   */
+  static void onRender(SceneRenderer &renderer){
+    if (activeScene == nullptr)
+      return;
+
+    if(renderer.cameraSource == CameraSource::Scene) {
+      activeCamera->onUpdate();
+      activeCamera->onRender(renderer);
     }
 
-    // Else display as tree node
-    bool open = ImGui::TreeNodeEx(gameObject->name.c_str(), flags);
-
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-      SceneMenu::queueContextMenuFor(gameObject.get());
-    if (ImGui::IsItemClicked())
-      Inspector::setContext(gameObject.get());
-
-    if (open) {
-      gameObject->drawChildren();
-      ImGui::TreePop();
+    for (auto &gameObject : activeScene->gameObjects) {
+      if (gameObject && gameObject.get() != activeCamera)
+        gameObject->onRender(renderer);
     }
   }
-}
-#endif
 
-// Rendering
-void Scene::onRender(SceneRenderer &renderer) {
-  if (activeScene == nullptr)
-    return;
+  /**
+   * Defers an action to be executed after the current frame
+   * @param func The function to be executed
+   * @note This is useful for actions that modify the scene
+   */
+  void defer(std::function<void()> func) { deferredActions.push_back(func); }
+  /**
+   * Process deferred actions queued during the frame
+   * @note This should be called at the end of each frame
+   */
+  void processDeferredActions(){
+    if (activeScene == nullptr)
+      return;
+    if (deferredActions.empty())
+      return;
 
-  if(renderer.cameraSource == CameraSource::Scene) {
-    activeCamera->onUpdate();
-    activeCamera->onRender(renderer);
+    Device::waitIdle();
+    for (auto &action : deferredActions)
+      action();
+
+    deferredActions.clear();
   }
 
-  for (auto &gameObject : activeScene->gameObjects) {
-    if (gameObject && gameObject.get() != activeCamera)
-      gameObject->onRender(renderer);
-  }
+
+private:
+  inline static Scene *activeScene = nullptr;
+  inline static GameObject* activeCamera;
+
+  std::vector<std::unique_ptr<GameObject>> gameObjects;
+
+  std::vector<std::function<void()>> deferredActions;
+};
+
 }
-
-// Deferred Actions
-void Scene::processDeferredActions() {
-  if (activeScene == nullptr)
-    return;
-  if (deferredActions.empty())
-    return;
-
-  Device::waitIdle();
-  for (auto &action : deferredActions)
-    action();
-
-  deferredActions.clear();
-}
-
-} // namespace Magma

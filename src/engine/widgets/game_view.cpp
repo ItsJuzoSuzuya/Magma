@@ -1,13 +1,10 @@
-#include "game_view.hpp"
-#include "core/frame_info.hpp"
-#include "engine/render/scene_renderer.hpp"
+module;
+#include <vulkan/vulkan_core.h>
 #include "imgui.h"
 #include "imgui_internal.h"
-#include "ui_context.hpp"
-#include <glm/fwd.hpp>
-#include <print>
 
-namespace Magma {
+module widgets:game_view;
+import std;
 
 static ImVec2 fit16x9(const ImVec2 &avail) {
   float targetH = avail.x * 9.0f / 16.0f;
@@ -27,41 +24,60 @@ static ImVec2 fit16x9(const ImVec2 &avail) {
   return size;
 }
 
-// Perform resize decision before starting frame.
-void GameView::preFrame() {
-  UIContext::ensureInit();
-  ImGui::SetNextWindowClass(&UIContext::GameViewDockClass);
+namespace Magma {
 
-  bool open = ImGui::Begin(name());
-  if (open) {
-    ImVec2 avail = ImGui::GetContentRegionAvail();
-    ImVec2 desired = fit16x9(avail);
+export class GameView : public Widget {
+public:
+  explicit GameView(SceneRenderer &renderer)
+      : renderer{renderer} {}
 
-    ImVec2 current = renderer.getSceneSize();
-    bool needsResize = ((int)desired.x != (int)current.x) ||
-                       ((int)desired.y != (int)current.y);
+  const char *name() const override { return "Game"; }
 
-    if (needsResize) {
-      VkExtent2D newExtent{(uint32_t)desired.x, (uint32_t)desired.y};
-      renderer.onResize(newExtent);
+  // Perform resize decision before starting frame.
+  void preFrame() override {
+    UIContext::ensureInit();
+    ImGui::SetNextWindowClass(&UIContext::GameViewDockClass);
+
+    bool open = ImGui::Begin(name());
+    if (open) {
+      ImVec2 avail = ImGui::GetContentRegionAvail();
+      ImVec2 desired = fit16x9(avail);
+
+      ImVec2 current = renderer.getSceneSize();
+      bool needsResize = ((int)desired.x != (int)current.x) ||
+                         ((int)desired.y != (int)current.y);
+
+      if (needsResize) {
+        VkExtent2D newExtent{(uint32_t)desired.x, (uint32_t)desired.y};
+        renderer.onResize(newExtent);
+      }
     }
+    ImGui::End();
   }
-  ImGui::End();
-}
 
-// Draw the widget
-void GameView::draw() {
-  UIContext::ensureInit();
-  ImGui::SetNextWindowClass(&UIContext::GameViewDockClass);
-  ImGui::Begin(name());
+  // Draw the widget
+  void draw() override {
+    UIContext::ensureInit();
+    ImGui::SetNextWindowClass(&UIContext::GameViewDockClass);
+    ImGui::Begin(name());
 
-  ImVec2 imgSize = renderer.getSceneSize();
-  ImGui::Image(renderer.getSceneTexture(FrameInfo::frameIndex), imgSize);
+    ImVec2 imgSize = renderer.getSceneSize();
+    ImGui::Image(renderer.getSceneTexture(FrameInfo::frameIndex), imgSize);
 
-  ImVec2 imageMin = ImGui::GetItemRectMin();
-  ImVec2 imageMax = ImGui::GetItemRectMax();
+    ImVec2 imageMin = ImGui::GetItemRectMin();
+    ImVec2 imageMax = ImGui::GetItemRectMax();
 
-  ImGui::End();
-}
+    ImGui::End();
+  }
+
+
+  // Docking prefrence (Center)
+  std::optional<DockHint> dockHint() const override {
+    return DockHint{DockSide::Center, 0.f};
+  }
+
+private:
+  SceneRenderer &renderer;
+};
 
 } // namespace Magma

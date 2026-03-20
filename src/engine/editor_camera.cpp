@@ -1,45 +1,65 @@
-#include "editor_camera.hpp"
-#include "engine/scene.hpp"
-#include "gameobject.hpp"
-#include <print>
+module engine:editor_camera;
+import std;
 
-using namespace std;
-namespace Magma {
+export namespace Magma {
 
-EditorCamera::EditorCamera(){
-  cameraObject = new GameObject(UINT32_MAX, "Editor Camera");
-  transform = cameraObject->addComponent<Transform>();
-  camera = cameraObject->addComponent<Camera>();
-  camera->setPerspectiveProjection(glm::radians(90.f), 16.f / 9.f, 0.1f, 100.f);
-}
+/**
+ * EditorCamera aggregates a Transform and a Camera for editor usage.
+ * It owns the transform and camera instances and exposes simple movement
+ * APIs for the editor (e.g., when user presses WASD in the offscreen view).
+ */
+export class EditorCamera{
+public:
+  EditorCamera(){
+    cameraObject = new GameObject(UINT32_MAX, "Editor Camera");
+    transform = cameraObject->addComponent<Transform>();
+    camera = cameraObject->addComponent<Camera>();
+    camera->setPerspectiveProjection(glm::radians(90.f), 16.f / 9.f, 0.1f, 100.f);
+  }
 
-void EditorCamera::onUpdate() {
-  camera->onUpdate();
-}
+  ~EditorCamera() = default;
 
-void EditorCamera::onRender(SceneRenderer &renderer) {
-  camera->onRender(renderer);
-}
+  void EditorCamera::onUpdate() {
+    camera->onUpdate();
+  }
+  void EditorCamera::onRender(SceneRenderer &renderer) {
+    camera->onRender(renderer);
+  }
 
-void EditorCamera::moveRight(float speed) {
-  transform->position += transform->right() * speed;
-}
+  // Movement helpers used by editor input
+  void EditorCamera::moveRight(float speed) {
+    transform->position += transform->right() * speed;
+  }
 
-void EditorCamera::moveForward(float speed) {
-  transform->position += transform->forward() * speed;
-}
+  void EditorCamera::moveForward(float speed) {
+    transform->position += transform->forward() * speed;
+  }
 
-void EditorCamera::moveUp(float speed) {
-  transform->position += transform->up() * speed;
-}
+  void EditorCamera::moveUp(float speed) {
+    transform->position += transform->up() * speed;
+  }
 
-void EditorCamera::setPerspectiveProjection(float fov, float aspect, float near,
-                                            float far) {
-  camera->setPerspectiveProjection(fov, aspect, near, far);
-}
+  // Perspective config
+  void EditorCamera::setPerspectiveProjection(float fov, float aspect, float near,
+                                              float far) {
+    camera->setPerspectiveProjection(fov, aspect, near, far);
+  }
 
-void EditorCamera::setAspectRatio(float aspect) {
-  camera->setAspectRatio(aspect);
-}
+  void EditorCamera::setAspectRatio(float aspect) {
+    camera->setAspectRatio(aspect);
+  }
+
+  // Accessors
+  Transform *getTransform() { return transform; }
+  Camera *getCamera() { return camera; }
+  const glm::mat4 &getProjection() const { return camera->getProjection(); }
+  const glm::mat4 &getView() const { 
+    return camera->getView(); }
+
+private:
+  GameObject *cameraObject = nullptr;
+  Transform *transform = nullptr;
+  Camera *camera = nullptr;
+};
 
 } // namespace Magma
