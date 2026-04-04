@@ -2,7 +2,7 @@ module;
 #include <vulkan/vulkan_core.h>
 
 module render:render_context;
-import std;
+import core;
 
 namespace Magma {
 

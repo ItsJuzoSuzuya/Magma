@@ -6,6 +6,7 @@ module;
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 module components:camera;
+import :component;
 
 namespace Magma {
 
@@ -109,7 +110,7 @@ public:
       setView(ownerTransform->position, ownerTransform->rotation);
 
     CameraUBO ubo{};
-    ubo.projectionView = getProjection() * getView();
+    ubo.projectionView = projectionMatrix * viewMatrix;
     
 
     renderer.uploadCameraUBO(ubo);

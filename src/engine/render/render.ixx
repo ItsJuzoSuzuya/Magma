@@ -1,4 +1,4 @@
-export module render;
+module engine:render;
 
 export import :render_context;
 export import :pipeline_shader_info;

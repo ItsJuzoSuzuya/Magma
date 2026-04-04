@@ -1,13 +1,19 @@
 module;
 
+#include <algorithm>
+#include <memory>
+#include <string>
+#include <type_traits>
+#include <typeindex>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 #if defined(MAGMA_WITH_EDITOR)
   #include "imgui.h"
-  #include "widgets/inspector.hpp"
-  #include "widgets/scene_menu.hpp"
 #endif
 
 module engine:gameobject;
-import std;
+import :components:component;
 
 namespace Magma {
 
@@ -36,6 +42,13 @@ export class GameObject {
 public:
   using id_t = uint64_t;
 
+  GameObject(id_t id) : id{id}, name("GameObject_" + std::to_string(id)) {};
+  GameObject(id_t id, std::string name) : id{id}, name{name} {};
+  GameObject(id_t id, GameObject *parent)
+      : id{id}, parent{parent}, name("GameObject_" + std::to_string(id)) {};
+  GameObject(id_t id, GameObject *parent, std::string name)
+      : id{id}, parent{parent}, name{name} {};
+
   ~GameObject(){
     components.clear();
     children.clear();
@@ -45,43 +58,6 @@ public:
   GameObject &operator=(const GameObject &) = delete;
   GameObject(GameObject &&) = default;
   GameObject &operator=(GameObject &&) = default;
-
-  GameObject& create() {
-    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId()));
-    GameObject &ref = *obj;
-    Scene::current()->addGameObject(std::move(obj));
-    return ref;
-  }
-
-  GameObject& create(std::string name) {
-    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId(), name));
-    GameObject &ref = *obj;
-    Scene::current()->addGameObject(std::move(obj));
-    return ref;
-  }
-
-  GameObject &create(GameObject &parent) {
-    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId(), &parent));
-    GameObject &ref = *obj;
-    parent.addChild(std::move(obj));
-    return ref;
-  }
-
-  GameObject &create(GameObject &parent, std::string name) {
-    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId(), &parent, name));
-    GameObject &ref = *obj;
-    parent.addChild(std::move(obj));
-    return ref;
-  }
-
-  // Cleanup
-  void destroy() {
-    Scene::current()->removeGameObject(this);
-
-    #if defined(MAGMA_WITH_EDITOR)
-      Inspector::setContext(nullptr);
-    #endif
-  }
 
   // ID Management
   GameObject::id_t getNextId() { return nextId++; }
@@ -95,8 +71,7 @@ public:
     }
     return result;
   }
-
-  void addChild() {
+void addChild() {
     std::unique_ptr<GameObject> child(new GameObject(getNextId(), this));
     children.push_back(std::move(child));
   }
@@ -189,12 +164,6 @@ public:
     }
   }
 
-  void draw() {
-    auto mesh = getComponent<Mesh>();
-    if (mesh)
-      mesh->draw();
-  }
-
 
   GameObject *parent = nullptr;
 
@@ -234,17 +203,8 @@ public:
 private:
   inline static id_t nextId = 1;
 
-  GameObject(id_t id) : id{id}, name("GameObject_" + std::to_string(id)) {};
-  GameObject(id_t id, std::string name) : id{id}, name{name} {};
-  GameObject(id_t id, GameObject *parent)
-      : id{id}, parent{parent}, name("GameObject_" + std::to_string(id)) {};
-  GameObject(id_t id, GameObject *parent, std::string name)
-      : id{id}, parent{parent}, name{name} {};
-
   std::unordered_map<std::type_index, std::unique_ptr<Component>> components;
   std::vector<std::unique_ptr<GameObject>> children;
-
-  friend class EditorCamera;
 };
 
 

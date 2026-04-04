@@ -1,5 +1,7 @@
+module;
+#include <optional>
+
 module widgets:widget;
-import std;
 
 namespace Magma {
 

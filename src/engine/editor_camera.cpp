@@ -1,7 +1,13 @@
-module engine:editor_camera;
-import std;
+module;
+#include <glm/ext/matrix_float4x4.hpp>
 
-export namespace Magma {
+module engine:editor_camera;
+import core:renderer;
+
+namespace Magma {
+
+class Transform;
+class Camera;
 
 /**
  * EditorCamera aggregates a Transform and a Camera for editor usage.
@@ -19,33 +25,33 @@ public:
 
   ~EditorCamera() = default;
 
-  void EditorCamera::onUpdate() {
+  void onUpdate() {
     camera->onUpdate();
   }
-  void EditorCamera::onRender(SceneRenderer &renderer) {
+  void onRender(Renderer &renderer) {
     camera->onRender(renderer);
   }
 
   // Movement helpers used by editor input
-  void EditorCamera::moveRight(float speed) {
+  void moveRight(float speed) {
     transform->position += transform->right() * speed;
   }
 
-  void EditorCamera::moveForward(float speed) {
+  void moveForward(float speed) {
     transform->position += transform->forward() * speed;
   }
 
-  void EditorCamera::moveUp(float speed) {
+  void moveUp(float speed) {
     transform->position += transform->up() * speed;
   }
 
   // Perspective config
-  void EditorCamera::setPerspectiveProjection(float fov, float aspect, float near,
+  void setPerspectiveProjection(float fov, float aspect, float near,
                                               float far) {
     camera->setPerspectiveProjection(fov, aspect, near, far);
   }
 
-  void EditorCamera::setAspectRatio(float aspect) {
+  void setAspectRatio(float aspect) {
     camera->setAspectRatio(aspect);
   }
 

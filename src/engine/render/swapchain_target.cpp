@@ -2,7 +2,9 @@ module;
 #include <vulkan/vulkan_core.h>
 
 module render:swapchain_target;
-import core;
+import core:render_target;
+import core:swapchain;
+import core:render_target_info;
 
 namespace Magma {
 

@@ -5,12 +5,11 @@ module;
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 
 module components:mesh;
-import std;
-import core;
+import :component;
 
 namespace fs = std::filesystem;
 
-export namespace Magma {
+namespace Magma {
 
 namespace string_utils {
 inline std::string toLower(std::string str) {

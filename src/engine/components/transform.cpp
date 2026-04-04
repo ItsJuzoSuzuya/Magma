@@ -2,7 +2,8 @@ module;
 #include <glm/ext/vector_float3.hpp>
 
 module components:transform;
-import core;
+import core:frame_info;
+import core:renderer;
 
 namespace Magma {
 
@@ -16,7 +17,7 @@ public:
   glm::vec3 scale{1.0f, 1.0f, 1.0f};
 
   // Lifecycle
-  void onRender(SceneRenderer &renderer) {
+  void onRender(Renderer &renderer) {
     PushConstantData push{};
     push.modelMatrix = mat4();
 

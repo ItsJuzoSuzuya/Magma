@@ -1,29 +1,20 @@
 module;
 
+#include <functional>
 #if defined(MAGMA_WITH_EDITOR)
   #include "imgui.h"
-  #include "widgets/inspector.hpp"
-  #include "widgets/scene_menu.hpp"
 #endif
 
 module engine:scene;
-import std;
-import components;
+import :gameobject;
 
-export namespace Magma{
-
+namespace Magma {
 
 export class Scene {
 public:
   Scene() {
     if (activeScene == nullptr)
       setActive();
-
-    auto &camera = GameObject::create("Main Camera");
-    camera.addComponent<Transform>();
-    camera.addComponent<Camera>()->
-      setPerspectiveProjection(glm::radians(60.0f), 16.0f / 9.0f, 0.1f, 100.0f);
-    Scene::setActiveCamera(&camera);
   }
 
   ~Scene(){
@@ -38,13 +29,39 @@ public:
   Scene(Scene &&) = default;
   Scene &operator=(Scene &&) = default;
 
+  GameObject &createGameObject() {
+    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId()));
+    GameObject &ref = *obj;
+    Scene::current()->addGameObject(std::move(obj));
+    return ref;
+  }
+
+  GameObject &createGameObjec(std::string name) {
+    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId(), name));
+    GameObject &ref = *obj;
+    Scene::current()->addGameObject(std::move(obj));
+    return ref;
+  }
+
+  GameObject &createGameObject(GameObject &parent) {
+    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId(), &parent));
+    GameObject &ref = *obj;
+    parent.addChild(std::move(obj));
+    return ref;
+  }
+
+  GameObject &createGameObject(GameObject &parent, std::string name) {
+    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId(), &parent, name));
+    GameObject &ref = *obj;
+    parent.addChild(std::move(obj));
+    return ref;
+  }
+
   static Scene *current() { return activeScene; }
   void setActive() { activeScene = this; }
 
-  static void setActiveCamera(Magma::GameObject *camera) {  
-    activeCamera = camera; }
-  static GameObject *getActiveCamera() { 
-    return activeCamera; }
+  static void setActiveCamera(GameObject *camera) { activeCamera = camera; }
+  static GameObject *getActiveCamera() { return activeCamera; }
 
   std::vector<std::unique_ptr<GameObject>> &getGameObjects(){
     return gameObjects;
@@ -134,25 +151,6 @@ public:
       }
     }
   #endif
-
-  /**
-   * Render GameObjects recursively
-   * @param renderer Renderer to use for rendering
-   */
-  static void onRender(SceneRenderer &renderer){
-    if (activeScene == nullptr)
-      return;
-
-    if(renderer.cameraSource == CameraSource::Scene) {
-      activeCamera->onUpdate();
-      activeCamera->onRender(renderer);
-    }
-
-    for (auto &gameObject : activeScene->gameObjects) {
-      if (gameObject && gameObject.get() != activeCamera)
-        gameObject->onRender(renderer);
-    }
-  }
 
   /**
    * Defers an action to be executed after the current frame

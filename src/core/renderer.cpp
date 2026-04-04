@@ -2,7 +2,7 @@ module;
 #include <vulkan/vulkan_core.h>
 
 module core:renderer;
-import std;
+import :swapchain;
 
 namespace Magma {
 

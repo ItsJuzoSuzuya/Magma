@@ -2,6 +2,7 @@ module;
 #include <vulkan/vulkan_core.h>
 
 module core:render_target;
+import :image_transition;
 
 namespace Magma {
 

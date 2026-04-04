@@ -1,5 +1,8 @@
+module;
+#include <cstdint>
+#include <glm/ext/matrix_float4x4.hpp>
+
 module core:push_constanc_data;
-import std;
 
 namespace Magma {
 

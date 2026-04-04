@@ -1,12 +1,12 @@
 module; 
 #include <cstdint>
+#include <string>
 
 module engine:specification;
-import std;
 
 namespace Magma {
 
-export struct EngineSpecifications {
+export struct WindowSpecifiction{
   std::string name;
   uint32_t windowWidth;
   uint32_t windowHeight;

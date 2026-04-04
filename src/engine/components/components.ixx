@@ -1,7 +1,7 @@
-export module components;
+module engine:components;
 
-export import :transfrom;
-export import :mesh;
-export import :point_light;
-export import :camera;
-export import :component;
+export import engine:components:transform;
+export import engine:components:mesh;
+export import engine:components:point_light;
+export import engine:components:camera;
+export import engine:components:component;

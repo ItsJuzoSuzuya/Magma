@@ -2,6 +2,7 @@ module;
 #include "imgui.h"
 
 module widgets:scene_menu;
+import :widget;
 
 namespace Magma {
 
@@ -37,8 +38,13 @@ public:
         ImGui::Separator();
         if (ImGui::MenuItem("Add Child"))
           target->addChild();
-        if (ImGui::MenuItem("Delete"))
-          target->destroy();
+        if (ImGui::MenuItem("Delete")){
+          Scene::current()->removeGameObject(target);
+
+          #if defined(MAGMA_WITH_EDITOR)
+            Inspector::setContext(nullptr);
+          #endif
+        }
       } else {
         ImGui::TextUnformatted("Scene");
         ImGui::Separator();

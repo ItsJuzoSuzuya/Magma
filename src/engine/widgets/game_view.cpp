@@ -4,7 +4,6 @@ module;
 #include "imgui_internal.h"
 
 module widgets:game_view;
-import std;
 
 static ImVec2 fit16x9(const ImVec2 &avail) {
   float targetH = avail.x * 9.0f / 16.0f;

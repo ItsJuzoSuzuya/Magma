@@ -1,8 +1,8 @@
 module;
 #include <cstdint>
+#include <optional>
 
 module core:queue_family_indices;
-import std;
 
 namespace Magma {
 export struct QueueFamilyIndices {

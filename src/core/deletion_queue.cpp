@@ -3,7 +3,7 @@ module;
 #include <vulkan/vulkan_core.h>
 
 module core:deletion_queue;
-import std;
+import :swapchain;
 
 namespace Magma {
 

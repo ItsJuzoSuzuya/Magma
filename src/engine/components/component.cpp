@@ -1,6 +1,9 @@
 module components:component;
+import core:renderer;
 
 namespace Magma {
+
+class GameObject;
 
 /**
  * Abstract class for all components.
@@ -16,13 +19,13 @@ public:
   // --- Lifecycle ---
   virtual void onAwake() = 0;
   virtual void onUpdate() = 0;
-  virtual void onRender(SceneRenderer &renderer) = 0;
+  virtual void onRender(Renderer &renderer) = 0;
 
   #if defined(MAGMA_WITH_EDITOR)
-  // Inspector
-  virtual void onInspector() = 0;
-  virtual const char *inspectorName() const = 0;
-  virtual const float inspectorHeight() const = 0;
+    // Inspector
+    virtual void onInspector() = 0;
+    virtual const char *inspectorName() const = 0;
+    virtual const float inspectorHeight() const = 0;
   #endif
 
   GameObject *owner = nullptr;

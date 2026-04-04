@@ -2,6 +2,7 @@ module;
 #include "imgui.h"
 
 module widgets:inspector_menu;
+import :widget;
 
 namespace Magma {
 

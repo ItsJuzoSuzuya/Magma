@@ -1,10 +1,12 @@
 module;
+#include <iostream>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_to_string.hpp>
 
 module core:device;
 
-import std;
-import engine;
+import :queue_family_indices;
+import :window;
 
 namespace DebugMessenger {
 

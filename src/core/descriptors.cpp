@@ -3,7 +3,7 @@ module;
 #include <cassert>
 
 module core:descriptors;
-import std;
+import :device;
 
 namespace Magma {
 

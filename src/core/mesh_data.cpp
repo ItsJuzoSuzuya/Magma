@@ -3,7 +3,6 @@ module;
 #include <glm/vec3.hpp>
 
 module core:mesh_data;
-import std;
 
 namespace Magma {
 

@@ -1,10 +1,14 @@
 module;
 #include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_to_string.hpp>
 
 module core:swapchain;
-import std;
+import :render_target_info;
+import :frame_info;
+import :device;
 
 namespace Magma {
+
 
 /** SwapChain class manages the Vulkan swap chain, including image acquisition
  *  and presentation, as well as synchronization objects for rendering and presentation.

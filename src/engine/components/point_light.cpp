@@ -4,6 +4,7 @@ module;
 #include <glm/vec4.hpp>
 
 module components:point_light;
+import :component;
 
 namespace Magma {
 
@@ -17,7 +18,7 @@ export struct PointLightSSBO {
   alignas(16) PointLightData lights[128];
 };
 
-export class PointLight: public Component{
+export class PointLight: public Component {
 public:
   PointLight(GameObject *owner) : Component(owner) {}
 

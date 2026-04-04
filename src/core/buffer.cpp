@@ -3,6 +3,8 @@ module;
 #include <vulkan/vulkan_core.h>
 
 module core:buffer;
+import :device;
+import :deletion_queue;
 
 namespace Magma {
 

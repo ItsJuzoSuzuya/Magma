@@ -2,7 +2,6 @@ module;
 #include "imgui.h"
 
 module wigets:runtime_control;
-import std;
 
 namespace Magma {
 

@@ -1,5 +1,4 @@
 module systems:file_manager;
-import std;
 
 namespace fs = std::filesystem;
 namespace Magma {

@@ -1,14 +1,18 @@
 module render:scene_renderer;
-import components;
+
+import core:renderer;
 
 namespace Magma {
+
+class Transform;
+class EditorCamera;
 
 enum class CameraSource {
   Editor,
   Scene
 };
 
-class SceneRenderer : public IRenderer {
+export class SceneRenderer : public IRenderer {
 public:
   SceneRenderer(
     std::unique_ptr<IRenderTarget> target, 
@@ -125,7 +129,25 @@ public:
       t->onRender(*this);
     }
 
-    Scene::onRender(*this);
+    auto *activeScene = Scene::getActiveScene()
+    if (activeScene == nullptr)
+      return;
+
+    if(renderer.cameraSource == CameraSource::Scene) {
+      Scene::getActiveCamera->onUpdate();
+      Scene::getActiveCamera->onRender(renderer);
+    }
+
+    for (auto &gameObject : activeScene->gameObjects) {
+      if (gameObject && gameObject.get() != activeCamera){
+        gameObject->onRender(renderer);
+
+        auto mesh = gameObject->getComponent<Mesh>();
+        if (mesh)
+          mesh->draw();
+      }
+    }
+
     end();
   }
 

@@ -2,7 +2,6 @@ module;
 #include "imgui.h"
 
 module widgets:scene_tree;
-import std;
 
 namespace Magma {
 

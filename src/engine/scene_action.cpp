@@ -1,6 +1,13 @@
+module;
+#include <algorithm>
+#include <functional>
 module engine:scene_action;
+import :gameObject;
+import :scene;
 
 namespace Magma {
+
+class Mesh;
 
 export class SceneAction {
 public:

@@ -1,5 +1,4 @@
 module render:pipeline_shader_info;
-import std;
 
 namespace Magma {
 

@@ -2,7 +2,8 @@ module;
 #include <vulkan/vulkan_core.h>
 
 module core:pipeline;
-import std;
+import :mesh_data;
+import :device;
 
 namespace Magma {
 

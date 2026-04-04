@@ -1,16 +1,14 @@
 module; 
-#define GLFW_INCLUDE_VULKAN
 
+#include <string>
+#define GLFW_INCLUDE_VULKAN
 #include "GLFW/glfw3.h"
 #include "vulkan/vulkan.h"
 
 module core:window;
-import std;
-import engine;
+import engine:specification;
 
 namespace Magma {
-
-class EngineSpecifications;
 
 export class Window {
 public:

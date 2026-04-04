@@ -1,8 +1,8 @@
 module;
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
 module features:render_feature;
-import std;
 
 namespace Magma {
 

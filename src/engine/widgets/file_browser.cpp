@@ -1,5 +1,8 @@
+module;
+#include "imgui.h"
+
 module widgets:file_browser;
-import ImGui;
+import :widget;
 
 namespace Magma {
 

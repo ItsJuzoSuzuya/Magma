@@ -1,5 +1,6 @@
 module core:render_system;
-import engine;
+import :device;
+import :swapchain;
 
 namespace Magma {
 
@@ -122,7 +123,7 @@ private:
     } else if (result != VK_SUCCESS)
       throw std::runtime_error("Failed to present swap chain image!");
 
-    FrameInfo::advanceFrame();
+    FrameInfo::advanceFrame(SwapChain::MAX_FRAMES_IN_FLIGHT);
     Scene::current()->processDeferredActions();
     DeletionQueue::flushForFrame(FrameInfo::frameIndex);
   }
