@@ -43,11 +43,18 @@ public:
     calculateProjectionMatrix();
   }
 
-  void onUpdate() {
+  void onUpdate() override {
     if (!ownerTransform)
       return;
 
     setView(ownerTransform->position, ownerTransform->rotation);
+  }
+
+  void collectProxy(RenderProxy &proxy) override {
+    CameraProxy cameraProxy = {};
+    cameraProxy.projectionView = projectionMatrix * viewMatrix;
+
+    proxy.camera = proxy;
   }
 
   void setView(const glm::vec3 &position, const glm::vec3 &rotation) {
@@ -104,40 +111,29 @@ public:
     return false;
   }
 
-  // --- Lifecycle ---
-  void onRender(SceneRenderer &renderer) {
-    if (ownerTransform)
-      setView(ownerTransform->position, ownerTransform->rotation);
 
-    CameraUBO ubo{};
-    ubo.projectionView = projectionMatrix * viewMatrix;
-    
+  #if defined(MAGMA_WITH_EDITOR)
+    void onInspector() {
+      GameObject *activeCamera = Scene::getActiveCamera();
+      bool isActive = (activeCamera == owner);
+      if(ImGui::Checkbox("Active Camera", &isActive)) {
+        if(isActive) 
+          Scene::setActiveCamera(owner);
+        else 
+          Scene::setActiveCamera(nullptr);
+      }
 
-    renderer.uploadCameraUBO(ubo);
-  }
-
-#if defined(MAGMA_WITH_EDITOR)
-  void onInspector() {
-    GameObject *activeCamera = Scene::getActiveCamera();
-    bool isActive = (activeCamera == owner);
-    if(ImGui::Checkbox("Active Camera", &isActive)) {
-      if(isActive) 
-        Scene::setActiveCamera(owner);
-      else 
-        Scene::setActiveCamera(nullptr);
+      ImGui::Separator();
+      ImGui::Text("Projection Settings");
+      float fovDegrees = glm::degrees(fov);
+      if (ImGui::SliderFloat("FOV", &fovDegrees, 1.f, 179.f)) {
+        setFOV(glm::radians(fovDegrees));
+      }
     }
 
-    ImGui::Separator();
-    ImGui::Text("Projection Settings");
-    float fovDegrees = glm::degrees(fov);
-    if (ImGui::SliderFloat("FOV", &fovDegrees, 1.f, 179.f)) {
-      setFOV(glm::radians(fovDegrees));
-    }
-  }
-
-  const char *inspectorName() const override { return "Camera"; }
-  const float inspectorHeight() const override { return 150.0f; }
-#endif
+    const char *inspectorName() const override { return "Camera"; }
+    const float inspectorHeight() const override { return 150.0f; }
+  #endif
 
 private:
   Transform *ownerTransform = nullptr;

@@ -22,25 +22,23 @@ export class PointLight: public Component {
 public:
   PointLight(GameObject *owner) : Component(owner) {}
 
-  void onRender(SceneRenderer &renderer) {
-    // Keep light position in sync with the owner's Transform
-    if (owner) {
-      if (auto *t = owner->getComponent<Transform>())
-        lightData.position = glm::vec4(t->position, 1.0f);
+  #if defined(MAGMA_WITH_EDITOR)
+    void onInspector() {
+      // Draw simple controls (no Begin/End here; Inspector wraps us)
+      ImGui::TextDisabled("Point Light");
+      ImGui::ColorEdit3("Color", &lightData.color.x);
+      ImGui::DragFloat("Intensity", &lightData.color.w, 0.01f, 0.0f, 100.0f);
     }
-    renderer.submitPointLight(lightData);
-  }
+    virtual const char *inspectorName() const override { return "Point Light"; }
+    virtual const float inspectorHeight() const override { return 100.f; }
+  #endif
 
-#if defined(MAGMA_WITH_EDITOR)
-  void onInspector() {
-    // Draw simple controls (no Begin/End here; Inspector wraps us)
-    ImGui::TextDisabled("Point Light");
-    ImGui::ColorEdit3("Color", &lightData.color.x);
-    ImGui::DragFloat("Intensity", &lightData.color.w, 0.01f, 0.0f, 100.0f);
+  void collectProxy(RenderProxy &proxy) override {
+    PointLightProxy plProxy = {};
+    plProxy.pointLightData = lightData;
+
+    proxy.pointLight = plProxy;
   }
-  virtual const char *inspectorName() const override { return "Point Light"; }
-  virtual const float inspectorHeight() const override { return 100.f; }
-#endif
 
 private:
   PointLightData lightData{glm::vec4{0.f, 0.f, 0.f, 1.f},

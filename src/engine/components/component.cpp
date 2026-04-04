@@ -19,7 +19,7 @@ public:
   // --- Lifecycle ---
   virtual void onAwake() = 0;
   virtual void onUpdate() = 0;
-  virtual void onRender(Renderer &renderer) = 0;
+  virtual void collectProxy(RenderProxy& proxy) = 0;
 
   #if defined(MAGMA_WITH_EDITOR)
     // Inspector

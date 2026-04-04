@@ -31,6 +31,13 @@ inline void sortComponentsByName(std::vector<Component *> &components){
 
 }
 
+#if defined(MAGMA_WITH_EDITOR)
+export struct GameObjectMenuCallbacks {
+    std::function<void(GameObject*)> onLeftClick;   // Inspector::setContext
+    std::function<void(GameObject*)> onRightClick;  // SceneMenu::queueContextMenuFor
+};
+#endif
+
 
 /**
  * Entity in the scene that can have multiple components
@@ -40,6 +47,8 @@ inline void sortComponentsByName(std::vector<Component *> &components){
  */
 export class GameObject {
 public:
+  GameObject *parent = nullptr;
+  GameObjectMenuCallbacks callbacks;
   using id_t = uint64_t;
 
   GameObject(id_t id) : id{id}, name("GameObject_" + std::to_string(id)) {};
@@ -71,11 +80,11 @@ public:
     }
     return result;
   }
-void addChild() {
+
+  void addChild() {
     std::unique_ptr<GameObject> child(new GameObject(getNextId(), this));
     children.push_back(std::move(child));
   }
-
   void addChild(std::unique_ptr<GameObject> child) {
     if (child == nullptr)
       return;
@@ -106,10 +115,10 @@ void addChild() {
             flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
             ImGui::TreeNodeEx(child->name.c_str(), flags);
 
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-              SceneMenu::queueContextMenuFor(child.get());
-            if (ImGui::IsItemClicked())
-              Inspector::setContext(child.get());
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && callbacks.onRightClick)
+              callbacks.onRightClick(child.get());
+            if (ImGui::IsItemClicked() && callbacks.onLeftClick)
+              callbacks.onLeftClick(child.get());
 
             continue;
           }
@@ -117,10 +126,10 @@ void addChild() {
           // Node with children
           bool open = ImGui::TreeNodeEx(child->name.c_str(), flags);
 
-          if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-            SceneMenu::queueContextMenuFor(child.get());
-          if (ImGui::IsItemClicked())
-            Inspector::setContext(child.get());
+          if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && callbacks.onRightClick)
+            callbacks.onRightClick(child.get());
+          if (ImGui::IsItemClicked() && callbacks.onLeftClick)
+            callbacks.onLeftClick(child.get());
 
           if (open) {
             child->drawChildren();
@@ -149,23 +158,28 @@ void addChild() {
    * @param renderer SceneRenderer to use for rendering
    * @note This function is called by Scene::onRender() or by the parent
    * GameObject.
-   */
+   *
   void onRender(SceneRenderer &renderer) {
     for (const auto &component : components) {
       if (component.second)
         component.second->onRender(renderer);
     }
 
-    draw();
-
     for (const auto &child : children) {
       if (child)
         child->onRender(renderer);
     }
   }
+  */
 
+  RenderProxy collectProxies() const {
+    RenderProxy proxy = {};
 
-  GameObject *parent = nullptr;
+    for (auto& [typ, component]: components)
+      component.collectProxy(proxy);
+
+    return proxy;
+  }
 
   template <typename T> T *getComponent() const {
     static_assert(std::is_base_of<Component, T>::value,

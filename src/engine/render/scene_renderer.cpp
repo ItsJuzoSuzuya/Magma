@@ -120,35 +120,35 @@ public:
     record();
 
     if (cameraSource == CameraSource::Editor && editorCamera) {
-      Camera *cam = editorCamera->getCamera();
-      cam->onUpdate();
-      cam->onRender(*this);
-
-      Transform *t = editorCamera->getTransform();
-      t->onUpdate();
-      t->onRender(*this);
+      auto camProxy = editorCamera->collectProxy();
+      if (camProxy.camera)
+          uploadCameraUBO({camProxy.camera->projView});
     }
 
     auto *activeScene = Scene::getActiveScene()
-    if (activeScene == nullptr)
-      return;
+    if (!activeScene) return;
 
-    if(renderer.cameraSource == CameraSource::Scene) {
-      Scene::getActiveCamera->onUpdate();
-      Scene::getActiveCamera->onRender(renderer);
-    }
-
-    for (auto &gameObject : activeScene->gameObjects) {
-      if (gameObject && gameObject.get() != activeCamera){
-        gameObject->onRender(renderer);
-
-        auto mesh = gameObject->getComponent<Mesh>();
-        if (mesh)
-          mesh->draw();
-      }
+    for (auto *gameObject : activeScene->getGameObjects()) {
+      if (!gameObject) continue;
+      for (auto& proxy : go->collectProxies())
+          submitProxy(proxy);
     }
 
     end();
+  }
+
+  void submitProxy(const RenderProxy& proxy) {
+    if (proxy.transform) 
+      RendererCallback::renderTransform(this, proxy.transform);
+
+    if (proxy.pointLight) 
+      RendererCallback::renderPointLight(this, proxy.pointLight);
+
+    if (proxy.mesh) 
+      RenderCallback::renderMesh(this, proxy.mesh);
+
+    if (proxy.camera) 
+      RenderCallback::renderCamera(this, proxy.camera);
   }
 
   bool isSwapChainDependent() const override { return isSwapChainDependentFlag; }
@@ -164,22 +164,22 @@ public:
   }
 
   void uploadCameraUBO(const CameraUBO &ubo){
-
-  if (!renderContext)
-    return;
-  renderContext->updateCameraSlice(FrameInfo::frameIndex, rendererId,
-                                   (void *)&ubo, sizeof(ubo));
+    if (!renderContext)
+      return;
+    renderContext->updateCameraSlice(FrameInfo::frameIndex, rendererId,
+                                     (void *)&ubo, sizeof(ubo));
   }
+
   void submitPointLight(const PointLightData &lightData){
-  if (!renderContext)
-    return;
+    if (!renderContext)
+      return;
 
-  PointLightSSBO ssbo{};
-  ssbo.lightCount = 1;
-  ssbo.lights[0] = lightData;
+    PointLightSSBO ssbo{};
+    ssbo.lightCount = 1;
+    ssbo.lights[0] = lightData;
 
-  renderContext->updatePointLightSlice(FrameInfo::frameIndex, rendererId,
-                                       (void *)&ssbo, sizeof(ssbo));
+    renderContext->updatePointLightSlice(FrameInfo::frameIndex, rendererId,
+                                         (void *)&ssbo, sizeof(ssbo));
   }
 
 private:

@@ -1,9 +1,10 @@
 import engine:window_specification;
 import engine:magma;
+import core:window;
 
 // Main code
 int main(int, char **) {
-  Magma::EngineSpecifications spec{};
+  Magma::WindowSpecifications spec{};
   spec.name = "Magma";
   spec.windowWidth = 1280;
   spec.windowHeight = 700;

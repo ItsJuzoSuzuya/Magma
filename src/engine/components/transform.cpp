@@ -16,22 +16,16 @@ public:
   glm::vec3 rotation{0.0f, 0.0f, 0.0f};
   glm::vec3 scale{1.0f, 1.0f, 1.0f};
 
-  // Lifecycle
-  void onRender(Renderer &renderer) {
-    PushConstantData push{};
-    push.modelMatrix = mat4();
-
-    if(owner && !owner->getComponent<Camera>())
-      push.objectId = static_cast<uint32_t>(owner->id);
-    else 
-      push.objectId = 0;
-
-    vkCmdPushConstants(FrameInfo::commandBuffer, renderer.getPipelineLayout(),
-                       VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData),
-                       &push);
-  }
   void onAwake() override {};
   void onUpdate() override {};
+
+  void collectProxy(RenderProxy &proxy) override {
+    TransformProxy transformProxy = {};
+    transformProxy.modelMatrix = modelMatrix;
+    transformProxy.objectId = owner->id;
+
+    proxy.transform = proxy;
+  }
 
   #if defined(MAGMA_WITH_EDITOR)
     // Inspector

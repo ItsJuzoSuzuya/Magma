@@ -39,7 +39,7 @@ public:
       indexBuffer = nullptr;
     }
   }
-#if defined(MAGMA_WITH_EDITOR)
+  #if defined(MAGMA_WITH_EDITOR)
     bool load() {
       if (sourcePath.empty()) {
         std::println("No source path set for mesh.");
@@ -47,7 +47,7 @@ public:
       }
       return load(sourcePath);
     }
-#endif
+  #endif
 
   bool load(const std::string &filepath) {
     if (meshData) {
@@ -142,24 +142,6 @@ public:
     return true;
   }
 
-  // Lifecycle 
-  void onRender(SceneRenderer &renderer) {
-    if (!meshData)
-      return;
-
-    VkBuffer vertexBuffers[] = {vertexBuffer->getBuffer()};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(FrameInfo::commandBuffer, 0, 1, vertexBuffers,
-                           offsets);
-
-    if (hasIndexBuffer){
-      assert(indexBuffer != nullptr &&
-             "Index buffer must be created before rendering indexed mesh!");
-      vkCmdBindIndexBuffer(FrameInfo::commandBuffer, indexBuffer->getBuffer(), 0,
-                           VK_INDEX_TYPE_UINT32);
-    }
-  }
-
   void draw() {
     if(!meshData)
       return;
@@ -173,7 +155,7 @@ public:
                 static_cast<uint32_t>(meshData->vertices.size()), 1, 0, 0);
   }
 
-#if defined(MAGMA_WITH_EDITOR)
+  #if defined(MAGMA_WITH_EDITOR)
     void onInspector() {
       if (meshData) {
         ImGui::Text("Vertices: %zu", meshData->vertices.size());
@@ -230,7 +212,19 @@ public:
         ImGui::TextDisabled("Current Source: %s", sourcePath.c_str());
       }
     }
-#endif
+  #endif
+
+
+  void collectProxy(RenderProxy &proxy){
+    MeshProxy meshProxy = {};
+    meshProxy.meshData = meshData;
+    meshProxy.vertexBuffer = vertexBuffer;
+    meshProxy.indexBuffer = indexBuffer;
+    meshProxy.indexCount   = indexCount;
+    meshProxy.vertexCount  = vertexCount;
+    meshProxy.hasIndexBuffer = hasIndexBuffer;
+  }
+
 
 private: 
   MeshData *meshData = nullptr;

@@ -2,6 +2,7 @@ module;
 #include "imgui.h"
 
 module widgets:scene_tree;
+import :widget;
 
 namespace Magma {
 
@@ -27,8 +28,19 @@ public:
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) 
       SceneMenu::queueContextMenuFor(nullptr);
 
-    Scene::drawSceneTree();
-    sceneMenu.draw();
+    for (auto &gameObject : Scene::current()->getGameObjects()) {
+      if (!gameObject) continue;
+
+      #if defined(MAGMA_WITH_EDITOR)
+        gameObject->editorCallbacks = {
+            .onLeftClick  = [](GameObject* g){ Inspector::setContext(g); },
+            .onRightClick = [](GameObject* g){ SceneMenu::queueContextMenuFor(g); }
+        };
+      #endif
+
+      Scene::drawSceneTree();
+      sceneMenu.draw();
+    }
 
     ImGui::End();
   }
