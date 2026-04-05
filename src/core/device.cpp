@@ -234,8 +234,8 @@ public:
   }
 
   void copyImageToBuffer(VkCommandBuffer &commandBuffer,
-                                 VkBuffer dstBuffer, VkImage image,
-                                 VkBufferImageCopy region) {
+                         VkBuffer dstBuffer, VkImage image,
+                         VkBufferImageCopy region) {
     vkCmdCopyImageToBuffer(commandBuffer, image,
                            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstBuffer, 1,
                            &region);

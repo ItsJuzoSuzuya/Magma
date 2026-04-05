@@ -1,3 +1,5 @@
+module;
+#include <iterator>
 module render:scene_renderer;
 
 import core:renderer;
@@ -317,7 +319,7 @@ private:
     if (!camSet.has_value())
       throw std::runtime_error(
           "No Camera descriptor set found for OffscreenRenderer!");
-    uint32_t camOffset = rendererId * renderContext->cameraSliceSize();
+    uint32_t camOffset = rendererId * sizeof(CameraUBO);
 
     auto lightSet = renderContext->getDescriptorSet(LayoutKey::PointLight,
                                                     FrameInfo::frameIndex);

@@ -1,8 +1,11 @@
 module;
+#include <algorithm>
+#include <memory>
+#include <optional>
+#include <unordered_map>
 #include <vulkan/vulkan_core.h>
 
-module render:render_context;
-import core;
+module core:render_context;
 
 namespace Magma {
 
@@ -35,7 +38,7 @@ public:
   }
 
   void update(uint32_t frameIndex, uint32_t sliceIndex,
-                              const void *data, VkDeviceSize size) {
+              const void *data, VkDeviceSize size) {
     if (!buffer)
       return;
 
@@ -62,8 +65,8 @@ private:
 
   void reallocate(uint32_t newCapacity) {
     buffer = std::make_unique<Buffer>(elementSize, newCapacity * framesInFlight, usage,
-                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     buffer->map();
     currentCapacity = newCapacity;
   }
@@ -140,13 +143,9 @@ public:
 
 
   // Camera Slice
-  uint32_t cameraSliceSize() const {
-    return cameraResource ? static_cast<uint32_t>(cameraResource->getSliceSize())
-                          : sizeof(CameraUBO);
-  }
   void updateCameraSlice(uint32_t frameIndex, uint32_t sliceIndex,
                          const void *data, VkDeviceSize size) {
-    ensureCameraResource();
+    ensureCameraResource(size);
 
     uint32_t oldCapacity = cameraResource->getCapacity();
     cameraResource->ensureCapacity(sliceIndex + 1);
@@ -156,16 +155,10 @@ public:
     cameraResource->update(frameIndex, sliceIndex, data, size);
   }
 
-  uint32_t pointLightSliceSize() const {
-    return pointLightResource
-               ? static_cast<uint32_t>(pointLightResource->getSliceSize())
-               : sizeof(PointLightSSBO);
-  }
-
   void updatePointLightSlice(uint32_t frameIndex,
                              uint32_t sliceIndex, const void *data,
                              VkDeviceSize size) {
-    ensurePointLightResource();
+    ensurePointLightResource(size);
 
     uint32_t oldCapacity = pointLightResource->getCapacity();
     pointLightResource->ensureCapacity(sliceIndex + 1);
@@ -219,24 +212,24 @@ private:
 
   std::unique_ptr<SlicedResource> cameraResource;
   std::unique_ptr<SlicedResource> pointLightResource;
-  void RenderContext::ensureCameraResource() {
+  void ensureCameraResource(VkDeviceSize resourceSize) {
     if (cameraResource)
       return;
 
     cameraResource = std::make_unique<SlicedResource>(
-        sizeof(CameraUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        resourceSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
         SwapChain::MAX_FRAMES_IN_FLIGHT);
 
     cameraResource->ensureCapacity(std::max(1u, registeredRendererCount));
     setsNeedRebuild[LayoutKey::Camera] = true;
   }
 
-  void RenderContext::ensurePointLightResource() {
+  void ensurePointLightResource(VkDeviceSize resourceSize) {
     if (pointLightResource)
       return;
 
     pointLightResource = std::make_unique<SlicedResource>(
-        sizeof(PointLightSSBO), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        resourceSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         SwapChain::MAX_FRAMES_IN_FLIGHT);
 
     pointLightResource->ensureCapacity(std::max(1u, registeredRendererCount));

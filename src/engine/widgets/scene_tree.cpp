@@ -38,6 +38,8 @@ public:
         };
       #endif
 
+            //SceneMenu::queueContextMenuFor(gameObject.get());
+
       Scene::drawSceneTree();
       sceneMenu.draw();
     }

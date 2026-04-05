@@ -1,18 +1,20 @@
 module; 
 
+#include <cstring>
+#include <stdexcept>
 #include <string>
 #define GLFW_INCLUDE_VULKAN
 #include "GLFW/glfw3.h"
 #include "vulkan/vulkan.h"
 
 module core:window;
-import engine:specification;
+import :specification;
 
 namespace Magma {
 
 export class Window {
 public:
-  Window(EngineSpecifications &spec): width(spec.windowWidth), height(spec.windowHeight), name(spec.name) {
+  Window(WindowSpecifications &spec): width(spec.windowWidth), height(spec.windowHeight), name(spec.name) {
     initGLFWWindow();
   }
 
@@ -26,7 +28,7 @@ public:
 
   void createSurface(VkInstance instance, VkSurfaceKHR *surface){
     if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS)
-      throw runtime_error("Failed to create window surface!");
+      throw std::runtime_error("Failed to create window surface!");
   }
 
   VkExtent2D getExtent() {
@@ -85,7 +87,7 @@ private:
 
       last += strlen(needle);
 
-      droppedText = string(last);
+      droppedText = std::string(last);
       hasDroppedText = true;
     }
   }

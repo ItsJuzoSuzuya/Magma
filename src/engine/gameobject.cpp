@@ -32,10 +32,10 @@ inline void sortComponentsByName(std::vector<Component *> &components){
 }
 
 #if defined(MAGMA_WITH_EDITOR)
-export struct GameObjectMenuCallbacks {
-    std::function<void(GameObject*)> onLeftClick;   // Inspector::setContext
-    std::function<void(GameObject*)> onRightClick;  // SceneMenu::queueContextMenuFor
-};
+  export struct GameObjectMenuCallbacks {
+      std::function<void(GameObject*)> onLeftClick;   // Inspector::setContext
+      std::function<void(GameObject*)> onRightClick;  // SceneMenu::queueContextMenuFor
+  };
 #endif
 
 

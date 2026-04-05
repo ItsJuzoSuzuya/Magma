@@ -107,7 +107,13 @@ public:
     }
 
     if (auto picked = renderer.getFeature<ObjectPicker>().pollPickResult()) {
-      Inspector::setContext(picked);
+
+      GameObject *go;
+      if (SceneManager::activeScene())
+        go = SceneManager::activeScene->findGameObjectById(
+            static_cast<GameObject::id_t>(picked));
+      
+      Inspector::setContext(go);
       beginDrag(picked, ImGui::GetIO().MousePos, imageMin, imgSize);
     }
 

@@ -1,6 +1,4 @@
 module core:render_system;
-import :device;
-import :swapchain;
 
 namespace Magma {
 

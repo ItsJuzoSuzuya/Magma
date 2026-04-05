@@ -9,6 +9,7 @@ namespace Magma {
 
 export struct Project {
   std::unique_ptr<Scene> scene = nullptr;
+  GameObject camera;
   std::string path = "";
 };
 

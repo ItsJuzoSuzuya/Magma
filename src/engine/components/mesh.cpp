@@ -26,6 +26,7 @@ inline bool hasAllowedExt(const fs::path &path) {
 }
 } // namespace string_utils
 
+
 export class Mesh {
 public:
   Mesh(GameObject *owner)
@@ -182,6 +183,7 @@ public:
           "##mesh_path", pathBuffer, IM_ARRAYSIZE(pathBuffer),
           ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll );
 
+      /*
       if (ImGui::IsItemHovered() && Window::hasDroppedText) {
         std::string dropped = Window::getDroppedText();
         snprintf(pathBuffer, sizeof(pathBuffer), "%s", dropped.c_str());
@@ -194,6 +196,7 @@ public:
         }
         Window::resetHasDropped();
       }
+      */
 
       if (pressedEnter) {
         std::string typed = pathBuffer;
@@ -202,7 +205,7 @@ public:
               return asset == typed;
             }) != assets.end()) {
           sourcePath = typed;
-          Scene::current()->defer(SceneAction::loadMesh(owner));
+          SceneManager::activeScene->defer(SceneAction::loadMesh(owner));
         }
       }
 

@@ -29,40 +29,6 @@ public:
   Scene(Scene &&) = default;
   Scene &operator=(Scene &&) = default;
 
-  GameObject &createGameObject() {
-    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId()));
-    GameObject &ref = *obj;
-    Scene::current()->addGameObject(std::move(obj));
-    return ref;
-  }
-
-  GameObject &createGameObjec(std::string name) {
-    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId(), name));
-    GameObject &ref = *obj;
-    Scene::current()->addGameObject(std::move(obj));
-    return ref;
-  }
-
-  GameObject &createGameObject(GameObject &parent) {
-    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId(), &parent));
-    GameObject &ref = *obj;
-    parent.addChild(std::move(obj));
-    return ref;
-  }
-
-  GameObject &createGameObject(GameObject &parent, std::string name) {
-    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId(), &parent, name));
-    GameObject &ref = *obj;
-    parent.addChild(std::move(obj));
-    return ref;
-  }
-
-  static Scene *current() { return activeScene; }
-  void setActive() { activeScene = this; }
-
-  static void setActiveCamera(GameObject *camera) { activeCamera = camera; }
-  static GameObject *getActiveCamera() { return activeCamera; }
-
   std::vector<std::unique_ptr<GameObject>> &getGameObjects(){
     return gameObjects;
   }
@@ -128,10 +94,10 @@ public:
           flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
           ImGui::TreeNodeEx(gameObject->name.c_str(), flags);
 
-          if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-            SceneMenu::queueContextMenuFor(gameObject.get());
-          if (ImGui::IsItemClicked())
-            Inspector::setContext(gameObject.get());
+          if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && gameObject.callbacks.onRightClick)
+            gameObject.callback.onRightClick(gameObject.get())
+          if (ImGui::IsItemClicked() && gameObject.callbacks.onLeftClick)
+            gameObject.callbacks.onLeftClick(gameObject.get());
 
           continue;
         }
@@ -139,10 +105,10 @@ public:
         // Else display as tree node
         bool open = ImGui::TreeNodeEx(gameObject->name.c_str(), flags);
 
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-          SceneMenu::queueContextMenuFor(gameObject.get());
-        if (ImGui::IsItemClicked())
-          Inspector::setContext(gameObject.get());
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && gameObject.callbacks.onRightClick)
+          gameObject.callback.onRightClick(gameObject.get())
+        if (ImGui::IsItemClicked() && gameObject.callbacks.onLeftClick)
+          gameObject.callbacks.onLeftClick(gameObject.get());
 
         if (open) {
           gameObject->drawChildren();
@@ -158,6 +124,7 @@ public:
    * @note This is useful for actions that modify the scene
    */
   void defer(std::function<void()> func) { deferredActions.push_back(func); }
+
   /**
    * Process deferred actions queued during the frame
    * @note This should be called at the end of each frame
@@ -177,11 +144,7 @@ public:
 
 
 private:
-  inline static Scene *activeScene = nullptr;
-  inline static GameObject* activeCamera;
-
   std::vector<std::unique_ptr<GameObject>> gameObjects;
-
   std::vector<std::function<void()>> deferredActions;
 };
 

@@ -3,12 +3,10 @@ module;
 #include <vulkan/vulkan_core.h>
 
 module features:object_picker;
-import :render_feature;
-import core:image_transition;
-import core:image_transition;
-import engine:gameobject;
 
 namespace Magma {
+
+class GameObject;
 
 class ObjectPicker: public RenderFeature {
 public:
@@ -127,119 +125,119 @@ GameObject *pollPickResult() {
 } // executes after offscreen rendering
 
 private:
-uint32_t imageCount_ = 0;
-VkExtent2D targetExtent{};
+  uint32_t imageCount_ = 0;
+  VkExtent2D targetExtent{};
 
-// Id image for object picking
-std::vector<VkImage> idImages;
-std::vector<VkDeviceMemory> idImageMemories;
-std::vector<VkImageView> idImageViews;
-std::vector<VkImageLayout> idImageLayouts;
-VkFormat idImageFormat = VK_FORMAT_R32_UINT;
-void createImages() {
-  idImages.resize(imageCount_);
-  idImageMemories.resize(imageCount_);
-  idImageViews.resize(imageCount_);
+  // Id image for object picking
+  std::vector<VkImage> idImages;
+  std::vector<VkDeviceMemory> idImageMemories;
+  std::vector<VkImageView> idImageViews;
+  std::vector<VkImageLayout> idImageLayouts;
+  VkFormat idImageFormat = VK_FORMAT_R32_UINT;
+  void createImages() {
+    idImages.resize(imageCount_);
+    idImageMemories.resize(imageCount_);
+    idImageViews.resize(imageCount_);
 
-  VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
-  imageInfo.imageType = VK_IMAGE_TYPE_2D;
-  imageInfo.extent.width = targetExtent.width;
-  imageInfo.extent.height = targetExtent.height;
-  imageInfo.extent.depth = 1;
-  imageInfo.mipLevels = 1;
-  imageInfo.arrayLayers = 1;
-  imageInfo.format = idImageFormat;
-  imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-  imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                    VK_IMAGE_USAGE_SAMPLED_BIT;
-  imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-  imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = targetExtent.width;
+    imageInfo.extent.height = targetExtent.height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = idImageFormat;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                      VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                      VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  for (uint32_t i = 0; i < imageCount_; ++i) {
-    Device::get().createImageWithInfo(
-        imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, idImages[i], idImageMemories[i]);
+    for (uint32_t i = 0; i < imageCount_; ++i) {
+      Device::get().createImageWithInfo(
+          imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, idImages[i], idImageMemories[i]);
 
-    VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    viewInfo.image = idImages[i];
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = idImageFormat;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
+      VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+      viewInfo.image = idImages[i];
+      viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+      viewInfo.format = idImageFormat;
+      viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      viewInfo.subresourceRange.baseMipLevel = 0;
+      viewInfo.subresourceRange.levelCount = 1;
+      viewInfo.subresourceRange.baseArrayLayer = 0;
+      viewInfo.subresourceRange.layerCount = 1;
 
-    if (vkCreateImageView(Device::get().device(), &viewInfo, nullptr,
-                          &idImageViews[i]) != VK_SUCCESS)
-      throw std::runtime_error(
-          "OffscreenRenderTarget: failed to create id image view");
-  }
-}
-
-void destroyImages() {
-  VkDevice device = Device::get().device();
-  for (size_t i = 0; i < idImages.size(); ++i) {
-    if (idImageViews[i] != VK_NULL_HANDLE) {
-      vkDestroyImageView(device, idImageViews[i], nullptr);
-      idImageViews[i] = VK_NULL_HANDLE;
-    }
-
-    if (idImages[i] != VK_NULL_HANDLE) {
-      vkDestroyImage(device, idImages[i], nullptr);
-      idImages[i] = VK_NULL_HANDLE;
-    }
-    if (idImageMemories[i] != VK_NULL_HANDLE) {
-      vkFreeMemory(device, idImageMemories[i], nullptr);
-      idImageMemories[i] = VK_NULL_HANDLE;
+      if (vkCreateImageView(Device::get().device(), &viewInfo, nullptr,
+                            &idImageViews[i]) != VK_SUCCESS)
+        throw std::runtime_error(
+            "OffscreenRenderTarget: failed to create id image view");
     }
   }
-  idImages.clear();
-  idImageMemories.clear();
-  idImageViews.clear();
-}
 
-// Deferred Picking
-struct PendingPick {
-  bool hasRequest = false;
-  uint32_t x = 0, y = 0;
-  GameObject *result = nullptr;
-} pendingPick;
+  void destroyImages() {
+    VkDevice device = Device::get().device();
+    for (size_t i = 0; i < idImages.size(); ++i) {
+      if (idImageViews[i] != VK_NULL_HANDLE) {
+        vkDestroyImageView(device, idImageViews[i], nullptr);
+        idImageViews[i] = VK_NULL_HANDLE;
+      }
 
-GameObject *pickAtPixel(uint32_t x, uint32_t y) {
-  Buffer stagingBuffer(sizeof(uint32_t), 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  stagingBuffer.map();
+      if (idImages[i] != VK_NULL_HANDLE) {
+        vkDestroyImage(device, idImages[i], nullptr);
+        idImages[i] = VK_NULL_HANDLE;
+      }
+      if (idImageMemories[i] != VK_NULL_HANDLE) {
+        vkFreeMemory(device, idImageMemories[i], nullptr);
+        idImageMemories[i] = VK_NULL_HANDLE;
+      }
+    }
+    idImages.clear();
+    idImageMemories.clear();
+    idImageViews.clear();
+  }
 
-  VkImage idImage = idImages[FrameInfo::frameIndex];
+  // Deferred Picking
+  struct PendingPick {
+    bool hasRequest = false;
+    uint32_t x = 0, y = 0;
+    GameObject *result = nullptr;
+  } pendingPick;
 
-  VkCommandBuffer cb = Device::get().beginSingleTimeCommands();
+  uint32_t pickAtPixel(uint32_t x, uint32_t y) {
+    Buffer stagingBuffer(sizeof(uint32_t), 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    stagingBuffer.map();
 
-  // Transition ID image for readback (from shader read-only to transfer src)
-  Device::transitionImageLayoutCmd(
-      cb, idImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT,
-      VK_IMAGE_ASPECT_COLOR_BIT);
+    VkImage idImage = idImages[FrameInfo::frameIndex];
 
-  VkBufferImageCopy region{};
-  region.bufferOffset = 0;
-  region.bufferRowLength = 0;
-  region.bufferImageHeight = 0;
-  region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-  region.imageSubresource.mipLevel = 0;
-  region.imageSubresource.baseArrayLayer = 0;
-  region.imageSubresource.layerCount = 1;
-  region.imageOffset = {static_cast<int32_t>(x), static_cast<int32_t>(y), 0};
-  region.imageExtent = {1, 1, 1};
+    VkCommandBuffer cb = Device::get().beginSingleTimeCommands();
 
-  Device::get().copyImageToBuffer(cb, stagingBuffer.getBuffer(),
-                                  idImage, region);
+    // Transition ID image for readback (from shader read-only to transfer src)
+    Device::transitionImageLayoutCmd(
+        cb, idImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+        VK_IMAGE_ASPECT_COLOR_BIT);
 
-  // Transition back to shader read-only
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+    region.imageOffset = {static_cast<int32_t>(x), static_cast<int32_t>(y), 0};
+    region.imageExtent = {1, 1, 1};
+
+    Device::get().copyImageToBuffer(cb, stagingBuffer.getBuffer(),
+                                    idImage, region);
+
+    // Transition back to shader read-only
     Device::transitionImageLayoutCmd(
           cb, idImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -254,14 +252,7 @@ GameObject *pickAtPixel(uint32_t x, uint32_t y) {
     if (data)
       memcpy(&objectId, data, sizeof(uint32_t));
 
-    if (objectId == 0) 
-      return nullptr;
-
-    if (Scene::current())
-      return Scene::current()->findGameObjectById(
-          static_cast<GameObject::id_t>(objectId));
-
-    return nullptr;
+    return objectId;
   }
 };
 }

@@ -18,7 +18,7 @@ public:
 
       if (auto parent = obj->parent) {
         parent->removeChild(obj);
-      } else if (auto scene = Scene::current()) {
+      } else if (auto scene = SceneManager::activeScene) {
         auto &gameObjects = scene->getGameObjects();
         gameObjects.erase(
             std::remove_if(gameObjects.begin(), gameObjects.end(),

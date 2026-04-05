@@ -1,11 +1,10 @@
 module;
+#include <memory>
+#include <print>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_to_string.hpp>
 
 module core:swapchain;
-import :render_target_info;
-import :frame_info;
-import :device;
 
 namespace Magma {
 

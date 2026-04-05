@@ -1,6 +1,7 @@
 export module core;
 
 export import :window;
+export import :render_context;
 export import :device;
 export import :render_system;
 export import :descriptors;

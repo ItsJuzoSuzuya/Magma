@@ -6,9 +6,10 @@ module;
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 module components:camera;
-import :component;
 
 namespace Magma {
+
+class GameObject;
 
 export struct CameraUBO {
   glm::mat4 projectionView{1.f};
@@ -114,13 +115,13 @@ public:
 
   #if defined(MAGMA_WITH_EDITOR)
     void onInspector() {
-      GameObject *activeCamera = Scene::getActiveCamera();
+      GameObject *activeCamera = SceneManager::activeCamera;
       bool isActive = (activeCamera == owner);
       if(ImGui::Checkbox("Active Camera", &isActive)) {
         if(isActive) 
-          Scene::setActiveCamera(owner);
+          SceneManager::activeCamera = owner;
         else 
-          Scene::setActiveCamera(nullptr);
+          SceneManager::activeCamera = nullptr;
       }
 
       ImGui::Separator();
@@ -137,7 +138,6 @@ public:
 
 private:
   Transform *ownerTransform = nullptr;
-  SceneRenderer *targetRenderer = nullptr;
 
   float fov;
   float aspectRatio;
@@ -159,7 +159,7 @@ private:
 
   void pushCameraDataToGPU(Buffer *uboBuffer) {
     CameraUBO ubo{};
-    ubo.projectionView = getProjection() * getView();
+    ubo.projectionView = projectionMatrix * viewMatrix;
     uboBuffer->writeToBuffer((void *)&ubo);
     uboBuffer->flush();
   }

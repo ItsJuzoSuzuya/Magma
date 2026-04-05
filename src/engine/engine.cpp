@@ -27,6 +27,8 @@ public:
     renderSystem->addRenderer(std::move(gameRenderer));
 
     project = ProjectCreator::initProject();
+    sceneManager.activeScene = project.scene.get();
+    sceneManager.activeCamera = project.camera;
 
     std::println("Engine initialized successfully.");
   }
@@ -52,6 +54,7 @@ public:
 
 private:
   UI_Manager uiManger = {};
+  Scene_Manager sceneManager = {};
 
   Window *window = nullptr;
   Project project;
