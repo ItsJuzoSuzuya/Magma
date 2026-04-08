@@ -2,7 +2,7 @@ module;
 #include <cstdint>
 #include <vulkan/vulkan_core.h>
 
-module core:frame_info;
+export module core:frame_info;
 
 namespace Magma {
 

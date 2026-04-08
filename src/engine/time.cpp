@@ -1,4 +1,4 @@
-module engine:time;
+export module engine:time;
 
 namespace Magma {
 

@@ -1,9 +1,12 @@
 module;
+#include <GLFW/glfw3.h>
 #include <algorithm>
 #include <memory>
 
-module engine:magma_engine;
-import :window;
+export module engine:magma_engine;
+import core;
+import render;
+import :ui_manager;
 
 namespace Magma {
 
@@ -18,6 +21,9 @@ public:
 
     #if defined (MAGMA_WITH_EDITOR)
       auto imguiRenderer = uiManger.setupUI();
+      imguiRenderer.onDraw = [ui_manager]() {
+        ui_manager.drawWidgets();
+      }
       renderSystem->addRenderer(std::move(imguiRenderer))
     #endif
 
@@ -47,6 +53,11 @@ public:
       glfwPollEvents();
       if (glfwGetKey(window->getGLFWwindow(), GLFW_KEY_ESCAPE))
         window->close();
+
+      ImGui_ImplVulkan_NewFrame();
+      ImGui_ImplGlfw_NewFrame();
+      ImGui::NewFrame();
+      ui_manager.dock();
 
       renderSystem->onRender();
     }

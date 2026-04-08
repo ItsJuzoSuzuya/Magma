@@ -1,9 +1,11 @@
 module;
 #include <memory>
 #include <utility>
-module engine:ui_manager;
-import core:window;
-import render:pipeline_shader_info;
+
+export module engine:ui_manager;
+import render;
+import components;
+import widget;
 
 namespace Magma {
 
@@ -11,11 +13,27 @@ export class UI_Manager {
 public:
   UI_Manager(){}
 
-  std::unique_ptr<ImGuiRenderer> setupUI(Window *window){
+  std::unique_ptr<ImGuiRenderer> setupUI(Window *windowm, WidgetManager *widgetManager){
     PipelineShaderInfo imguiShaderInfo = {
       .vertFile = "src/shaders/shader.vert.spv",
       .fragFile = "src/shaders/imgui.frag.spv"
     };
+
+    auto cameraObject = new GameObject(UINT32_MAX, "Editor Camera");
+    cameraObject->addComponent<Transform>();
+    auto camera = cameraObject->addComponent<Camera>();
+    camera->setPerspectiveProjection(glm::radians(90.f), 16.f / 9.f, 0.1f, 100.f);
+
+    widgetManager->addWidget(std::make_unique<RuntimeControl>());
+    widgetManager->addWidget(std::make_unique<SceneTree>());
+    widgetManager->addWidget(std::make_unique<Inspector>());
+    widgetManager->addWidget(std::make_unique<FileBrowser>());
+
+    auto editor = std::make_unique<GameEditor>(*editorRenderer.get(), renderer.onResize(newExtent));
+    editor->initEditorCamera(&cameraObject);
+    imguiRenderer->addWidget(std::move(editor));
+    imguiRenderer->addWidget(std::make_unique<GameView>(*gameRenderer.get()));
+
 
     RenderTargetInfo rtInfo = {};
     auto swapchainTarget = std::make_unique<SwapchainTarget>(window->getExtent(),
@@ -23,13 +41,7 @@ public:
     auto imguiRenderer = 
       std::make_unique<ImGuiRenderer>(std::move(swapchainTarget),
                                       imguiShaderInfo);
-    imguiRenderer->addWidget(std::make_unique<RuntimeControl>());
-    imguiRenderer->addWidget(std::make_unique<SceneTree>());
-    imguiRenderer->addWidget(std::make_unique<Inspector>());
-    imguiRenderer->addWidget(std::make_unique<FileBrowser>());
 
-    imguiRenderer->addWidget(std::make_unique<GameEditor>(*editorRenderer.get()));
-    imguiRenderer->addWidget(std::make_unique<GameView>(*gameRenderer.get()));
     imguiRenderer->initImGui(*window.get());
     return std::move(imguiRenderer);
   }
@@ -62,7 +74,6 @@ public:
     renderer->cameraSource = CameraSource::Scene;
     return std::move(renderer);
   }
-
 };
 
 

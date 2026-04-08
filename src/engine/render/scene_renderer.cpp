@@ -1,15 +1,20 @@
 module;
 #include <iterator>
-module render:scene_renderer;
+#include <vector>
+#include <memory>
+#include <vulkan/vulkan_core.h>
 
-import core:renderer;
+export module render:scene_renderer;
+import core;
+import features;
+import :pipeline_shader_info;
 
 namespace Magma {
 
 class Transform;
 class EditorCamera;
 
-enum class CameraSource {
+export enum class CameraSource {
   Editor,
   Scene
 };
@@ -188,7 +193,6 @@ private:
   std::unique_ptr<Pipeline> pipeline = nullptr;
   PipelineShaderInfo shaderInfo;
   void createPipeline() override {
-
     assert(pipelineLayout != nullptr &&
            "Cannot create pipeline before pipeline layout!");
     assert(renderTarget != nullptr &&

@@ -1,14 +1,19 @@
 module;
+#include <cassert>
+#include <memory>
+#include <stdexcept>
+#include <vector>
 #include <vulkan/vulkan_core.h>
+#include <cassert>
 
-module render:swapchain_target;
-import core:render_target;
-import core:swapchain;
-import core:render_target_info;
+export module core:swapchain_target;
+import :swapchain;
+import :render_target;
+import :device;
 
 namespace Magma {
 
-class SwapchainTarget : public IRenderTarget {
+export class SwapchainTarget : public IRenderTarget {
 public:
   explicit SwapchainTarget(VkExtent2D extent, RenderTargetInfo &info) {
     swapChain_ = std::make_unique<SwapChain>(extent);
@@ -33,12 +38,12 @@ public:
   VkExtent2D extent() const override { return targetExtent; }
   SwapChain* swapChain() const { return swapChain_.get(); }
 
-  VkImageView getColorImageView(size_t index) const {
+  VkImageView getColorImageView(size_t index) const override {
     return imageViews[index];
   }
 
   VkRenderingAttachmentInfo getColorAttachment(
-      size_t index) const {
+      size_t index) const override {
     VkRenderingAttachmentInfo colorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     colorAttachment.imageView = imageViews[index];
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -48,18 +53,17 @@ public:
     return colorAttachment;
   }
 
-  VkImageLayout getColorImageLayout(size_t index) const {
+  VkImageLayout getColorImageLayout(size_t index) const override {
     assert(index < imageLayouts.size() && "SwapchainTarget: Index out of bounds in getColorImageLayout");
 
     return imageLayouts.at(index);
   }
   uint32_t getColorAttachmentCount() const override { return 1; }
-  VkImage SwapchainTarget::getColorImage(size_t index) const {
+  VkImage getColorImage(size_t index) const override {
     return images[index];
   }
   VkFormat getColorFormat() const override { return imageFormat; }
-  void transitionColorImage(size_t index,
-                                             ImageTransitionDescription transition) {
+  void transitionColorImage(size_t index, ImageTransitionDescription transition) override {
     assert(index < imageLayouts.size() && "SwapchainTarget: Index out of bounds in transitionColorImage");
 
     VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -88,7 +92,7 @@ public:
     return depthImageViews.at(index);
   }
   VkRenderingAttachmentInfo getDepthAttachment(
-      size_t index) const {
+      size_t index) const override {
     VkRenderingAttachmentInfo depthAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     depthAttachment.imageView = depthImageViews[index];
     depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -97,13 +101,13 @@ public:
     depthAttachment.clearValue.depthStencil = {1.0f, 0};
     return depthAttachment;
   }
-  VkImageLayout getDepthImageLayout(size_t index) const {
+  VkImageLayout getDepthImageLayout(size_t index) const override{
     assert(index < depthImageLayouts.size() && "SwapchainTarget: Index out of bounds in getDepthImageLayout");
 
     return depthImageLayouts.at(index);
   }
   VkFormat getDepthFormat() const override { return depthImageFormat; }
-  void transitionDepthImage(size_t index, ImageTransitionDescription transition) {
+  void transitionDepthImage(size_t index, ImageTransitionDescription transition) override {
     assert(index < depthImageLayouts.size() && "SwapchainTarget: Index out of bounds in transitionDepthImage");
 
     VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -129,7 +133,7 @@ public:
 
   VkSampler getColorSampler() const override { return VK_NULL_HANDLE; } // no sampler for swapchain
 
-  void cleanup() {
+  void cleanup() override {
     VkDevice device = Device::get().device();
 
     destroyDepthResources();
@@ -143,7 +147,7 @@ public:
     // be destroyed here.
   }
 
-  void onResize(const VkExtent2D newExtent) {
+  void onResize(const VkExtent2D newExtent) override {
     if (newExtent.width == 0 || newExtent.height == 0)
       return;
 

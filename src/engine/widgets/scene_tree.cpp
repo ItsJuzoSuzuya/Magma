@@ -1,8 +1,9 @@
 module;
 #include "imgui.h"
 
-module widgets:scene_tree;
+export module widgets:scene_tree;
 import :widget;
+import engine:scene;
 
 namespace Magma {
 

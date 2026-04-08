@@ -1,7 +1,11 @@
 module;
 #include <vulkan/vulkan_core.h>
+#include <stdexcept>
+#include <vector>
+#include <assert.h>
+#include <fstream>
 
-module core:pipeline;
+export module core:pipeline;
 import :mesh_data;
 import :device;
 

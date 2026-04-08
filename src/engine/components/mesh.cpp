@@ -1,10 +1,17 @@
 module;
+#include <glm/ext/scalar_uint_sized.hpp>
+#include <vulkan/vulkan_core.h>
+#include <print>
 #include <tiny_gltf.h>
+#include <memory>
+#include <filesystem>
+#include <imgui.h>
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 
-module components:mesh;
+export module components:mesh;
+import core;
 import :component;
 
 namespace fs = std::filesystem;
@@ -26,11 +33,9 @@ inline bool hasAllowedExt(const fs::path &path) {
 }
 } // namespace string_utils
 
-
-export class Mesh {
+export class Mesh: public Component {
 public:
-  Mesh(GameObject *owner)
-      : Component(owner) {}
+  Mesh(uint32_t ownerID): Component(ownerID) {}
 
   ~Mesh() {
     if (meshData) {
@@ -205,7 +210,7 @@ public:
               return asset == typed;
             }) != assets.end()) {
           sourcePath = typed;
-          SceneManager::activeScene->defer(SceneAction::loadMesh(owner));
+          SceneManager::activeScene->defer(SceneAction::loadMesh(this));
         }
       }
 
@@ -221,10 +226,10 @@ public:
   void collectProxy(RenderProxy &proxy){
     MeshProxy meshProxy = {};
     meshProxy.meshData = meshData;
-    meshProxy.vertexBuffer = vertexBuffer;
-    meshProxy.indexBuffer = indexBuffer;
-    meshProxy.indexCount   = indexCount;
-    meshProxy.vertexCount  = vertexCount;
+    meshProxy.vertexBuffer = vertexBuffer->getBuffer();
+    meshProxy.indexBuffer = indexBuffer->getBuffer();
+    meshProxy.indexCount   = static_cast<uint32_t>(meshData->indices.size());
+    meshProxy.vertexCount  = static_cast<uint32_t>(meshData->vertices.size());
     meshProxy.hasIndexBuffer = hasIndexBuffer;
   }
 

@@ -2,9 +2,11 @@ module;
 #include <memory>
 #include <print>
 #include <vulkan/vulkan_core.h>
-#include <vulkan/vulkan_to_string.hpp>
+#include <vulkan/vk_enum_string_helper.h>
 
-module core:swapchain;
+export module core:swapchain;
+import :device;
+import :render_target_info;
 
 namespace Magma {
 

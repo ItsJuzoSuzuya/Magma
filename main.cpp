@@ -1,6 +1,6 @@
-import engine:window_specification;
+import engine:specification;
 import engine:magma;
-import core:window;
+import core;
 
 // Main code
 int main(int, char **) {

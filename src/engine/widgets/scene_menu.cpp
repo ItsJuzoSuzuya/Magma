@@ -1,8 +1,10 @@
 module;
 #include "imgui.h"
 
-module widgets:scene_menu;
+export module widgets:scene_menu;
 import :widget;
+import engine:scene;
+import :gameobject;
 
 namespace Magma {
 
@@ -25,7 +27,7 @@ public:
   }
 
   // Render
-  void SceneMenu::draw() override {
+  void draw() override {
     if (openPopupRequested) {
       ImGui::OpenPopup(name());
       openPopupRequested = false;

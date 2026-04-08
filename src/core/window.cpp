@@ -7,14 +7,14 @@ module;
 #include "GLFW/glfw3.h"
 #include "vulkan/vulkan.h"
 
-module core:window;
-import :specification;
+export module core:window;
+import :specifications;
 
 namespace Magma {
 
 export class Window {
 public:
-  Window(WindowSpecifications &spec): width(spec.windowWidth), height(spec.windowHeight), name(spec.name) {
+  Window(WindowSpecification &spec): width(spec.windowWidth), height(spec.windowHeight), name(spec.name) {
     initGLFWWindow();
   }
 

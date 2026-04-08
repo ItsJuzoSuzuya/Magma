@@ -1,16 +1,22 @@
 module;
 #include "imgui.h"
+#include <filesystem>
+#include <optional>
+#include <string>
 
-module widgets:file_browser;
+export module widgets:file_browser;
 import :widget;
+import :ui_context;
+import systems;
+
 
 namespace Magma {
 
-class FileBrowser: public Widget {
+export class FileBrowser: public Widget {
 public:
   const char *name() const override { return "File Manager"; }
 
-  void FileBrowser::draw() override {
+  void draw() override {
     UIContext::ensureInit();
 
     ImGui::SetNextWindowClass(&UIContext::AppDockClass);

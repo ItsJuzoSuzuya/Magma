@@ -1,8 +1,9 @@
 module;
 #include "imgui.h"
 
-module widgets:inspector_menu;
+export module widgets:inspector_menu;
 import :widget;
+import engine:gameobject;
 
 namespace Magma {
 

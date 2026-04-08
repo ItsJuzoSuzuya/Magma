@@ -1,3 +1,3 @@
-export module engine:systems;
+export module systems;
 
 export import :file_manager;

@@ -2,7 +2,7 @@ module;
 #include <vulkan/vulkan_core.h>
 #include <glm/vec3.hpp>
 
-module core:mesh_data;
+export module core:mesh_data;
 
 namespace Magma {
 

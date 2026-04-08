@@ -1,13 +1,12 @@
 module;
 #include <algorithm>
 #include <functional>
-module engine:scene_action;
-import :gameObject;
-import :scene;
+
+export module engine:scene_action;
+import :gameobject;
+import :scene_manager;
 
 namespace Magma {
-
-class Mesh;
 
 export class SceneAction {
 public:
@@ -28,12 +27,9 @@ public:
     };
   }
 
-  inline static std::function<void()> loadMesh(GameObject *obj) {
-    return [obj]() {
-      if (!obj)
-        return;
-
-      obj->getComponent<Mesh>()->load();
+  inline static std::function<void()> loadMesh(Mesh *mesh) {
+    return [mesh]() {
+      mesh->load();
     };
   }
 };

@@ -1,7 +1,7 @@
 module;
 #include "imgui.h"
 
-module wigets:ui_context;
+export module widgets:ui_context;
 
 namespace Magma {
 
@@ -12,8 +12,6 @@ export struct UIContext {
   inline static ImGuiWindowClass GameViewDockClass{};   // Game view dockspace
 
   inline static ImGuiID TopBarDockId = 0;
-
-  inline static ImFont* IconFont = nullptr;
 
   static void ensureInit() {
     if (initialized) return;

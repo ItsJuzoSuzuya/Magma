@@ -1,9 +1,13 @@
 module;
 #include <cstdint>
+#include <functional>
 #include <vulkan/vulkan_core.h>
+#include <vector>
 
-module core:deletion_queue;
+export module core:deletion_queue;
 import :swapchain;
+import :device;
+import :frame_info;
 
 namespace Magma {
 

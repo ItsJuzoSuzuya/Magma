@@ -1,14 +1,19 @@
 module;
+#include <cstdint>
 #include <vector>
 #include <vulkan/vulkan_core.h>
+#include <string.h>
+#include <stdexcept>
 
-module features:object_picker;
+export module features:object_picker;
+import core;
+import :render_feature;
 
 namespace Magma {
 
 class GameObject;
 
-class ObjectPicker: public RenderFeature {
+export class ObjectPicker: public RenderFeature {
 public:
 ObjectPicker(VkExtent2D extent, uint32_t imageCount): targetExtent{extent}, imageCount_{imageCount} {
   createImages();
@@ -113,14 +118,14 @@ void servicePendingPick() {
   if (!pendingPick.hasRequest)
     return;
 
-  GameObject *picked = pickAtPixel(pendingPick.x, pendingPick.y);
+  uint32_t picked = pickAtPixel(pendingPick.x, pendingPick.y);
   pendingPick.result = picked;
   pendingPick.hasRequest = false;
 }
 
-GameObject *pollPickResult() {
-  GameObject *result = pendingPick.result;
-  pendingPick.result = nullptr; 
+uint32_t pollPickResult() {
+  uint32_t result = pendingPick.result;
+  pendingPick.result = 0; 
   return result;
 } // executes after offscreen rendering
 
@@ -202,7 +207,7 @@ private:
   struct PendingPick {
     bool hasRequest = false;
     uint32_t x = 0, y = 0;
-    GameObject *result = nullptr;
+    uint32_t result = 0;
   } pendingPick;
 
   uint32_t pickAtPixel(uint32_t x, uint32_t y) {

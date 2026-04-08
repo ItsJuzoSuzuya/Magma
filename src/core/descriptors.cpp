@@ -1,8 +1,11 @@
 module;
+#include <memory>
+#include <unordered_map>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 #include <cassert>
 
-module core:descriptors;
+export module core:descriptors;
 import :device;
 
 namespace Magma {
@@ -13,7 +16,7 @@ public:
   public:
     Builder &addBinding(
         uint32_t binding, VkDescriptorType descriptorType,
-        VkShaderStageFlags stageFlags, uint32_t count) {
+        VkShaderStageFlags stageFlags, uint32_t count = 1) {
       VkDescriptorSetLayoutBinding layoutBinding{};
       layoutBinding.binding = binding;
       layoutBinding.stageFlags = stageFlags;
@@ -81,7 +84,7 @@ public:
       maxSets = count;
       return *this;
     }
-    std::unique_ptr<DescriptorPool> ::build() const {
+    std::unique_ptr<DescriptorPool> build() const {
       return std::make_unique<DescriptorPool>(maxSets, poolFlags,
                                               poolSizes);
     }
@@ -147,7 +150,7 @@ public:
       : setLayout{setLayout}, pool{pool} {};
   DescriptorWriter &writeBuffer(
       uint32_t binding, VkDescriptorBufferInfo *bufferInfo,
-      VkDescriptorType descriptorType, VkDescriptorImageInfo *imageInfo) {
+      VkDescriptorType descriptorType, VkDescriptorImageInfo *imageInfo = nullptr) {
     assert(setLayout.bindings.count(binding) == 1 &&
            "Layout does not cotain specified binding");
 

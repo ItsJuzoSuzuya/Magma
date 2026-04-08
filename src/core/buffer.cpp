@@ -1,8 +1,9 @@
 module;
 #include <cassert>
 #include <vulkan/vulkan_core.h>
+#include <string.h>
 
-module core:buffer;
+export module core:buffer;
 import :device;
 import :deletion_queue;
 
@@ -13,7 +14,7 @@ public:
   Buffer(VkDeviceSize instanceSize, uint32_t instanceCount,
                  VkBufferUsageFlags usageFlags,
                  VkMemoryPropertyFlags memoryPropertyFlags,
-                 VkDeviceSize minOffsetAlignment) {
+                 VkDeviceSize minOffsetAlignment = 0) {
     alignmentSize = getAlignment(instanceSize, minOffsetAlignment);
     bufferSize = alignmentSize * instanceCount;
     Device::get().createBuffer(bufferSize, usageFlags, memoryPropertyFlags,

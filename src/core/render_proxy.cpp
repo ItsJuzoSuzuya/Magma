@@ -2,12 +2,15 @@ module;
 #include <glm/ext/matrix_float4x4.hpp>
 #include <optional>
 #include <vulkan/vulkan_core.h>
+#include <memory>
 
-module render:render_proxy;
-import core:meshData;
+export module core:render_proxy;
+import :mesh_data;
+
+namespace Magma {
 
 export struct MeshProxy {
-    MeshData meshData;
+    MeshData *meshData;
     VkBuffer vertexBuffer = VK_NULL_HANDLE;
     VkBuffer indexBuffer  = VK_NULL_HANDLE;
     uint32_t indexCount   = 0;
@@ -21,8 +24,8 @@ export struct TransformProxy {
 };
 
 export struct PointLightProxy {
-    glm::vec4 position;
-    glm::vec4 color;
+  glm::vec4 position;
+  glm::vec4 color;
 };
 
 export struct CameraProxy {
@@ -36,3 +39,5 @@ export struct RenderProxy {
     std::optional<PointLightProxy> pointLight;
     std::optional<CameraProxy>     camera;
 };
+
+}

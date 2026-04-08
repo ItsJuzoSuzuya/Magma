@@ -1,4 +1,13 @@
-module core:render_system;
+module;
+#include <vulkan/vulkan_core.h>
+#include <vector>
+#include <memory>
+#include <GLFW/glfw3.h>
+
+export module engine:render_system;
+import core;
+import :scene;
+
 
 namespace Magma {
 
@@ -63,15 +72,6 @@ private:
   }
 
   bool beginFrame(){
-    #if defined(MAGMA_WITH_EDITOR)
-      for (auto &renderer : renderers) {
-        if (auto imguiRenderer = dynamic_cast<ImGuiRenderer*>(renderer.get())) {
-          imguiRenderer->newFrame();
-          imguiRenderer->preFrame();
-        }
-      }
-    #endif
-
     VkResult result;
     for (auto &renderer : renderers) {
       if (renderer->isSwapChainDependent())

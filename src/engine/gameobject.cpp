@@ -1,6 +1,7 @@
 module;
 
 #include <algorithm>
+#include <functional>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -12,8 +13,8 @@ module;
   #include "imgui.h"
 #endif
 
-module engine:gameobject;
-import :components:component;
+export module engine:gameobject;
+import core;
 
 namespace Magma {
 
@@ -32,7 +33,7 @@ inline void sortComponentsByName(std::vector<Component *> &components){
 }
 
 #if defined(MAGMA_WITH_EDITOR)
-  export struct GameObjectMenuCallbacks {
+  struct GameObjectMenuCallbacks {
       std::function<void(GameObject*)> onLeftClick;   // Inspector::setContext
       std::function<void(GameObject*)> onRightClick;  // SceneMenu::queueContextMenuFor
   };
@@ -72,7 +73,7 @@ public:
   GameObject::id_t getNextId() { return nextId++; }
 
   // Children
-  std::vector<GameObject *> GameObject::getChildren() {
+  std::vector<GameObject *> getChildren() {
     std::vector<GameObject *> result;
     for (const auto &child : children) {
       if (child)
@@ -103,7 +104,7 @@ public:
     children.erase(it, children.end());
   }
 
-#if defined(MAGMA_WITH_EDITOR)
+  #if defined(MAGMA_WITH_EDITOR)
     void drawChildren() {
       for (const auto &child : children) {
         if (child) {
@@ -111,7 +112,7 @@ public:
               ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanFullWidth;
 
           // If no sub-children, display as leaf node
-          if (!child->hasChildren()) {
+          if (child->children.size() == 0) {
             flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
             ImGui::TreeNodeEx(child->name.c_str(), flags);
 
@@ -138,7 +139,7 @@ public:
         }
       }
     }
-#endif
+  #endif
 
   void onUpdate(){
     for (const auto &component : components) {
@@ -150,6 +151,22 @@ public:
       if (child)
         child->onUpdate();
     }
+  }
+
+  // Movement helpers used by editor input
+  void moveRight(float speed) {
+    if(auto *transform = getComponent<Transform>())
+      transform->position += transform->right() * speed;
+  }
+
+  void moveForward(float speed) {
+    if(auto *transform = getComponent<Transform>())
+      transform->position += transform->forward() * speed;
+  }
+
+  void moveUp(float speed) {
+    if(auto *transform = getComponent<Transform>())
+      transform->position += transform->up() * speed;
   }
 
 

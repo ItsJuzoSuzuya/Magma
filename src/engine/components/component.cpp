@@ -1,9 +1,10 @@
-module components:component;
-import core:renderer;
+module;
+#include <cstdint>
+
+export module components:component;
+import core;
 
 namespace Magma {
-
-class GameObject;
 
 /**
  * Abstract class for all components.
@@ -13,7 +14,7 @@ class GameObject;
  */
 export class Component {
 public:
-  Component(GameObject *owner) : owner{owner} {}
+  Component(uint64_t *ownerID) : ownerID(ownerID) {}
   virtual ~Component() = default;
 
   // --- Lifecycle ---
@@ -28,7 +29,7 @@ public:
     virtual const float inspectorHeight() const = 0;
   #endif
 
-  GameObject *owner = nullptr;
+  uint64_t *ownerID = nullptr;
 };
 
 } // namespace Magma

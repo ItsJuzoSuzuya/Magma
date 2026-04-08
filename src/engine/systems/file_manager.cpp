@@ -1,4 +1,9 @@
-module systems:file_manager;
+module;
+#include <string>
+#include <vector>
+#include <filesystem>
+
+export module systems:file_manager;
 
 namespace fs = std::filesystem;
 namespace Magma {
@@ -24,7 +29,7 @@ export struct File {
  */
 export class FileManager {
 public:
-  static std::vector<File> FileManager::getFiles(std::string_view path){
+  static std::vector<File> getFiles(std::string_view path){
     std::vector<File> files{};
     for (const auto &entry: fs::directory_iterator(path)){
       const std::string path = entry.path().string();

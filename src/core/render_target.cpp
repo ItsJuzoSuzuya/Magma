@@ -1,12 +1,12 @@
 module;
 #include <vulkan/vulkan_core.h>
 
-module core:render_target;
+export module core:render_target;
 import :image_transition;
 
 namespace Magma {
 
-class IRenderTarget {
+export class IRenderTarget {
 public:
   virtual ~IRenderTarget() = default;
   virtual void cleanup() = 0;

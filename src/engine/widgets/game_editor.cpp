@@ -3,8 +3,11 @@ module;
 #include "imgui.h"
 #include "imgui_internal.h"
 #include <cmath>
+#include <vulkan/vulkan_core.h>
 
-module widgets:game_editor;
+export module widgets:game_editor;
+import :widget;
+import engine:render:features:object_picker;
 
 static ImVec2 fit16x9(const ImVec2 &avail) {
   float targetH = avail.x * 9.0f / 16.0f;
@@ -29,7 +32,12 @@ namespace Magma {
 
 export class GameEditor : public Widget {
 public:
-  GameEditor(SceneRenderer &renderer): renderer(renderer){}
+  GameEditor(ImVec2 size, std::function<void(VkExtent2D*)> resizeRenderer): 
+    sceneSize{size}, resizeRenderer{resizeRenderer}
+
+  void initEditorCamera(GameObject *gameobject){
+
+  }
 
   const char *name() const override { return "Editor"; }
 
@@ -42,13 +50,12 @@ public:
       ImVec2 avail = ImGui::GetContentRegionAvail();
       ImVec2 desired = fit16x9(avail);
 
-      ImVec2 current = renderer.getSceneSize();
-      bool needsResize = ((int)desired.x != (int)current.x) ||
-                         ((int)desired.y != (int)current.y);
+      bool needsResize = ((int)desired.x != (int)sceneSize.x) ||
+                         ((int)desired.y != (int)sceneSize.y);
 
       if (needsResize) {
         VkExtent2D newExtent{(uint32_t)desired.x, (uint32_t)desired.y};
-        renderer.onResize(newExtent);
+        resizeRenderer(newExtent);
       }
     }
 
@@ -107,7 +114,6 @@ public:
     }
 
     if (auto picked = renderer.getFeature<ObjectPicker>().pollPickResult()) {
-
       GameObject *go;
       if (SceneManager::activeScene())
         go = SceneManager::activeScene->findGameObjectById(
@@ -134,7 +140,10 @@ public:
   }
 
 private:
-  SceneRenderer &renderer;
+  ImVec2 sceneSize;
+  std::function<void(VkExtent2D *)> resizeRenderer;
+  std::unique_ptr<EditorCamera> () = nullptr;
+
 
   // Drag state
   GameObject *draggedObject = nullptr;
@@ -151,7 +160,7 @@ private:
   // Depth in NDC (clip.z / clip.w) at start of drag
   float dragStartNDCDepth = 0.f;
 
-  void GameEditor::beginDrag(GameObject *picked, const ImVec2 &mousePos,
+  void beginDrag(GameObject *picked, const ImVec2 &mousePos,
                              const ImVec2 &imageMin, const ImVec2 &imageSize) {
     draggedObject = picked;
     dragStartMousePos = mousePos;
@@ -199,7 +208,7 @@ private:
     dragPixelOffset = ImVec2(mouseLocalX - objPixelX, mouseLocalY - objPixelY);
   }
 
-  void GameEditor::handleMouseDrag() {
+  void handleMouseDrag() {
     if (!draggedObject)
       return;
 

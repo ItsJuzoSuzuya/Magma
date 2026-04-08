@@ -1,7 +1,7 @@
 module;
 #include <optional>
 
-module widgets:widget;
+export module widgets:widget;
 
 namespace Magma {
 

@@ -5,11 +5,10 @@ module;
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-module components:camera;
+export module components:camera;
+import :component;
 
 namespace Magma {
-
-class GameObject;
 
 export struct CameraUBO {
   glm::mat4 projectionView{1.f};
@@ -22,9 +21,12 @@ export struct AABB {
 
 export class Camera : public Component {
 public:
-  Camera(GameObject *owner): Component(owner), 
-    ownerTransform(owner->getComponent<Transform>()) {}
-
+  Camera(uint64_t *ownerID): 
+    Component(ownerID), 
+    ownerTransform(
+      SceneManager::getComponentFromGameObject(ownerID)
+    ) {}
+    
   void setPerspectiveProjection(float fov, float aspect, float near, float far){
     this->fov = glm::clamp(fov, 0.01f, glm::radians(179.f));
     aspectRatio = aspect;
@@ -116,10 +118,10 @@ public:
   #if defined(MAGMA_WITH_EDITOR)
     void onInspector() {
       GameObject *activeCamera = SceneManager::activeCamera;
-      bool isActive = (activeCamera == owner);
+      bool isActive = (activeCamera == SceneManager::findGameObjectById(ownerID));
       if(ImGui::Checkbox("Active Camera", &isActive)) {
         if(isActive) 
-          SceneManager::activeCamera = owner;
+          SceneManager::activeCamera = SceneManager::findGameObjectById(ownerID);
         else 
           SceneManager::activeCamera = nullptr;
       }

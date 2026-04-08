@@ -1,7 +1,7 @@
 module;
 #include <vulkan/vulkan_core.h>
 
-module core:image_transition;
+export module core:image_transition;
 
 namespace Magma {
 

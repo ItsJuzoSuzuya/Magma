@@ -1,15 +1,16 @@
 module;
+#include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float3.hpp>
 
-module components:transform;
-import core:frame_info;
-import core:renderer;
+export module components:transform;
+import :component;
+import core;
 
 namespace Magma {
 
 export class Transform : public Component {
 public:
-  Transform(GameObject *obj) : Component(obj) {}
+  Transform(uint64_t *ownerID) : Component(ownerID) {}
   ~Transform() = default;
 
   glm::vec3 position{0.0f, 0.0f, 0.0f};
@@ -22,7 +23,7 @@ public:
   void collectProxy(RenderProxy &proxy) override {
     TransformProxy transformProxy = {};
     transformProxy.modelMatrix = modelMatrix;
-    transformProxy.objectId = owner->id;
+    transformProxy.objectId = ownerID;
 
     proxy.transform = proxy;
   }

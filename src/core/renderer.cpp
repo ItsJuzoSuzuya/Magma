@@ -1,12 +1,13 @@
 module;
 #include <vulkan/vulkan_core.h>
+#include <vector>
 
-module core:renderer;
+export module core:renderer;
 import :swapchain;
 
 namespace Magma {
 
-class IRenderer {
+export class IRenderer {
 public:
   virtual ~IRenderer() = default;
   virtual void destroy() = 0;

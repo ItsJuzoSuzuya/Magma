@@ -2,7 +2,7 @@ module;
 #include <memory>
 #include <string>
 
-module engine:project;
+export module engine:project;
 import :scene;
 
 namespace Magma {

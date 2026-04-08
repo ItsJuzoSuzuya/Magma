@@ -2,11 +2,11 @@ module;
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-module features:render_feature;
+export module features:render_feature;
 
 namespace Magma {
 
-class RenderFeature {
+export class RenderFeature {
 public:
   virtual ~RenderFeature() = default;
 

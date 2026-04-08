@@ -2,11 +2,11 @@ module;
 #include "imgui.h"
 #include "imgui_internal.h"
 
-module widgets:dock_layout;
+export module widgets:dock_layout;
 
 namespace Magma {
 
-class DockLayout {
+export class DockLayout {
 public:
   DockLayout(ImGuiID rootId, const ImVec2 &size,
              ImGuiDockNodeFlags rootFlags = ImGuiDockNodeFlags_DockSpace): rootId(rootId), mainId(rootId) {

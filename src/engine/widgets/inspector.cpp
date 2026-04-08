@@ -1,8 +1,10 @@
 module;
 #include "imgui.h"
+#include "imgui_internal.h"
 
-module widgets:inspector;
+export module widgets:inspector;
 import :widget;
+import engine:components:component;
 
 namespace Magma {
 

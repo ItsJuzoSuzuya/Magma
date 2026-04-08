@@ -2,8 +2,8 @@ module;
 #include <algorithm>
 #include <string>
 
-module engine:project_creator;
-import engine:scene;
+export module engine:project_creator;
+import :scene;
 
 namespace Magma {
 

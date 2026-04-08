@@ -1,15 +1,20 @@
 module;
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
+#include <functional>
+#include <memory>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
-module render:imgui_renderer;
+export module render:imgui_renderer;
 import core;
 
 namespace Magma {
 
-class ImGuiRenderer : public IRenderer {
+export class ImGuiRenderer : public IRenderer {
 public:
   ImGuiRenderer(std::unique_ptr<SwapchainTarget> target, 
-    PipelineShaderInfo shaderInfo): 
+                PipelineShaderInfo shaderInfo): 
       IRenderer(), 
       shaderInfo{shaderInfo} {
     renderTarget = std::move(target);
@@ -21,6 +26,9 @@ public:
     createPipelineLayout(descritporSetLayouts);
     createPipeline();
   }
+
+  std::function<void()> onDraw;
+
   void initImGui(const Window &window) {
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
@@ -42,9 +50,9 @@ public:
       config.GlyphMinAdvanceX = 0.0f;
 
       static const ImWchar fa_range[] = {0xF000, 0xF8FF, 0};
-      UIContext::IconFont = io.Fonts->AddFontFromFileTTF(
+      ImFont* font = io.Fonts->AddFontFromFileTTF(
           "assets/fonts/fa7-solid.otf", 10.0f, &config, fa_range);
-      IM_ASSERT(UIContext::IconFont && "Failed to load fa6-solid.otf");
+      IM_ASSERT(font && "Failed to load fa6-solid.otf");
     }
 
     ImGui_ImplGlfw_InitForVulkan(window.getGLFWwindow(), true);
@@ -78,82 +86,6 @@ public:
   VkPipelineLayout getPipelineLayout() const override {
     return pipelineLayout; }
 
-  void addWidget(std::unique_ptr<Widget> widget) {
-    widgets.push_back(std::move(widget));
-  }
-
-  void newFrame() {
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-  }
-  // Pre-frame: set up dockspace and let widgets run their pre-frame hooks
-  // Build dockspace and run widget pre-frame hooks (e.g., offscreen resize)
-  void preFrame() {
-    UIContext::ensureInit();
-
-    ImGuiViewport *viewport = ImGui::GetMainViewport();
-    ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
-    ImGui::DockSpaceOverViewport(dockspace_id, viewport);
-
-    // Build once on first frame
-    if (!dockBuilt) {
-      DockLayout layout(dockspace_id, viewport->Size);
-      layout.makeCentral();
-
-      // Very simple mapping: honor dock hints if present
-      ImGuiID leftId = 0, rightId = 0, upId = 0, downId = 0;
-      for (auto &widget : widgets) {
-        auto hint = widget->dockHint();
-        if (!hint.has_value())
-          continue;
-
-        switch (hint->side) {
-        case DockSide::Left:
-          if (leftId == 0)
-            leftId = layout.splitLeft(hint->ratio);
-          layout.dockWindow(widget->name(), leftId);
-          break;
-        case DockSide::Right:
-          if (rightId == 0)
-            rightId = layout.splitRight(hint->ratio);
-          layout.dockWindow(widget->name(), rightId);
-          break;
-        case DockSide::Up:
-          if (upId == 0)
-            upId = layout.splitUp(hint->ratio);
-          layout.dockWindow(widget->name(), upId);
-          break;
-        case DockSide::Down:
-          if (downId == 0)
-            downId = layout.splitDown(hint->ratio);
-          layout.dockWindow(widget->name(), downId);
-          break;
-        case DockSide::Center:
-          layout.dockWindow(widget->name(), layout.centerNode());
-          break;
-        }
-      }
-
-      UIContext::TopBarDockId = layout.splitUp(0.05f);
-
-      layout.finish();
-
-      // After finishing, fetch node and set flags
-      if (UIContext::TopBarDockId != 0) {
-        if (ImGuiDockNode *node =
-                ImGui::DockBuilderGetNode(UIContext::TopBarDockId))
-          node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar |
-                              ImGuiDockNodeFlags_NoWindowMenuButton |
-                              ImGuiDockNodeFlags_NoCloseButton;
-      }
-      dockBuilt = true;
-    }
-
-    // Run pre-frame hooks
-    for (auto &widget : widgets)
-      widget->preFrame();
-  }
 
   void onResize(VkExtent2D extent) override {
     renderTarget->onResize(extent);
@@ -210,7 +142,7 @@ private:
   }
 
   // Rendering
-  void begin() {
+  void begin() override {
     // Transition swapchain color image to COLOR_ATTACHMENT_OPTIMAL
     const uint32_t idx = FrameInfo::imageIndex;
 
@@ -258,11 +190,9 @@ private:
     vkCmdSetScissor(FrameInfo::commandBuffer, 0, 1, &scissor);
   }
 
-  void record() {
+  void record() override {
     pipeline->bind(FrameInfo::commandBuffer);
-
-    for (auto &widget : widgets)
-      widget->draw();
+    onDraw();
 
     ImGui::Render();
     ImDrawData *draw_data = ImGui::GetDrawData();
@@ -280,7 +210,7 @@ private:
     }
   }
 
-  void end() {
+  void end() override {
     vkCmdEndRendering(FrameInfo::commandBuffer);
 
     // Transition swapchain image to PRESENT for presentation
@@ -292,7 +222,7 @@ private:
   }
 
   VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-  void ImGuiRenderer::createPipelineLayout(
+  void createPipelineLayout(
       const std::vector<VkDescriptorSetLayout> &descriptorSetLayouts) override {
 
     VkPushConstantRange pushConstantRange = {};
@@ -377,23 +307,7 @@ private:
   }
 
   // Widgets
-  std::vector<std::unique_ptr<Widget>> widgets;
   bool dockBuilt = false;
-  void createDockspace(ImGuiID &dockspace_id, const ImVec2 &size) {
-    DockLayout dockLayout(dockspace_id, size);
-
-    ImGuiID dock_id_left = dockLayout.splitLeft(0.25f);
-    ImGuiID dock_id_right = dockLayout.splitRight(0.25f);
-    ImGuiID dock_id_center = dockLayout.centerNode();
-
-    dockLayout.makeCentral();
-
-    dockLayout.dockWindow("Scene Tree", dock_id_left);
-    dockLayout.dockWindow("Editor", dock_id_center);
-    dockLayout.dockWindow("Inspector", dock_id_right);
-
-    dockLayout.finish();
-  }
 };
 
 } // namespace Magma

@@ -3,8 +3,9 @@ module;
 #include <imgui.h>
 #include <glm/vec4.hpp>
 
-module components:point_light;
+export module components:point_light;
 import :component;
+import core;
 
 namespace Magma {
 
@@ -20,7 +21,7 @@ export struct PointLightSSBO {
 
 export class PointLight: public Component {
 public:
-  PointLight(GameObject *owner) : Component(owner) {}
+  PointLight(uint32_t ownerID) : Component(ownerID) {}
 
   #if defined(MAGMA_WITH_EDITOR)
     void onInspector() {
@@ -35,7 +36,8 @@ public:
 
   void collectProxy(RenderProxy &proxy) override {
     PointLightProxy plProxy = {};
-    plProxy.pointLightData = lightData;
+    plProxy.position = lightData.position;
+    plProxy.color = lightData.color;
 
     proxy.pointLight = plProxy;
   }

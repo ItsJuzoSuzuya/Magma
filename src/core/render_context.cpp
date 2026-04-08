@@ -5,11 +5,14 @@ module;
 #include <unordered_map>
 #include <vulkan/vulkan_core.h>
 
-module core:render_context;
+export module core:render_context;
+import :descriptors;
+import :swapchain;
+import :buffer;
 
 namespace Magma {
 
-enum class LayoutKey {
+export enum class LayoutKey {
   Camera = 0,
   PointLight = 1,
 };
@@ -79,7 +82,7 @@ private:
  * - No lights in scene?  PointLight buffers never allocated.
  * - Renderers self-register and get a slice index back.
  */
-class RenderContext {
+export class RenderContext {
 public:
   RenderContext() = default;
   ~RenderContext() = default;
@@ -250,8 +253,7 @@ private:
       return static_cast<size_t>(k.key) * 73856093u ^ k.frameIndex * 19349663u;
     }
   };
-  std::unordered_map<DescriptorSetKey, VkDescriptorSet, DescriptorSetKeyHash>
-      setCache;
+  std::unordered_map<DescriptorSetKey, VkDescriptorSet, DescriptorSetKeyHash> setCache;
   void writeDescriptorSet(LayoutKey key, uint32_t frameIndex) {
     ensureDescriptorPool();
     ensureLayout(key);
@@ -262,14 +264,12 @@ private:
     DescriptorWriter writer(*descriptorSetLayouts[key], *descriptorPool);
 
     if (key == LayoutKey::Camera) {
-      ensureCameraResource();
       VkDescriptorBufferInfo info = {};
       info.buffer = cameraResource->getBuffer();
       info.offset = 0;
       info.range = cameraResource->getSliceSize();
       writer.writeBuffer(0, &info, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
     } else if (key == LayoutKey::PointLight) {
-      ensurePointLightResource();
       VkDescriptorBufferInfo info = {};
       info.buffer = pointLightResource->getBuffer();
       info.offset = 0;

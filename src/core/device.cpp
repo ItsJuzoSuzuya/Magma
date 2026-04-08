@@ -1,12 +1,18 @@
 module;
 #include <iostream>
+#include <print>
+#include "imgui_impl_vulkan.h"
+#include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_to_string.hpp>
+#include <set>
+#include <vector>
+#include <GLFW/glfw3.h>
 
-module core:device;
+export module core:device;
 
 import :queue_family_indices;
 import :window;
+import :frame_info;
 
 namespace DebugMessenger {
 
@@ -197,8 +203,8 @@ public:
   }
 
   void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
-                          VkDeviceSize size, VkDeviceSize srcOffset,
-                          VkDeviceSize dstOffset) {
+                          VkDeviceSize size, VkDeviceSize srcOffset = 0,
+                          VkDeviceSize dstOffset = 0) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
     VkBufferCopy copyRegion = {};

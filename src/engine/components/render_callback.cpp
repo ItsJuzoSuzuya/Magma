@@ -2,8 +2,8 @@ module;
 #include <cassert>
 #include <vulkan/vulkan_core.h>
 
-module components:render_callback;
-import core:FrameInfo;
+export module components:render_callback;
+import core;
 
 export class RenderCallback {
   static void renderMesh(SceneRenderer &renderer, MeshProxy &mesh) {
@@ -27,11 +27,7 @@ export class RenderCallback {
   static void renderTransform(Renderer &renderer, TransformProxy &transform) {
     PushConstantData push{};
     push.modelMatrix = transform.mat4();
-
-    if(owner && !owner->getComponent<Camera>())
-      push.objectId = transform.objectId;
-    else 
-      push.objectId = 0;
+    push.objectId = transform.objectId;
 
     vkCmdPushConstants(FrameInfo::commandBuffer, renderer.getPipelineLayout(),
                        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData),
@@ -39,21 +35,14 @@ export class RenderCallback {
   }
 
   static void renderPointLight(SceneRenderer &renderer, PointLightProxy &pointLight) {
-    // Keep light position in sync with the owner's Transform
-    if (owner) {
-      if (auto *t = owner->getComponent<Transform>())
-        lightData.position = glm::vec4(t->position, 1.0f);
-    }
-    renderer.submitPointLight(lightData);
+    PointLightData data = {pointLight.position, pointLight.color};
+
+    renderer.submitPointLight(data);
   }
 
   static void renderCamera(SceneRenderer &renderer, CameraProxy camera) {
-    if (ownerTransform)
-      setView(ownerTransform->position, ownerTransform->rotation);
-
     CameraUBO ubo{};
     ubo.projectionView = camera.projectionView;
-    
 
     renderer.uploadCameraUBO(ubo);
   }

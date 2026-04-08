@@ -2,7 +2,7 @@ module;
 #include <cstdint>
 #include <optional>
 
-module core:queue_family_indices;
+export module core:queue_family_indices;
 
 namespace Magma {
 export struct QueueFamilyIndices {

@@ -1,9 +1,9 @@
-module render:offscreen_target;
+export module render:offscreen_target;
 import core;
 
 namespace Magma {
 
-class OffscreenTarget : public IRenderTarget {
+export class OffscreenTarget : public IRenderTarget {
 public:
   explicit OffscreenTarget(const RenderTargetInfo &info): targetExtent{info.extent}, imageFormat{info.colorFormat},
       depthImageFormat{info.depthFormat}, imageCount_{info.imageCount} {
