@@ -24,9 +24,8 @@
 
 namespace Magma {
 
-Engine::Engine(EngineSpecifications &spec) : specifications{spec} {
-  window = std::make_unique<Window>(specifications);
-  renderSystem = std::make_unique<RenderSystem>(*window);
+Engine::Engine(Window &window) {
+  renderSystem = std::make_unique<RenderSystem>(window);
 
   PipelineShaderInfo imguiShaderInfo = {
     .vertFile = "src/shaders/shader.vert.spv",

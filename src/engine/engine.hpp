@@ -15,7 +15,7 @@ class EngineSpecifications;
  */
 class Engine {
 public:
-  Engine(EngineSpecifications &spec);
+  Engine(Window &window);
 
   /**
    * Runs the main loop
@@ -25,8 +25,6 @@ public:
   void run();
 
 private:
-  EngineSpecifications &specifications;
-  std::unique_ptr<Window> window = nullptr;
   std::unique_ptr<RenderSystem> renderSystem = nullptr;
   std::unique_ptr<Scene> scene = nullptr;
 
