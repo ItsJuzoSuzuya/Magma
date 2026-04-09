@@ -3,6 +3,7 @@ module;
 #include "imgui_impl_vulkan.h"
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 

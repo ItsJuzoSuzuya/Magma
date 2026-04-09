@@ -2,6 +2,7 @@ module;
 #include <cassert>
 #include <vulkan/vulkan_core.h>
 #include <string.h>
+#include <typeinfo>
 
 export module core:buffer;
 import :device;

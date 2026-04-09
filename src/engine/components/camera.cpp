@@ -1,12 +1,20 @@
 module;
+#include <array>
 #include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/trigonometric.hpp>
+#include <glm/geometric.hpp>
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#if defined(MAGMA_WITH_EDITOR)
+  #include "imgui.h"
+#endif
 
 export module components:camera;
 import :component;
+import :transform;
+import core;
 
 namespace Magma {
 
@@ -21,12 +29,8 @@ export struct AABB {
 
 export class Camera : public Component {
 public:
-  Camera(uint64_t *ownerID): 
-    Component(ownerID), 
-    ownerTransform(
-      SceneManager::getComponentFromGameObject(ownerID)
-    ) {}
-    
+  Camera(uint64_t *ownerID): Component(ownerID) {}
+
   void setPerspectiveProjection(float fov, float aspect, float near, float far){
     this->fov = glm::clamp(fov, 0.01f, glm::radians(179.f));
     aspectRatio = aspect;
@@ -53,11 +57,13 @@ public:
     setView(ownerTransform->position, ownerTransform->rotation);
   }
 
+  void setOwnerTransform(Transform *t) { ownerTransform = t; }
+
   void collectProxy(RenderProxy &proxy) override {
     CameraProxy cameraProxy = {};
-    cameraProxy.projectionView = projectionMatrix * viewMatrix;
+    cameraProxy.projView = projectionMatrix * viewMatrix;
 
-    proxy.camera = proxy;
+    proxy.camera = cameraProxy;
   }
 
   void setView(const glm::vec3 &position, const glm::vec3 &rotation) {
@@ -114,17 +120,14 @@ public:
     return false;
   }
 
+  const glm::mat4 &getProjection() const { return projectionMatrix; }
+  const glm::mat4 &getView() const { return viewMatrix; }
 
   #if defined(MAGMA_WITH_EDITOR)
-    void onInspector() {
-      GameObject *activeCamera = SceneManager::activeCamera;
-      bool isActive = (activeCamera == SceneManager::findGameObjectById(ownerID));
-      if(ImGui::Checkbox("Active Camera", &isActive)) {
-        if(isActive) 
-          SceneManager::activeCamera = SceneManager::findGameObjectById(ownerID);
-        else 
-          SceneManager::activeCamera = nullptr;
-      }
+    void onInspector() override {
+      bool isActive = isActiveCamera;
+      if(ImGui::Checkbox("Active Camera", &isActive))
+        isActiveCamera = isActive;
 
       ImGui::Separator();
       ImGui::Text("Projection Settings");
@@ -140,11 +143,12 @@ public:
 
 private:
   Transform *ownerTransform = nullptr;
+  bool isActiveCamera = false;
 
-  float fov;
-  float aspectRatio;
-  float nearPlane;
-  float farPlane;
+  float fov = glm::radians(60.f);
+  float aspectRatio = 16.f / 9.f;
+  float nearPlane = 0.1f;
+  float farPlane = 100.f;
 
   glm::mat4 projectionMatrix{1.f};
   void calculateProjectionMatrix() {

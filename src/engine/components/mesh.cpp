@@ -1,14 +1,17 @@
 module;
+#include <algorithm>
 #include <glm/ext/scalar_uint_sized.hpp>
 #include <vulkan/vulkan_core.h>
 #include <print>
-#include <tiny_gltf.h>
-#include <memory>
-#include <filesystem>
-#include <imgui.h>
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <tiny_gltf.h>
+#include <memory>
+#include <filesystem>
+#if defined(MAGMA_WITH_EDITOR)
+  #include <imgui.h>
+#endif
 
 export module components:mesh;
 import core;
@@ -35,7 +38,9 @@ inline bool hasAllowedExt(const fs::path &path) {
 
 export class Mesh: public Component {
 public:
-  Mesh(uint32_t ownerID): Component(ownerID) {}
+  Mesh(uint64_t *ownerID): Component(ownerID) {}
+
+  void onUpdate() override {}
 
   ~Mesh() {
     if (meshData) {
@@ -71,18 +76,18 @@ public:
     bool result = loader.LoadASCIIFromFile(&gltfModel, &err, &warn, filepath);
 
     if (!warn.empty())
-      println("Warning: {}", warn);
+      std::println("Warning: {}", warn);
 
     if (!err.empty()) {
-      println("Error: {}", err);
+      std::println("Error: {}", err);
       return false;
     }
 
     if (!result) {
-      println("Failed to load glTF model: {}", filepath);
+      std::println("Failed to load glTF model: {}", filepath);
       return false;
     } else {
-      println("Loading glTF model: {}", filepath);
+      std::println("Loading glTF model: {}", filepath);
     }
 
     for (const auto &mesh : gltfModel.meshes) {
@@ -162,7 +167,9 @@ public:
   }
 
   #if defined(MAGMA_WITH_EDITOR)
-    void onInspector() {
+    const char *inspectorName() const override { return "Mesh"; }
+    const float inspectorHeight() const override { return 120.0f; }
+    void onInspector() override {
       if (meshData) {
         ImGui::Text("Vertices: %zu", meshData->vertices.size());
         ImGui::Text("Indices: %zu", meshData->indices.size());
@@ -175,9 +182,9 @@ public:
 
       if (pathBuffer[0] == 0) {
         if (!sourcePath.empty()) {
-          snprintf(pathBuffer, size(sourcePath), "%s", sourcePath.c_str());
+          snprintf(pathBuffer, sizeof(pathBuffer), "%s", sourcePath.c_str());
         } else {
-          snprintf(pathBuffer, size(sourcePath), "assets/");
+          snprintf(pathBuffer, sizeof(pathBuffer), "assets/");
         }
       }
 
@@ -210,7 +217,7 @@ public:
               return asset == typed;
             }) != assets.end()) {
           sourcePath = typed;
-          SceneManager::activeScene->defer(SceneAction::loadMesh(this));
+          this->load();
         }
       }
 
@@ -223,14 +230,19 @@ public:
   #endif
 
 
-  void collectProxy(RenderProxy &proxy){
+  void collectProxy(RenderProxy &proxy) override {
+    if (!meshData || !vertexBuffer)
+      return;
+
     MeshProxy meshProxy = {};
     meshProxy.meshData = meshData;
     meshProxy.vertexBuffer = vertexBuffer->getBuffer();
-    meshProxy.indexBuffer = indexBuffer->getBuffer();
+    meshProxy.indexBuffer = indexBuffer ? indexBuffer->getBuffer() : VK_NULL_HANDLE;
     meshProxy.indexCount   = static_cast<uint32_t>(meshData->indices.size());
     meshProxy.vertexCount  = static_cast<uint32_t>(meshData->vertices.size());
     meshProxy.hasIndexBuffer = hasIndexBuffer;
+
+    proxy.mesh = meshProxy;
   }
 
 

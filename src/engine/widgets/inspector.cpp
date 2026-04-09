@@ -1,10 +1,15 @@
 module;
+#include <optional>
+#include <vector>
 #include "imgui.h"
 #include "imgui_internal.h"
 
 export module widgets:inspector;
 import :widget;
-import engine:components:component;
+import :ui_context;
+import :inspector_menu;
+import engine;
+import components;
 
 namespace Magma {
 
@@ -27,14 +32,14 @@ public:
   /**
    * Simple pre-frame draw for calculating offscreen view size
    */
-  void Inspector::preFrame() override {
+  void preFrame() override {
     UIContext::ensureInit();
     ImGui::SetNextWindowClass(&UIContext::AppDockClass);
     ImGui::Begin(name());
     ImGui::End();
   }
 
-  void Inspector::draw() override {
+  void draw() override {
     UIContext::ensureInit();
 
     ImGuiID innerDockspaceId = ImGui::GetID("InspectorDockSpace");
@@ -63,7 +68,7 @@ public:
     ImGui::TextDisabled("Object: %s", contextTarget->name.c_str());
 
     // Gather components 
-    vector<Component *> components;
+    std::vector<Component *> components;
     if (contextTarget)
       components = contextTarget->getComponents();
 
@@ -95,7 +100,7 @@ public:
                        ImGuiDockNodeFlags_None, &UIContext::InspectorDockClass);
 
     // ImGuiIDs
-    vector<ImGuiID> lastDockedWindows;
+    std::vector<ImGuiID> lastDockedWindows;
 
     const bool targetChanged = (lastTarget != contextTarget);
     const bool countChanged = (static_cast<int>(components.size()) != lastCount);

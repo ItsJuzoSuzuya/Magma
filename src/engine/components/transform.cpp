@@ -1,6 +1,10 @@
 module;
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float3.hpp>
+#include <glm/trigonometric.hpp>
+#if defined(MAGMA_WITH_EDITOR)
+  #include "imgui.h"
+#endif
 
 export module components:transform;
 import :component;
@@ -17,20 +21,19 @@ public:
   glm::vec3 rotation{0.0f, 0.0f, 0.0f};
   glm::vec3 scale{1.0f, 1.0f, 1.0f};
 
-  void onAwake() override {};
   void onUpdate() override {};
 
   void collectProxy(RenderProxy &proxy) override {
     TransformProxy transformProxy = {};
-    transformProxy.modelMatrix = modelMatrix;
-    transformProxy.objectId = ownerID;
+    transformProxy.modelMatrix = modelMatrix();
+    transformProxy.objectId = ownerID ? *ownerID : 0;
 
-    proxy.transform = proxy;
+    proxy.transform = transformProxy;
   }
 
   #if defined(MAGMA_WITH_EDITOR)
     // Inspector
-    void Transform::onInspector() {
+    void onInspector() override {
       ImGui::DragFloat3("Position", &position.x, 0.1f);
       ImGui::DragFloat3("Rotation", &rotation.x, 0.1f);
       ImGui::DragFloat3("Scale", &scale.x, 0.1f);
@@ -70,8 +73,7 @@ public:
                      s1 * s3 + c1 * s2 * c3};
   }
 
-private:
-  glm::mat4 mat4() const {
+  glm::mat4 modelMatrix() const {
     const float c1 = glm::cos(rotation.y);
     const float s1 = glm::sin(rotation.y);
     const float c2 = glm::cos(rotation.x);
@@ -99,6 +101,7 @@ private:
                      {position.x, position.y, position.z, 1.f}};
   }
 
+private:
   glm::mat4 normalMatrix() const {
     const float c1 = glm::cos(rotation.y);
     const float s1 = glm::sin(rotation.y);

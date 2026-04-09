@@ -21,5 +21,6 @@ export import :render_proxy;
 export import :render_target_info;
 export import :swapchain;
 export import :swapchain_target;
+export import :time;
 
 

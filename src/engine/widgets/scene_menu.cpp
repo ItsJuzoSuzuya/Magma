@@ -1,10 +1,13 @@
 module;
 #include "imgui.h"
+#include <memory>
 
 export module widgets:scene_menu;
 import :widget;
-import engine:scene;
-import :gameobject;
+import :ui_context;
+import :inspector;
+import engine;
+import components;
 
 namespace Magma {
 
@@ -50,12 +53,17 @@ public:
       } else {
         ImGui::TextUnformatted("Scene");
         ImGui::Separator();
-        if (ImGui::MenuItem("Add Entity"))
-          GameObject::create();
+        if (ImGui::MenuItem("Add Entity")) {
+          if (Scene::current())
+            Scene::current()->addGameObject(std::make_unique<GameObject>(0));
+        }
         if (ImGui::MenuItem("Add Camera")) {
-          auto &obj = GameObject::create("Camera");
-          obj.addComponent<Transform>();
-          obj.addComponent<Camera>();
+          if (Scene::current()) {
+            auto camObj = std::make_unique<GameObject>(0, "Camera");
+            camObj->addComponent<Transform>();
+            camObj->addComponent<Camera>();
+            Scene::current()->addGameObject(std::move(camObj));
+          }
         }
       }
 

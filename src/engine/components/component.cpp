@@ -18,7 +18,7 @@ public:
   virtual ~Component() = default;
 
   // --- Lifecycle ---
-  virtual void onAwake() = 0;
+  virtual void onAwake() {}
   virtual void onUpdate() = 0;
   virtual void collectProxy(RenderProxy& proxy) = 0;
 

@@ -1,3 +1,10 @@
+module;
+#include <cassert>
+#include <memory>
+#include <stdexcept>
+#include <vector>
+#include <vulkan/vulkan_core.h>
+
 export module render:offscreen_target;
 import core;
 
@@ -15,27 +22,27 @@ public:
     depthImageLayouts.resize(depthImages.size(), VK_IMAGE_LAYOUT_UNDEFINED);
   }
   ~OffscreenTarget(){
-    cleanup(); 
+    cleanup();
   }
 
   VkExtent2D extent() const override { return targetExtent; }
   uint32_t imageCount() const override { return imageCount_; }
 
   VkImage getColorImage(size_t index) const override {
-    assert(index < images.size() && 
+    assert(index < images.size() &&
         "OffscreenTarget: Color image index out of range");
 
     return images.at(index);
   }
   VkImageView getColorImageView(size_t index) const override {
-    assert(index < imageViews.size() && 
+    assert(index < imageViews.size() &&
         "OffscreenTarget: Color image view index out of range");
 
     return imageViews.at(index);
   }
-  VkRenderingAttachmentInfo OffscreenTarget::getColorAttachment(
+  VkRenderingAttachmentInfo getColorAttachment(
       size_t index) const override {
-    assert(index < imageViews.size() && 
+    assert(index < imageViews.size() &&
         "OffscreenTarget: Color attachment index out of range");
 
     VkRenderingAttachmentInfo colorAttachmentInfo{};
@@ -48,9 +55,9 @@ public:
     return colorAttachmentInfo;
   }
   uint32_t getColorAttachmentCount() const override { return 1; }
-  void OffscreenTarget::transitionColorImage(size_t index,
-                                             ImageTransitionDescription transition) {
-    assert(index < images.size() && 
+  void transitionColorImage(size_t index,
+                            ImageTransitionDescription transition) override {
+    assert(index < images.size() &&
         "OffscreenTarget: Color image index out of range");
 
     VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -73,21 +80,21 @@ public:
     imageLayouts.at(index) = transition.newLayout;
   }
   VkImageLayout getColorImageLayout(size_t index) const override {
-    assert(index < imageLayouts.size() && 
+    assert(index < imageLayouts.size() &&
         "OffscreenTarget: Color image layout index out of range");
 
     return imageLayouts.at(index);
   }
   VkFormat getColorFormat() const override { return imageFormat; }
 
-  VkImageView getDepthImageView(size_t index) const override {
-    assert(index < depthImageViews.size() && 
+  VkImageView getDepthImageView(size_t index) const {
+    assert(index < depthImageViews.size() &&
         "OffscreenTarget: Depth image view index out of range");
 
     return depthImageViews.at(index);
   }
   VkRenderingAttachmentInfo getDepthAttachment(size_t index) const override {
-    assert(index < depthImageViews.size() 
+    assert(index < depthImageViews.size()
         && "OffscreenTarget: Depth attachment index out of range");
 
     VkRenderingAttachmentInfo depthAttachmentInfo{};
@@ -99,14 +106,14 @@ public:
     depthAttachmentInfo.clearValue.depthStencil = {1.0f, 0};
     return depthAttachmentInfo;
   }
-  VkImageLayout OffscreenTarget::getDepthImageLayout(size_t index) const override {
-    assert(index < depthImageLayouts.size() && 
+  VkImageLayout getDepthImageLayout(size_t index) const override {
+    assert(index < depthImageLayouts.size() &&
         "OffscreenTarget: Depth image layout index out of range");
 
     return depthImageLayouts.at(index);
   }
   void transitionDepthImage(size_t index, ImageTransitionDescription transition) override {
-    assert(index < depthImages.size() && 
+    assert(index < depthImages.size() &&
         "OffscreenTarget: Depth image index out of range");
 
     VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -133,7 +140,7 @@ public:
 
   VkSampler getColorSampler() const override { return colorSampler; }
 
-  void cleanup() {
+  void cleanup() override {
     VkDevice device = Device::get().device();
 
     if (colorSampler != VK_NULL_HANDLE) {
@@ -145,7 +152,7 @@ public:
     destroyColorResources();
   }
 
-  void onResize(VkExtent2D newExtent) {
+  void onResize(const VkExtent2D newExtent) override {
     if (newExtent.width == 0 || newExtent.height == 0)
       return;
     if (newExtent.width == targetExtent.width &&
@@ -174,7 +181,7 @@ private:
   std::vector<VkDeviceMemory> imageMemories = {VK_NULL_HANDLE};
   std::vector<VkImageLayout> imageLayouts = {VK_IMAGE_LAYOUT_UNDEFINED};
   VkFormat imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-  void OffscreenTarget::createImages() {
+  void createImages() {
     images.resize(imageCount_);
     imageMemories.resize(imageCount_);
 
@@ -202,7 +209,7 @@ private:
     createImageViews();
   }
 
-  void OffscreenTarget::createImageViews() {
+  void createImageViews() {
     VkDevice device = Device::get().device();
 
     imageViews.resize(images.size());
@@ -224,7 +231,7 @@ private:
     }
   }
 
-  void OffscreenTarget::destroyColorResources() {
+  void destroyColorResources() {
     VkDevice device = Device::get().device();
 
     for (auto v : imageViews) {
@@ -250,7 +257,7 @@ private:
   std::vector<VkImageView> depthImageViews = {VK_NULL_HANDLE};
   std::vector<VkImageLayout> depthImageLayouts = {VK_IMAGE_LAYOUT_UNDEFINED};
   VkFormat depthImageFormat = VK_FORMAT_D32_SFLOAT;
-  void OffscreenTarget::createDepthResources() {
+  void createDepthResources() {
     Device &device = Device::get();
 
     depthImages.resize(imageCount_);
@@ -292,11 +299,9 @@ private:
             "OffscreenRenderTarget: failed to create depth view");
       }
     }
-
-    
   }
 
-  void OffscreenTarget::destroyDepthResources() {
+  void destroyDepthResources() {
     VkDevice device = Device::get().device();
     for (size_t i = 0; i < depthImages.size(); ++i) {
       if (depthImageViews[i] != VK_NULL_HANDLE)
@@ -313,7 +318,7 @@ private:
 
   // Sampler for sampling the color image in shaders / ImGui
   VkSampler colorSampler = VK_NULL_HANDLE;
-  void OffscreenTarget::createColorSampler() {
+  void createColorSampler() {
     if (colorSampler != VK_NULL_HANDLE)
       return;
 

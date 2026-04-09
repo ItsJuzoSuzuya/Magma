@@ -3772,7 +3772,7 @@ static bool ParseJsonAsValue(Value *ret, const detail::json &o) {
   return isNotNull;
 }
 
-static bool ParseExtrasProperty(Value *ret, const detail::json &o) {
+bool ParseExtrasProperty(Value *ret, const detail::json &o) {
   detail::json_const_iterator it;
   if (!detail::FindMember(o, "extras", it)) {
     return false;
@@ -4230,7 +4230,7 @@ static bool ParseParameterProperty(Parameter *param, std::string *err,
   }
 }
 
-static bool ParseExtensionsProperty(ExtensionMap *ret, std::string *err,
+bool ParseExtensionsProperty(ExtensionMap *ret, std::string *err,
                                     const detail::json &o) {
   (void)err;
 
@@ -7304,7 +7304,7 @@ static void SerializeParameterMap(ParameterMap &param, detail::json &o) {
 }
 #endif
 
-static void SerializeExtensionMap(const ExtensionMap &extensions,
+void SerializeExtensionMap(const ExtensionMap &extensions,
                                   detail::json &o) {
   if (!extensions.size())
     return;
@@ -7332,7 +7332,7 @@ static void SerializeExtensionMap(const ExtensionMap &extensions,
   detail::JsonAddMember(o, "extensions", std::move(extMap));
 }
 
-static void SerializeExtras(const Value &extras, detail::json &o) {
+void SerializeExtras(const Value &extras, detail::json &o) {
   if (extras.Type() != NULL_TYPE)
     SerializeValue("extras", extras, o);
 }

@@ -1,7 +1,11 @@
 module;
 #include "imgui.h"
+#include <optional>
+#include "core/icons.h"
 
-export module wigets:runtime_control;
+export module widgets:runtime_control;
+import :widget;
+import :ui_context;
 import core;
 
 namespace Magma {

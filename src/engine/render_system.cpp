@@ -2,18 +2,20 @@ module;
 #include <vulkan/vulkan_core.h>
 #include <vector>
 #include <memory>
+#include <stdexcept>
 #include <GLFW/glfw3.h>
 
 export module engine:render_system;
 import core;
+import render;
 import :scene;
 
 
 namespace Magma {
 
-class RenderSystem {
+export class RenderSystem {
 public:
-  RenderSystem(Window &window){
+  RenderSystem(Window &window): window{window} {
     device = std::make_unique<Device>(window);
     createCommandBuffers();
   }
@@ -64,7 +66,6 @@ private:
   void recreateSwapChain(VkExtent2D extent);
 
   std::vector<std::unique_ptr<IRenderer>> renderers;
-  void resizeSwapChainRenderer(const VkExtent2D extent);
 
   void destroyAllRenderers(){
     for (auto &renderer : renderers)

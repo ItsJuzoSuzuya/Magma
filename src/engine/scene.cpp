@@ -1,11 +1,13 @@
 module;
 
+#include <algorithm>
+#include <cassert>
 #include <functional>
-#if defined(MAGMA_WITH_EDITOR)
-  #include "imgui.h"
-#endif
+#include <memory>
+#include <vector>
 
 export module engine:scene;
+import core;
 import :gameobject;
 
 namespace Magma {
@@ -29,12 +31,15 @@ public:
   Scene(Scene &&) = default;
   Scene &operator=(Scene &&) = default;
 
+  static Scene *current() { return activeScene; }
+  void setActive() { activeScene = this; }
+
+
   std::vector<std::unique_ptr<GameObject>> &getGameObjects(){
     return gameObjects;
   }
 
   GameObject &addGameObject(std::unique_ptr<GameObject> gameObject, bool hidden = false){
-
     assert(gameObject != nullptr &&
            "GameObject cannot be null when adding to scene");
 
@@ -42,20 +47,29 @@ public:
     gameObjects.push_back(std::move(gameObject));
     return ref;
   }
+
   void removeGameObject(GameObject *gameObject){
-    defer(SceneAction::remove(gameObject));
+    if (!gameObject) return;
+
+    defer([this, gameObject]() {
+      if (gameObject->parent) {
+        gameObject->parent->removeChild(gameObject);
+      } else {
+        gameObjects.erase(
+            std::remove_if(gameObjects.begin(), gameObjects.end(),
+                           [&](const auto &go) { return go.get() == gameObject; }),
+            gameObjects.end());
+      }
+    });
   }
 
   /**
    * Defers an action to be executed after the current frame
-   * @param func The function to be executed
-   * @note This is useful for actions that modify the scene
    */
   void defer(std::function<void()> func) { deferredActions.push_back(func); }
 
   /**
    * Process deferred actions queued during the frame
-   * @note This should be called at the end of each frame
    */
   void processDeferredActions(){
     if (deferredActions.empty())
@@ -68,6 +82,7 @@ public:
     deferredActions.clear();
   }
 
+  inline static Scene *activeScene = nullptr;
 
 private:
   std::vector<std::unique_ptr<GameObject>> gameObjects;

@@ -94,8 +94,6 @@ public:
 private:
   std::vector<std::unique_ptr<Widget>> widgets = {};
 
-  // Layout
-  DockLayout dockLayout;
   bool dockBuilt = false;
 };
 

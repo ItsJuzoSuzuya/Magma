@@ -9,12 +9,14 @@ module;
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <glm/vec3.hpp>
 #if defined(MAGMA_WITH_EDITOR)
   #include "imgui.h"
 #endif
 
 export module engine:gameobject;
 import core;
+import components;
 
 namespace Magma {
 
@@ -32,14 +34,6 @@ inline void sortComponentsByName(std::vector<Component *> &components){
 
 }
 
-#if defined(MAGMA_WITH_EDITOR)
-  struct GameObjectMenuCallbacks {
-      std::function<void(GameObject*)> onLeftClick;   // Inspector::setContext
-      std::function<void(GameObject*)> onRightClick;  // SceneMenu::queueContextMenuFor
-  };
-#endif
-
-
 /**
  * Entity in the scene that can have multiple components
  * (e.g., Transform, Mesh, Light) and can be part of a hierarchy (
@@ -48,8 +42,14 @@ inline void sortComponentsByName(std::vector<Component *> &components){
  */
 export class GameObject {
 public:
-  GameObject *parent = nullptr;
+  #if defined(MAGMA_WITH_EDITOR)
+  struct GameObjectMenuCallbacks {
+    std::function<void(GameObject*)> onLeftClick;
+    std::function<void(GameObject*)> onRightClick;
+  };
   GameObjectMenuCallbacks callbacks;
+  #endif
+  GameObject *parent = nullptr;
   using id_t = uint64_t;
 
   GameObject(id_t id) : id{id}, name("GameObject_" + std::to_string(id)) {};
@@ -193,7 +193,7 @@ public:
     RenderProxy proxy = {};
 
     for (auto& [typ, component]: components)
-      component.collectProxy(proxy);
+      component->collectProxy(proxy);
 
     return proxy;
   }
@@ -217,7 +217,7 @@ public:
   T *addComponent(Args &&...args) {
     static_assert(std::is_base_of<Component, T>::value,
                   "T must be a Component");
-    auto component = std::make_unique<T>(this, std::forward<Args>(args)...);
+    auto component = std::make_unique<T>(&id, std::forward<Args>(args)...);
     assert(component &&
            "Failed to create component. Make sure the constructor is valid.");
 

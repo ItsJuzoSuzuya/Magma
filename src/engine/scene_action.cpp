@@ -4,7 +4,9 @@ module;
 
 export module engine:scene_action;
 import :gameobject;
+import :scene;
 import :scene_manager;
+import components;
 
 namespace Magma {
 

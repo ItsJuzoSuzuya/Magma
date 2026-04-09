@@ -5,11 +5,12 @@ project(Magma LANGUAGES CXX)
 # ------------------------
 # Compiler & standard
 # ------------------------
-set(CMAKE_CXX_COMPILER clang++)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmodules")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 
 
 option(MAGMA_WITH_EDITOR "Build editor & ImGui tooling" OFF)
@@ -29,10 +30,6 @@ include_directories(${IMGUI_DIR} ${EXTERNAL_DIR} ${CMAKE_SOURCE_DIR}/src)
 # ------------------------
 file(GLOB_RECURSE CORE_MODULES src/core/*.ixx src/core/*.cpp)
 file(GLOB_RECURSE ENGINE_MODULES src/engine/*.ixx src/engine/*.cpp)
-file(GLOB_RECURSE COMPONENTS_MODULES src/engine/components/*.ixx src/engine/components/*.cpp)
-file(GLOB_RECURSE WIDGETS_MODULES src/engine/widgets/*.ixx src/engine/widgets/*.cpp)
-file(GLOB_RECURSE RENDER_MODULES src/engine/render/*.ixx src/engine/render/*.cpp)
-file(GLOB_RECURSE SYSTEMS_MODULES src/engine/systems/*.ixx src/engine/systems/*.cpp)
 
 # ------------------------
 # ImGui sources (optional)
@@ -61,10 +58,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     FILES
         ${CORE_MODULES}
         ${ENGINE_MODULES}
-        ${COMPONENTS_MODULES}
-        ${WIDGETS_MODULES}
-        ${RENDER_MODULES}
-        ${SYSTEMS_MODULES}
 )
 
 # Link external libraries

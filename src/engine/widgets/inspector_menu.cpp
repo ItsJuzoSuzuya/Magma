@@ -1,9 +1,12 @@
 module;
 #include "imgui.h"
+#include <memory>
 
 export module widgets:inspector_menu;
 import :widget;
-import engine:gameobject;
+import :ui_context;
+import engine;
+import components;
 
 namespace Magma {
 
@@ -39,7 +42,7 @@ public:
         ImGui::TextUnformatted("Scene");
         ImGui::Separator();
         if (ImGui::MenuItem("Add Entity"))
-          GameObject::create();
+          Scene::current()->addGameObject(std::make_unique<GameObject>(0));
         if (ImGui::MenuItem("Delete"))
           ; // No scene deletion for now
       }

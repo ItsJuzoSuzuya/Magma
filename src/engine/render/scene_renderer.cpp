@@ -1,18 +1,23 @@
 module;
+#include <cassert>
+#include <functional>
 #include <iterator>
-#include <vector>
 #include <memory>
+#include <stdexcept>
+#include <vector>
 #include <vulkan/vulkan_core.h>
+#if defined(MAGMA_WITH_EDITOR)
+  #include "imgui.h"
+  #include "imgui_impl_vulkan.h"
+#endif
 
 export module render:scene_renderer;
 import core;
+import components;
 import features;
-import :pipeline_shader_info;
+import :render_callback;
 
 namespace Magma {
-
-class Transform;
-class EditorCamera;
 
 export enum class CameraSource {
   Editor,
@@ -22,13 +27,13 @@ export enum class CameraSource {
 export class SceneRenderer : public IRenderer {
 public:
   SceneRenderer(
-    std::unique_ptr<IRenderTarget> target, 
+    std::unique_ptr<IRenderTarget> target,
     PipelineShaderInfo &shaderInfo
   ): IRenderer(), shaderInfo{shaderInfo} {
     renderContext = std::make_unique<RenderContext>();
     renderTarget = std::move(target);
 
-    if (auto *swapchainTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get())) 
+    if (auto *swapchainTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get()))
       isSwapChainDependentFlag = true;
 
     // Self-register with the context to get our slice index
@@ -73,13 +78,17 @@ public:
   }
 
   CameraSource cameraSource = CameraSource::Editor;
-  static EditorCamera* getEditorCamera() {
-    return editorCamera.get(); }
+
+  static void setEditorCameraProxy(const RenderProxy &proxy) {
+    editorCameraProxy = proxy;
   }
+
+  /** Set by the engine to provide the current scene's render proxies */
+  inline static std::function<std::vector<RenderProxy>()> getSceneProxies;
 
   #if defined(MAGMA_WITH_EDITOR)
     void createSceneTextures(){
-      assert(renderTarget != nullptr && 
+      assert(renderTarget != nullptr &&
              "Cannot create scene textures for null render target!");
 
       sceneTextures.resize(renderTarget->imageCount());
@@ -92,13 +101,13 @@ public:
       }
     }
   #endif
+
   ImVec2 getSceneSize() const {
     return ImVec2(static_cast<float>(renderTarget->extent().width),
                   static_cast<float>(renderTarget->extent().height));
   }
   ImTextureID getSceneTexture(size_t index) const {
-    assert(index >= 0 &&
-           index < renderTarget->imageCount() &&
+    assert(index < renderTarget->imageCount() &&
            "SceneRenderer: Invalid image index in FrameInfo!");
 
     return sceneTextures.at(index);
@@ -110,8 +119,10 @@ public:
   void onResize(const VkExtent2D newExtent) override {
     Device::waitIdle();
 
-    for (auto &tex : sceneTextures) 
-      ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)tex);
+    #if defined(MAGMA_WITH_EDITOR)
+      for (auto &tex : sceneTextures)
+        ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)tex);
+    #endif
 
     renderTarget->onResize(newExtent);
     for (auto &feature : renderFeatures)
@@ -120,54 +131,44 @@ public:
     createPipeline();
 
     sceneTextures.clear();
-    createSceneTextures();
+    #if defined(MAGMA_WITH_EDITOR)
+      createSceneTextures();
+    #endif
   }
   void onRender() override {
     begin();
     record();
 
-    if (cameraSource == CameraSource::Editor && editorCamera) {
-      auto camProxy = editorCamera->collectProxy();
-      if (camProxy.camera)
-          uploadCameraUBO({camProxy.camera->projView});
-    }
+    if (cameraSource == CameraSource::Editor && editorCameraProxy.camera)
+      uploadCameraUBO({editorCameraProxy.camera->projView});
 
-    auto *activeScene = Scene::getActiveScene()
-    if (!activeScene) return;
-
-    for (auto *gameObject : activeScene->getGameObjects()) {
-      if (!gameObject) continue;
-      for (auto& proxy : go->collectProxies())
-          submitProxy(proxy);
+    if (getSceneProxies) {
+      for (auto &proxy : getSceneProxies())
+        submitProxy(proxy);
     }
 
     end();
   }
 
   void submitProxy(const RenderProxy& proxy) {
-    if (proxy.transform) 
-      RendererCallback::renderTransform(this, proxy.transform);
+    if (proxy.transform)
+      RenderCallback::renderTransform(*this, *proxy.transform);
 
-    if (proxy.pointLight) 
-      RendererCallback::renderPointLight(this, proxy.pointLight);
+    if (proxy.pointLight)
+      RenderCallback::renderPointLight(*this, *proxy.pointLight);
 
-    if (proxy.mesh) 
-      RenderCallback::renderMesh(this, proxy.mesh);
+    if (proxy.mesh)
+      RenderCallback::renderMesh(*this, *proxy.mesh);
 
-    if (proxy.camera) 
-      RenderCallback::renderCamera(this, proxy.camera);
+    if (proxy.camera)
+      RenderCallback::renderCamera(*this, *proxy.camera);
   }
 
   bool isSwapChainDependent() const override { return isSwapChainDependentFlag; }
   SwapChain* getSwapChain() const override {
-    #if defined(MAGMA_WITH_EDITOR)
-      if (auto *swapchainTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get()))
-        return swapchainTarget->swapChain();
-      else
-        return nullptr;
-    #else
-      return nullptr;
-    #endif
+    if (auto *swapchainTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get()))
+      return swapchainTarget->swapChain();
+    return nullptr;
   }
 
   void uploadCameraUBO(const CameraUBO &ubo){
@@ -193,7 +194,7 @@ private:
   std::unique_ptr<Pipeline> pipeline = nullptr;
   PipelineShaderInfo shaderInfo;
   void createPipeline() override {
-    assert(pipelineLayout != nullptr &&
+    assert(pipelineLayout != VK_NULL_HANDLE &&
            "Cannot create pipeline before pipeline layout!");
     assert(renderTarget != nullptr &&
            "Cannot create pipeline for null render target!");
@@ -232,13 +233,11 @@ private:
     pipelineConfigInfo.depthFormat = renderTarget->getDepthFormat();
 
     pipeline.reset();
-    pipeline = make_unique<Pipeline>(shaderInfo.vertFile, shaderInfo.fragFile, pipelineConfigInfo);
+    pipeline = std::make_unique<Pipeline>(shaderInfo.vertFile, shaderInfo.fragFile, pipelineConfigInfo);
   }
 
   VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
   void createPipelineLayout(const std::vector<VkDescriptorSetLayout> &layouts) override {
-    std::vector<VkDescriptorSetLayout> layouts = descriptorSetLayouts;
-
     VkPushConstantRange pushConstantRange = {};
     pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pushConstantRange.offset = 0;
@@ -266,12 +265,11 @@ private:
 
     const uint32_t idx = FrameInfo::imageIndex;
 
-    // Transition scene color image to COLOR_ATTACHMENT_OPTIMAL
     VkImageLayout colorLayout = renderTarget->getColorImageLayout(idx);
-    if (colorLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) 
+    if (colorLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
       renderTarget->transitionColorImage(
           idx, ImageTransition::ShaderReadToColorOptimal);
-    else if (colorLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) 
+    else if (colorLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
       renderTarget->transitionColorImage(
           idx, ImageTransition::UndefinedToColorOptimal);
 
@@ -282,7 +280,6 @@ private:
 
     for (auto &feature : renderFeatures)
       feature->prepare(idx);
-
 
     std::vector<VkRenderingAttachmentInfo> colors{};
     colors.emplace_back(renderTarget->getColorAttachment(idx));
@@ -349,7 +346,6 @@ private:
 
     const uint32_t idx = FrameInfo::imageIndex;
     #if defined(MAGMA_WITH_EDITOR)
-      // Transition scene color to SHADER_READ_ONLY for ImGui sampling
       renderTarget->transitionColorImage(
           idx, ImageTransition::ColorOptimalToShaderRead);
     #else
@@ -368,7 +364,7 @@ private:
 
   std::vector<ImTextureID> sceneTextures = {};
 
-  inline static std::unique_ptr<EditorCamera> editorCamera = std::make_unique<EditorCamera>();
+  inline static RenderProxy editorCameraProxy = {};
 };
 
 } // namespace Magma

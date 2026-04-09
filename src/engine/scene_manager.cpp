@@ -1,30 +1,37 @@
 module;
+#include <cstdint>
+#include <functional>
 #include <typeinfo>
+#include <vector>
+#if defined(MAGMA_WITH_EDITOR)
+  #include "imgui.h"
+#endif
 
 export module engine:scene_manager;
 import :scene;
 import :gameobject;
+import components;
 
 namespace Magma {
 
-class SceneManager {
+export class SceneManager {
 public:
-  static inline Scene *activeScene;
+  inline static Scene *activeScene = nullptr;
+  inline static GameObject *activeCamera = nullptr;
 
-  template <typename T> T *getComponentFromGameObject(GameObject::id_t id) const {
+  template <typename T>
+  static T *getComponentFromGameObject(uint64_t id) {
     static_assert(std::is_base_of<Component, T>::value,
                   "T must be a Component");
 
     GameObject *obj = findGameObjectById(id);
-    auto components = obj.getComponents();
+    if (!obj)
+      return nullptr;
 
-    auto it = components.find(typeid(T));
-    if (it != components.end())
-      return static_cast<T *>(it->second.get());
-    return nullptr;
+    return obj->getComponent<T>();
   }
 
-  static GameObject *findGameObjectById(GameObject::id_t id){
+  static GameObject *findGameObjectById(uint64_t id){
     if (activeScene == nullptr)
       return nullptr;
 
@@ -44,60 +51,18 @@ public:
       return nullptr;
     };
 
-    for (const auto &go : activeScene->gameObjects) {
-      if (!go) 
+    for (const auto &go : activeScene->getGameObjects()) {
+      if (!go)
         continue;
 
-      if (go->id == id) 
+      if (go->id == id)
         return go.get();
 
-      if (auto obj = findObjectInChildren(go.get())) 
+      if (auto obj = findObjectInChildren(go.get()))
         return obj;
     }
     return nullptr;
   }
-
-  #if defined(MAGMA_WITH_EDITOR)
-    static void drawSceneTree(){
-      if (activeScene == nullptr)
-        return;
-
-      for (auto &gameObject : activeScene->gameObjects) {
-        if (gameObject == nullptr)
-          continue;
-
-        ImGuiTreeNodeFlags flags =
-            ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanFullWidth;
-
-        // If no children, display as leaf node
-        if (!gameObject->hasChildren()) {
-          flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-          ImGui::TreeNodeEx(gameObject->name.c_str(), flags);
-
-          if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && gameObject.callbacks.onRightClick)
-            gameObject.callback.onRightClick(gameObject.get())
-          if (ImGui::IsItemClicked() && gameObject.callbacks.onLeftClick)
-            gameObject.callbacks.onLeftClick(gameObject.get());
-
-          continue;
-        }
-
-        // Else display as tree node
-        bool open = ImGui::TreeNodeEx(gameObject->name.c_str(), flags);
-
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && gameObject.callbacks.onRightClick)
-          gameObject.callback.onRightClick(gameObject.get())
-        if (ImGui::IsItemClicked() && gameObject.callbacks.onLeftClick)
-          gameObject.callbacks.onLeftClick(gameObject.get());
-
-        if (open) {
-          gameObject->drawChildren();
-          ImGui::TreePop();
-        }
-      }
-    }
-  #endif
 };
 
-}
-
+} // namespace Magma

@@ -1,6 +1,8 @@
-module; 
+module;
 #include <cstdint>
-#include <imgui.h>
+#if defined(MAGMA_WITH_EDITOR)
+  #include <imgui.h>
+#endif
 #include <glm/vec4.hpp>
 
 export module components:point_light;
@@ -21,17 +23,18 @@ export struct PointLightSSBO {
 
 export class PointLight: public Component {
 public:
-  PointLight(uint32_t ownerID) : Component(ownerID) {}
+  PointLight(uint64_t *ownerID) : Component(ownerID) {}
+
+  void onUpdate() override {}
 
   #if defined(MAGMA_WITH_EDITOR)
-    void onInspector() {
-      // Draw simple controls (no Begin/End here; Inspector wraps us)
+    void onInspector() override {
       ImGui::TextDisabled("Point Light");
       ImGui::ColorEdit3("Color", &lightData.color.x);
       ImGui::DragFloat("Intensity", &lightData.color.w, 0.01f, 0.0f, 100.0f);
     }
-    virtual const char *inspectorName() const override { return "Point Light"; }
-    virtual const float inspectorHeight() const override { return 100.f; }
+    const char *inspectorName() const override { return "Point Light"; }
+    const float inspectorHeight() const override { return 100.f; }
   #endif
 
   void collectProxy(RenderProxy &proxy) override {

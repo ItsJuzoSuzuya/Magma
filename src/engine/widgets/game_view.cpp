@@ -1,11 +1,13 @@
 module;
+#include <optional>
 #include <vulkan/vulkan_core.h>
 #include "imgui.h"
 #include "imgui_internal.h"
 
 export module widgets:game_view;
 import :widget;
-import render:scene_renderer;
+import :ui_context;
+import render;
 import core;
 
 static ImVec2 fit16x9(const ImVec2 &avail) {

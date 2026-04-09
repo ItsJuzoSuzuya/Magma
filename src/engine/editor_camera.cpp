@@ -3,44 +3,74 @@ module;
 
 export module engine:editor_camera;
 import core;
+import components;
+import :gameobject;
 
 namespace Magma {
 
 /**
- * EditorCamera aggregates a Transform and a Camera for editor usage.
- * It owns the transform and camera instances and exposes simple movement
- * APIs for the editor (e.g., when user presses WASD in the offscreen view).
+ * EditorCamera wraps a GameObject that has Camera and Transform components,
+ * providing movement APIs for use in the editor viewport.
  */
 export class EditorCamera {
 public:
-  EditorCamera(GameObject *obj) cameraObject(obj){}
+  EditorCamera() = default;
+  EditorCamera(GameObject *obj) : cameraObject(obj) {
+    if (obj) {
+      transform = obj->getComponent<Transform>();
+      camera = obj->getComponent<Camera>();
+    }
+  }
 
   ~EditorCamera() = default;
 
   void onUpdate() {
-    camera->onUpdate();
-  }
-  void onRender(IRenderer &renderer) {
-    camera->onRender(renderer);
+    if (camera)
+      camera->onUpdate();
   }
 
+  RenderProxy collectProxy() const {
+    RenderProxy proxy = {};
+    if (camera)
+      camera->collectProxy(proxy);
+    return proxy;
+  }
 
-  // Perspective config
-  void setPerspectiveProjection(float fov, float aspect, float near,
-                                              float far) {
-    camera->setPerspectiveProjection(fov, aspect, near, far);
+  void setPerspectiveProjection(float fov, float aspect, float near, float far) {
+    if (camera)
+      camera->setPerspectiveProjection(fov, aspect, near, far);
   }
 
   void setAspectRatio(float aspect) {
-    camera->setAspectRatio(aspect);
+    if (camera)
+      camera->setAspectRatio(aspect);
   }
 
-  // Accessors
+  void moveRight(float speed) {
+    if (cameraObject)
+      cameraObject->moveRight(speed);
+  }
+
+  void moveForward(float speed) {
+    if (cameraObject)
+      cameraObject->moveForward(speed);
+  }
+
+  void moveUp(float speed) {
+    if (cameraObject)
+      cameraObject->moveUp(speed);
+  }
+
   Transform *getTransform() { return transform; }
   Camera *getCamera() { return camera; }
-  const glm::mat4 &getProjection() const { return camera->getProjection(); }
-  const glm::mat4 &getView() const { 
-    return camera->getView(); }
+  const glm::mat4 &getProjection() const {
+    static glm::mat4 identity{1.f};
+    return camera ? camera->getProjection() : identity;
+  }
+  const glm::mat4 &getView() const {
+    static glm::mat4 identity{1.f};
+    return camera ? camera->getView() : identity;
+  }
 
 private:
   GameObject *cameraObject = nullptr;
