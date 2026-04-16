@@ -1,8800 +1,4436 @@
-//
-// Header-only tiny glTF 2.0 loader and serializer.
-//
-//
-// The MIT License (MIT)
-//
-// Copyright (c) 2015 - Present Syoyo Fujita, Aurélien Chatelain and many
-// contributors.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-
-// Version: - v2.9.*
-// See https://github.com/syoyo/tinygltf/releases for release history.
-//
-// Tiny glTF loader is using following third party libraries:
-//
-//  - jsonhpp: C++ JSON library.
-//  - base64: base64 decode/encode library.
-//  - stb_image: Image loading library.
-//
-#ifndef TINY_GLTF_H_
-#define TINY_GLTF_H_
-
-#include <array>
-#include <cassert>
-#include <cmath> // std::fabs
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <functional>
-#include <limits>
-#include <map>
-#include <string>
-#include <utility>
-#include <vector>
-
-#ifdef __ANDROID__
-#ifdef TINYGLTF_ANDROID_LOAD_FROM_ASSETS
-#include <android/asset_manager.h>
-#endif
-#endif
-
-#ifdef __GNUC__
-#if (__GNUC__ < 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ <= 8))
-#define TINYGLTF_NOEXCEPT
-#else
-#define TINYGLTF_NOEXCEPT noexcept
-#endif
-#else
-#define TINYGLTF_NOEXCEPT noexcept
-#endif
-
-#define DEFAULT_METHODS(x)                                                     \
-  ~x() = default;                                                              \
-  x(const x &) = default;                                                      \
-  x(x &&) TINYGLTF_NOEXCEPT = default;                                         \
-  x &operator=(const x &) = default;                                           \
-  x &operator=(x &&) TINYGLTF_NOEXCEPT = default;
-
-namespace tinygltf {
-
-#define TINYGLTF_MODE_POINTS (0)
-#define TINYGLTF_MODE_LINE (1)
-#define TINYGLTF_MODE_LINE_LOOP (2)
-#define TINYGLTF_MODE_LINE_STRIP (3)
-#define TINYGLTF_MODE_TRIANGLES (4)
-#define TINYGLTF_MODE_TRIANGLE_STRIP (5)
-#define TINYGLTF_MODE_TRIANGLE_FAN (6)
-
-#define TINYGLTF_COMPONENT_TYPE_BYTE (5120)
-#define TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE (5121)
-#define TINYGLTF_COMPONENT_TYPE_SHORT (5122)
-#define TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT (5123)
-#define TINYGLTF_COMPONENT_TYPE_INT (5124)
-#define TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT (5125)
-#define TINYGLTF_COMPONENT_TYPE_FLOAT (5126)
-#define TINYGLTF_COMPONENT_TYPE_DOUBLE                                         \
-  (5130) // OpenGL double type. Note that some of glTF 2.0 validator does not
-         // support double type even the schema seems allow any value of
-         // integer:
-         // https://github.com/KhronosGroup/glTF/blob/b9884a2fd45130b4d673dd6c8a706ee21ee5c5f7/specification/2.0/schema/accessor.schema.json#L22
-
-#define TINYGLTF_TEXTURE_FILTER_NEAREST (9728)
-#define TINYGLTF_TEXTURE_FILTER_LINEAR (9729)
-#define TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST (9984)
-#define TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST (9985)
-#define TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR (9986)
-#define TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR (9987)
-
-#define TINYGLTF_TEXTURE_WRAP_REPEAT (10497)
-#define TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE (33071)
-#define TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT (33648)
-
-// Redeclarations of the above for technique.parameters.
-#define TINYGLTF_PARAMETER_TYPE_BYTE (5120)
-#define TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE (5121)
-#define TINYGLTF_PARAMETER_TYPE_SHORT (5122)
-#define TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT (5123)
-#define TINYGLTF_PARAMETER_TYPE_INT (5124)
-#define TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT (5125)
-#define TINYGLTF_PARAMETER_TYPE_FLOAT (5126)
-
-#define TINYGLTF_PARAMETER_TYPE_FLOAT_VEC2 (35664)
-#define TINYGLTF_PARAMETER_TYPE_FLOAT_VEC3 (35665)
-#define TINYGLTF_PARAMETER_TYPE_FLOAT_VEC4 (35666)
-
-#define TINYGLTF_PARAMETER_TYPE_INT_VEC2 (35667)
-#define TINYGLTF_PARAMETER_TYPE_INT_VEC3 (35668)
-#define TINYGLTF_PARAMETER_TYPE_INT_VEC4 (35669)
-
-#define TINYGLTF_PARAMETER_TYPE_BOOL (35670)
-#define TINYGLTF_PARAMETER_TYPE_BOOL_VEC2 (35671)
-#define TINYGLTF_PARAMETER_TYPE_BOOL_VEC3 (35672)
-#define TINYGLTF_PARAMETER_TYPE_BOOL_VEC4 (35673)
-
-#define TINYGLTF_PARAMETER_TYPE_FLOAT_MAT2 (35674)
-#define TINYGLTF_PARAMETER_TYPE_FLOAT_MAT3 (35675)
-#define TINYGLTF_PARAMETER_TYPE_FLOAT_MAT4 (35676)
-
-#define TINYGLTF_PARAMETER_TYPE_SAMPLER_2D (35678)
-
-// End parameter types
-
-#define TINYGLTF_TYPE_VEC2 (2)
-#define TINYGLTF_TYPE_VEC3 (3)
-#define TINYGLTF_TYPE_VEC4 (4)
-#define TINYGLTF_TYPE_MAT2 (32 + 2)
-#define TINYGLTF_TYPE_MAT3 (32 + 3)
-#define TINYGLTF_TYPE_MAT4 (32 + 4)
-#define TINYGLTF_TYPE_SCALAR (64 + 1)
-#define TINYGLTF_TYPE_VECTOR (64 + 4)
-#define TINYGLTF_TYPE_MATRIX (64 + 16)
-
-#define TINYGLTF_IMAGE_FORMAT_JPEG (0)
-#define TINYGLTF_IMAGE_FORMAT_PNG (1)
-#define TINYGLTF_IMAGE_FORMAT_BMP (2)
-#define TINYGLTF_IMAGE_FORMAT_GIF (3)
-
-#define TINYGLTF_TEXTURE_FORMAT_ALPHA (6406)
-#define TINYGLTF_TEXTURE_FORMAT_RGB (6407)
-#define TINYGLTF_TEXTURE_FORMAT_RGBA (6408)
-#define TINYGLTF_TEXTURE_FORMAT_LUMINANCE (6409)
-#define TINYGLTF_TEXTURE_FORMAT_LUMINANCE_ALPHA (6410)
-
-#define TINYGLTF_TEXTURE_TARGET_TEXTURE2D (3553)
-#define TINYGLTF_TEXTURE_TYPE_UNSIGNED_BYTE (5121)
-
-#define TINYGLTF_TARGET_ARRAY_BUFFER (34962)
-#define TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER (34963)
-
-#define TINYGLTF_SHADER_TYPE_VERTEX_SHADER (35633)
-#define TINYGLTF_SHADER_TYPE_FRAGMENT_SHADER (35632)
-
-#define TINYGLTF_DOUBLE_EPS (1.e-12)
-#define TINYGLTF_DOUBLE_EQUAL(a, b) (std::fabs((b) - (a)) < TINYGLTF_DOUBLE_EPS)
-
-#ifdef __ANDROID__
-#ifdef TINYGLTF_ANDROID_LOAD_FROM_ASSETS
-#ifdef TINYGLTF_IMPLEMENTATION
-AAssetManager *asset_manager = nullptr;
-#else
-extern AAssetManager *asset_manager;
-#endif
-#endif
-#endif
-
-typedef enum {
-  NULL_TYPE,
-  REAL_TYPE,
-  INT_TYPE,
-  BOOL_TYPE,
-  STRING_TYPE,
-  ARRAY_TYPE,
-  BINARY_TYPE,
-  OBJECT_TYPE
-} Type;
-
-typedef enum { Permissive, Strict } ParseStrictness;
-
-static inline int32_t GetComponentSizeInBytes(uint32_t componentType) {
-  if (componentType == TINYGLTF_COMPONENT_TYPE_BYTE) {
-    return 1;
-  } else if (componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
-    return 1;
-  } else if (componentType == TINYGLTF_COMPONENT_TYPE_SHORT) {
-    return 2;
-  } else if (componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
-    return 2;
-  } else if (componentType == TINYGLTF_COMPONENT_TYPE_INT) {
-    return 4;
-  } else if (componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
-    return 4;
-  } else if (componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
-    return 4;
-  } else if (componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE) {
-    return 8;
-  } else {
-    // Unknown component type
-    return -1;
-  }
-}
-
-static inline int32_t GetNumComponentsInType(uint32_t ty) {
-  if (ty == TINYGLTF_TYPE_SCALAR) {
-    return 1;
-  } else if (ty == TINYGLTF_TYPE_VEC2) {
-    return 2;
-  } else if (ty == TINYGLTF_TYPE_VEC3) {
-    return 3;
-  } else if (ty == TINYGLTF_TYPE_VEC4) {
-    return 4;
-  } else if (ty == TINYGLTF_TYPE_MAT2) {
-    return 4;
-  } else if (ty == TINYGLTF_TYPE_MAT3) {
-    return 9;
-  } else if (ty == TINYGLTF_TYPE_MAT4) {
-    return 16;
-  } else {
-    // Unknown component type
-    return -1;
-  }
-}
-
-// TODO(syoyo): Move these functions to TinyGLTF class
-bool IsDataURI(const std::string &in);
-bool DecodeDataURI(std::vector<unsigned char> *out, std::string &mime_type,
-                   const std::string &in, size_t reqBytes, bool checkSize);
-
-#ifdef __clang__
-#pragma clang diagnostic push
-// Suppress warning for : static Value null_value
-#pragma clang diagnostic ignored "-Wexit-time-destructors"
-#pragma clang diagnostic ignored "-Wpadded"
-#endif
-
-// Simple class to represent JSON object
-class Value {
-public:
-  typedef std::vector<Value> Array;
-  typedef std::map<std::string, Value> Object;
-
-  Value() = default;
-
-  explicit Value(bool b) : type_(BOOL_TYPE) { boolean_value_ = b; }
-  explicit Value(int i) : type_(INT_TYPE) {
-    int_value_ = i;
-    real_value_ = i;
-  }
-  explicit Value(double n) : type_(REAL_TYPE) { real_value_ = n; }
-  explicit Value(const std::string &s) : type_(STRING_TYPE) {
-    string_value_ = s;
-  }
-  explicit Value(std::string &&s)
-      : type_(STRING_TYPE), string_value_(std::move(s)) {}
-  explicit Value(const char *s) : type_(STRING_TYPE) { string_value_ = s; }
-  explicit Value(const unsigned char *p, size_t n) : type_(BINARY_TYPE) {
-    binary_value_.resize(n);
-    memcpy(binary_value_.data(), p, n);
-  }
-  explicit Value(std::vector<unsigned char> &&v) noexcept
-      : type_(BINARY_TYPE), binary_value_(std::move(v)) {}
-  explicit Value(const Array &a) : type_(ARRAY_TYPE) { array_value_ = a; }
-  explicit Value(Array &&a) noexcept
-      : type_(ARRAY_TYPE), array_value_(std::move(a)) {}
-
-  explicit Value(const Object &o) : type_(OBJECT_TYPE) { object_value_ = o; }
-  explicit Value(Object &&o) noexcept
-      : type_(OBJECT_TYPE), object_value_(std::move(o)) {}
-
-  DEFAULT_METHODS(Value)
-
-  char Type() const { return static_cast<char>(type_); }
-
-  bool IsBool() const { return (type_ == BOOL_TYPE); }
-
-  bool IsInt() const { return (type_ == INT_TYPE); }
-
-  bool IsNumber() const { return (type_ == REAL_TYPE) || (type_ == INT_TYPE); }
-
-  bool IsReal() const { return (type_ == REAL_TYPE); }
-
-  bool IsString() const { return (type_ == STRING_TYPE); }
-
-  bool IsBinary() const { return (type_ == BINARY_TYPE); }
-
-  bool IsArray() const { return (type_ == ARRAY_TYPE); }
-
-  bool IsObject() const { return (type_ == OBJECT_TYPE); }
-
-  // Use this function if you want to have number value as double.
-  double GetNumberAsDouble() const {
-    if (type_ == INT_TYPE) {
-      return double(int_value_);
-    } else {
-      return real_value_;
-    }
-  }
-
-  // Use this function if you want to have number value as int.
-  // TODO(syoyo): Support int value larger than 32 bits
-  int GetNumberAsInt() const {
-    if (type_ == REAL_TYPE) {
-      return int(real_value_);
-    } else {
-      return int_value_;
-    }
-  }
-
-  // Accessor
-  template <typename T> const T &Get() const;
-  template <typename T> T &Get();
-
-  // Lookup value from an array
-  const Value &Get(size_t idx) const {
-    static Value null_value;
-    assert(IsArray());
-    return (idx < array_value_.size()) ? array_value_[idx] : null_value;
-  }
-
-  // Lookup value from a key-value pair
-  const Value &Get(const std::string &key) const {
-    static Value null_value;
-    assert(IsObject());
-    Object::const_iterator it = object_value_.find(key);
-    return (it != object_value_.end()) ? it->second : null_value;
-  }
-
-  size_t ArrayLen() const {
-    if (!IsArray())
-      return 0;
-    return array_value_.size();
-  }
-
-  // Valid only for object type.
-  bool Has(const std::string &key) const {
-    if (!IsObject())
-      return false;
-    Object::const_iterator it = object_value_.find(key);
-    return (it != object_value_.end()) ? true : false;
-  }
-
-  // List keys
-  std::vector<std::string> Keys() const {
-    std::vector<std::string> keys;
-    if (!IsObject())
-      return keys; // empty
-
-    for (Object::const_iterator it = object_value_.begin();
-         it != object_value_.end(); ++it) {
-      keys.push_back(it->first);
-    }
-
-    return keys;
-  }
-
-  size_t Size() const { return (IsArray() ? ArrayLen() : Keys().size()); }
-
-  bool operator==(const tinygltf::Value &other) const;
-
-protected:
-  int type_ = NULL_TYPE;
-
-  int int_value_ = 0;
-  double real_value_ = 0.0;
-  std::string string_value_;
-  std::vector<unsigned char> binary_value_;
-  Array array_value_;
-  Object object_value_;
-  bool boolean_value_ = false;
-};
-
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
-
-#define TINYGLTF_VALUE_GET(ctype, var)                                         \
-  template <> inline const ctype &Value::Get<ctype>() const { return var; }    \
-  template <> inline ctype &Value::Get<ctype>() { return var; }
-TINYGLTF_VALUE_GET(bool, boolean_value_)
-TINYGLTF_VALUE_GET(double, real_value_)
-TINYGLTF_VALUE_GET(int, int_value_)
-TINYGLTF_VALUE_GET(std::string, string_value_)
-TINYGLTF_VALUE_GET(std::vector<unsigned char>, binary_value_)
-TINYGLTF_VALUE_GET(Value::Array, array_value_)
-TINYGLTF_VALUE_GET(Value::Object, object_value_)
-#undef TINYGLTF_VALUE_GET
-
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wc++98-compat"
-#pragma clang diagnostic ignored "-Wpadded"
-#endif
-
-/// Aggregate object for representing a color
-using ColorValue = std::array<double, 4>;
-
-// === legacy interface ====
-// TODO(syoyo): Deprecate `Parameter` class.
-struct Parameter {
-  bool bool_value = false;
-  bool has_number_value = false;
-  std::string string_value;
-  std::vector<double> number_array;
-  std::map<std::string, double> json_double_value;
-  double number_value = 0.0;
-
-  // context sensitive methods. depending the type of the Parameter you are
-  // accessing, these are either valid or not
-  // If this parameter represent a texture map in a material, will return the
-  // texture index
-
-  /// Return the index of a texture if this Parameter is a texture map.
-  /// Returned value is only valid if the parameter represent a texture from a
-  /// material
-  int TextureIndex() const {
-    const auto it = json_double_value.find("index");
-    if (it != std::end(json_double_value)) {
-      return int(it->second);
-    }
-    return -1;
-  }
-
-  /// Return the index of a texture coordinate set if this Parameter is a
-  /// texture map. Returned value is only valid if the parameter represent a
-  /// texture from a material
-  int TextureTexCoord() const {
-    const auto it = json_double_value.find("texCoord");
-    if (it != std::end(json_double_value)) {
-      return int(it->second);
-    }
-    // As per the spec, if texCoord is omitted, this parameter is 0
-    return 0;
-  }
-
-  /// Return the scale of a texture if this Parameter is a normal texture map.
-  /// Returned value is only valid if the parameter represent a normal texture
-  /// from a material
-  double TextureScale() const {
-    const auto it = json_double_value.find("scale");
-    if (it != std::end(json_double_value)) {
-      return it->second;
-    }
-    // As per the spec, if scale is omitted, this parameter is 1
-    return 1;
-  }
-
-  /// Return the strength of a texture if this Parameter is a an occlusion map.
-  /// Returned value is only valid if the parameter represent an occlusion map
-  /// from a material
-  double TextureStrength() const {
-    const auto it = json_double_value.find("strength");
-    if (it != std::end(json_double_value)) {
-      return it->second;
-    }
-    // As per the spec, if strength is omitted, this parameter is 1
-    return 1;
-  }
-
-  /// Material factor, like the roughness or metalness of a material
-  /// Returned value is only valid if the parameter represent a texture from a
-  /// material
-  double Factor() const { return number_value; }
-
-  /// Return the color of a material
-  /// Returned value is only valid if the parameter represent a texture from a
-  /// material
-  ColorValue ColorFactor() const {
-    return {
-        {// this aggregate initialize the std::array object, and uses C++11 RVO.
-         number_array[0], number_array[1], number_array[2],
-         (number_array.size() > 3 ? number_array[3] : 1.0)}};
-  }
-
-  Parameter() = default;
-  DEFAULT_METHODS(Parameter)
-  bool operator==(const Parameter &) const;
-};
-
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
-
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpadded"
-#endif
-
-typedef std::map<std::string, Parameter> ParameterMap;
-typedef std::map<std::string, Value> ExtensionMap;
-
-struct AnimationChannel {
-  int sampler{-1};         // required
-  int target_node{-1};     // optional index of the node to target (alternative
-                           // target should be provided by extension)
-  std::string target_path; // required with standard values of ["translation",
-                           // "rotation", "scale", "weights"]
-  Value extras;
-  ExtensionMap extensions;
-  Value target_extras;
-  ExtensionMap target_extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-  std::string target_extras_json_string;
-  std::string target_extensions_json_string;
-
-  AnimationChannel() = default;
-  DEFAULT_METHODS(AnimationChannel)
-  bool operator==(const AnimationChannel &) const;
-};
-
-struct AnimationSampler {
-  int input{-1};             // required
-  int output{-1};            // required
-  std::string interpolation; // "LINEAR", "STEP","CUBICSPLINE" or user defined
-                             // string. default "LINEAR"
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  AnimationSampler() : interpolation("LINEAR") {}
-  DEFAULT_METHODS(AnimationSampler)
-  bool operator==(const AnimationSampler &) const;
-};
-
-struct Animation {
-  std::string name;
-  std::vector<AnimationChannel> channels;
-  std::vector<AnimationSampler> samplers;
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  Animation() = default;
-  DEFAULT_METHODS(Animation)
-  bool operator==(const Animation &) const;
-};
-
-struct Skin {
-  std::string name;
-  int inverseBindMatrices{-1}; // required here but not in the spec
-  int skeleton{-1};            // The index of the node used as a skeleton root
-  std::vector<int> joints;     // Indices of skeleton nodes
-
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  Skin() = default;
-  DEFAULT_METHODS(Skin)
-  bool operator==(const Skin &) const;
-};
-
-struct Sampler {
-  std::string name;
-  // glTF 2.0 spec does not define default value for `minFilter` and
-  // `magFilter`. Set -1 in TinyGLTF(issue #186)
-  int minFilter = -1; // optional. -1 = no filter defined. ["NEAREST", "LINEAR",
-                      // "NEAREST_MIPMAP_NEAREST", "LINEAR_MIPMAP_NEAREST",
-                      // "NEAREST_MIPMAP_LINEAR", "LINEAR_MIPMAP_LINEAR"]
-  int magFilter = -1; // optional. -1 = no filter defined. ["NEAREST", "LINEAR"]
-  int wrapS =
-      TINYGLTF_TEXTURE_WRAP_REPEAT; // ["CLAMP_TO_EDGE", "MIRRORED_REPEAT",
-                                    // "REPEAT"], default "REPEAT"
-  int wrapT =
-      TINYGLTF_TEXTURE_WRAP_REPEAT; // ["CLAMP_TO_EDGE", "MIRRORED_REPEAT",
-                                    // "REPEAT"], default "REPEAT"
-  // int wrapR = TINYGLTF_TEXTURE_WRAP_REPEAT;  // TinyGLTF extension. currently
-  // not used.
-
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  Sampler() = default;
-  DEFAULT_METHODS(Sampler)
-  bool operator==(const Sampler &) const;
-};
-
-struct Image {
-  std::string name;
-  int width{-1};
-  int height{-1};
-  int component{-1};
-  int bits{-1};       // bit depth per channel. 8(byte), 16 or 32.
-  int pixel_type{-1}; // pixel type(TINYGLTF_COMPONENT_TYPE_***). usually
-                      // UBYTE(bits = 8) or USHORT(bits = 16)
-  std::vector<unsigned char> image;
-  int bufferView{-1};   // (required if no uri)
-  std::string mimeType; // (required if no uri) ["image/jpeg", "image/png",
-                        // "image/bmp", "image/gif"]
-  std::string uri;      // (required if no mimeType) uri is not decoded(e.g.
-                        // whitespace may be represented as %20)
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  // When this flag is true, data is stored to `image` in as-is format(e.g. jpeg
-  // compressed for "image/jpeg" mime) This feature is good if you use custom
-  // image loader function. (e.g. delayed decoding of images for faster glTF
-  // parsing).
-  bool as_is{false};
-
-  Image() = default;
-  DEFAULT_METHODS(Image)
-
-  bool operator==(const Image &) const;
-};
-
-struct Texture {
-  std::string name;
-
-  int sampler{-1};
-  int source{-1};
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  Texture() = default;
-  DEFAULT_METHODS(Texture)
-
-  bool operator==(const Texture &) const;
-};
-
-struct TextureInfo {
-  int index{-1};   // required.
-  int texCoord{0}; // The set index of texture's TEXCOORD attribute used for
-                   // texture coordinate mapping.
-
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  TextureInfo() = default;
-  DEFAULT_METHODS(TextureInfo)
-  bool operator==(const TextureInfo &) const;
-};
-
-struct NormalTextureInfo {
-  int index{-1};   // required
-  int texCoord{0}; // The set index of texture's TEXCOORD attribute used for
-                   // texture coordinate mapping.
-  double scale{
-      1.0}; // scaledNormal = normalize((<sampled normal texture value>
-            // * 2.0 - 1.0) * vec3(<normal scale>, <normal scale>, 1.0))
-
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  NormalTextureInfo() = default;
-  DEFAULT_METHODS(NormalTextureInfo)
-  bool operator==(const NormalTextureInfo &) const;
-};
-
-struct OcclusionTextureInfo {
-  int index{-1};   // required
-  int texCoord{0}; // The set index of texture's TEXCOORD attribute used for
-                   // texture coordinate mapping.
-  double strength{1.0}; // occludedColor = lerp(color, color * <sampled
-                        // occlusion texture value>, <occlusion strength>)
-
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  OcclusionTextureInfo() = default;
-  DEFAULT_METHODS(OcclusionTextureInfo)
-  bool operator==(const OcclusionTextureInfo &) const;
-};
-
-// pbrMetallicRoughness class defined in glTF 2.0 spec.
-struct PbrMetallicRoughness {
-  std::vector<double> baseColorFactor{1.0, 1.0, 1.0,
-                                      1.0}; // len = 4. default [1,1,1,1]
-  TextureInfo baseColorTexture;
-  double metallicFactor{1.0};  // default 1
-  double roughnessFactor{1.0}; // default 1
-  TextureInfo metallicRoughnessTexture;
-
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  PbrMetallicRoughness() = default;
-  DEFAULT_METHODS(PbrMetallicRoughness)
-
-  bool operator==(const PbrMetallicRoughness &) const;
-};
-
-// Each extension should be stored in a ParameterMap.
-// members not in the values could be included in the ParameterMap
-// to keep a single material model
-struct Material {
-  std::string name;
-
-  std::vector<double> emissiveFactor{0.0, 0.0,
-                                     0.0}; // length 3. default [0, 0, 0]
-  std::string alphaMode{"OPAQUE"};         // default "OPAQUE"
-  double alphaCutoff{0.5};                 // default 0.5
-  bool doubleSided{false};                 // default false
-  std::vector<int> lods; // level of detail materials (MSFT_lod)
-
-  PbrMetallicRoughness pbrMetallicRoughness;
-
-  NormalTextureInfo normalTexture;
-  OcclusionTextureInfo occlusionTexture;
-  TextureInfo emissiveTexture;
-
-  // For backward compatibility
-  // TODO(syoyo): Remove `values` and `additionalValues` in the next release.
-  ParameterMap values;
-  ParameterMap additionalValues;
-
-  ExtensionMap extensions;
-  Value extras;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  Material() = default;
-  DEFAULT_METHODS(Material)
-
-  bool operator==(const Material &) const;
-};
-
-struct BufferView {
-  std::string name;
-  int buffer{-1};       // Required
-  size_t byteOffset{0}; // minimum 0, default 0
-  size_t byteLength{0}; // required, minimum 1. 0 = invalid
-  size_t byteStride{0}; // minimum 4, maximum 252 (multiple of 4), default 0 =
-                        // understood to be tightly packed
-  int target{0}; // ["ARRAY_BUFFER", "ELEMENT_ARRAY_BUFFER"] for vertex indices
-                 // or attribs. Could be 0 for other data
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  bool dracoDecoded{false}; // Flag indicating this has been draco decoded
-
-  BufferView() = default;
-  DEFAULT_METHODS(BufferView)
-  bool operator==(const BufferView &) const;
-};
-
-struct Accessor {
-  int bufferView{-1}; // optional in spec but required here since sparse
-                      // accessor are not supported
-  std::string name;
-  size_t byteOffset{0};
-  bool normalized{false}; // optional.
-  int componentType{-1};  // (required) One of TINYGLTF_COMPONENT_TYPE_***
-  size_t count{0};        // required
-  int type{-1};           // (required) One of TINYGLTF_TYPE_***   ..
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  std::vector<double>
-      minValues; // optional. integer value is promoted to double
-  std::vector<double>
-      maxValues; // optional. integer value is promoted to double
-
-  struct Sparse {
-    int count{0};
-    bool isSparse{false};
-    struct {
-      size_t byteOffset{0};
-      int bufferView{-1};
-      int componentType{-1}; // a TINYGLTF_COMPONENT_TYPE_ value
-      Value extras;
-      ExtensionMap extensions;
-      std::string extras_json_string;
-      std::string extensions_json_string;
-    } indices;
-    struct {
-      int bufferView{-1};
-      size_t byteOffset{0};
-      Value extras;
-      ExtensionMap extensions;
-      std::string extras_json_string;
-      std::string extensions_json_string;
-    } values;
-    Value extras;
-    ExtensionMap extensions;
-    std::string extras_json_string;
-    std::string extensions_json_string;
-  };
-
-  Sparse sparse;
-
-  ///
-  /// Utility function to compute byteStride for a given bufferView object.
-  /// Returns -1 upon invalid glTF value or parameter configuration.
-  ///
-  int ByteStride(const BufferView &bufferViewObject) const {
-    if (bufferViewObject.byteStride == 0) {
-      // Assume data is tightly packed.
-      int componentSizeInBytes =
-          GetComponentSizeInBytes(static_cast<uint32_t>(componentType));
-      if (componentSizeInBytes <= 0) {
-        return -1;
-      }
-
-      int numComponents = GetNumComponentsInType(static_cast<uint32_t>(type));
-      if (numComponents <= 0) {
-        return -1;
-      }
-
-      return componentSizeInBytes * numComponents;
-    } else {
-      // Check if byteStride is a multiple of the size of the accessor's
-      // component type.
-      int componentSizeInBytes =
-          GetComponentSizeInBytes(static_cast<uint32_t>(componentType));
-      if (componentSizeInBytes <= 0) {
-        return -1;
-      }
-
-      if ((bufferViewObject.byteStride % uint32_t(componentSizeInBytes)) != 0) {
-        return -1;
-      }
-      return static_cast<int>(bufferViewObject.byteStride);
-    }
-
-    // unreachable return 0;
-  }
-
-  Accessor() = default;
-  DEFAULT_METHODS(Accessor)
-  bool operator==(const tinygltf::Accessor &) const;
-};
-
-struct PerspectiveCamera {
-  double aspectRatio{0.0}; // min > 0
-  double yfov{0.0};        // required. min > 0
-  double zfar{0.0};        // min > 0
-  double znear{0.0};       // required. min > 0
-
-  PerspectiveCamera() = default;
-  DEFAULT_METHODS(PerspectiveCamera)
-  bool operator==(const PerspectiveCamera &) const;
-
-  ExtensionMap extensions;
-  Value extras;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-};
-
-struct OrthographicCamera {
-  double xmag{0.0};  // required. must not be zero.
-  double ymag{0.0};  // required. must not be zero.
-  double zfar{0.0};  // required. `zfar` must be greater than `znear`.
-  double znear{0.0}; // required
-
-  OrthographicCamera() = default;
-  DEFAULT_METHODS(OrthographicCamera)
-  bool operator==(const OrthographicCamera &) const;
-
-  ExtensionMap extensions;
-  Value extras;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-};
-
-struct Camera {
-  std::string type; // required. "perspective" or "orthographic"
-  std::string name;
-
-  PerspectiveCamera perspective;
-  OrthographicCamera orthographic;
-
-  Camera() = default;
-  DEFAULT_METHODS(Camera)
-  bool operator==(const Camera &) const;
-
-  ExtensionMap extensions;
-  Value extras;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-};
-
-struct Primitive {
-  std::map<std::string, int> attributes; // (required) A dictionary object of
-                                         // integer, where each integer
-                                         // is the index of the accessor
-                                         // containing an attribute.
-  int material{-1}; // The index of the material to apply to this primitive
-                    // when rendering.
-  int indices{-1};  // The index of the accessor that contains the indices.
-  int mode{-1};     // one of TINYGLTF_MODE_***
-  std::vector<std::map<std::string, int>> targets; // array of morph targets,
-  // where each target is a dict with attributes in ["POSITION, "NORMAL",
-  // "TANGENT"] pointing
-  // to their corresponding accessors
-  ExtensionMap extensions;
-  Value extras;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  Primitive() = default;
-  DEFAULT_METHODS(Primitive)
-  bool operator==(const Primitive &) const;
-};
-
-struct Mesh {
-  std::string name;
-  std::vector<Primitive> primitives;
-  std::vector<double> weights; // weights to be applied to the Morph Targets
-  ExtensionMap extensions;
-  Value extras;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  Mesh() = default;
-  DEFAULT_METHODS(Mesh)
-  bool operator==(const Mesh &) const;
-};
-
-class Node {
-public:
-  Node() = default;
-
-  DEFAULT_METHODS(Node)
-
-  bool operator==(const Node &) const;
-
-  int camera{-1}; // the index of the camera referenced by this node
-
-  std::string name;
-  int skin{-1};
-  int mesh{-1};
-  int light{-1};         // light source index (KHR_lights_punctual)
-  int emitter{-1};       // audio emitter index (KHR_audio)
-  std::vector<int> lods; // level of detail nodes (MSFT_lod)
-  std::vector<int> children;
-  std::vector<double> rotation;    // length must be 0 or 4
-  std::vector<double> scale;       // length must be 0 or 3
-  std::vector<double> translation; // length must be 0 or 3
-  std::vector<double> matrix;      // length must be 0 or 16
-  std::vector<double> weights; // The weights of the instantiated Morph Target
-
-  ExtensionMap extensions;
-  Value extras;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-};
-
-struct Buffer {
-  std::string name;
-  std::vector<unsigned char> data;
-  std::string
-      uri; // considered as required here but not in the spec (need to clarify)
-           // uri is not decoded(e.g. whitespace may be represented as %20)
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  Buffer() = default;
-  DEFAULT_METHODS(Buffer)
-  bool operator==(const Buffer &) const;
-};
-
-struct Asset {
-  std::string version = "2.0"; // required
-  std::string generator;
-  std::string minVersion;
-  std::string copyright;
-  ExtensionMap extensions;
-  Value extras;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  Asset() = default;
-  DEFAULT_METHODS(Asset)
-  bool operator==(const Asset &) const;
-};
-
-struct Scene {
-  std::string name;
-  std::vector<int> nodes;
-  std::vector<int> audioEmitters; // KHR_audio global emitters
-
-  ExtensionMap extensions;
-  Value extras;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-
-  Scene() = default;
-  DEFAULT_METHODS(Scene)
-  bool operator==(const Scene &) const;
-};
-
-struct SpotLight {
-  double innerConeAngle{0.0};
-  double outerConeAngle{0.7853981634};
-
-  SpotLight() = default;
-  DEFAULT_METHODS(SpotLight)
-  bool operator==(const SpotLight &) const;
-
-  ExtensionMap extensions;
-  Value extras;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-};
-
-struct Light {
-  std::string name;
-  std::vector<double> color;
-  double intensity{1.0};
-  std::string type;
-  double range{0.0}; // 0.0 = infinite
-  SpotLight spot;
-
-  Light() = default;
-  DEFAULT_METHODS(Light)
-
-  bool operator==(const Light &) const;
-
-  ExtensionMap extensions;
-  Value extras;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-};
-
-struct PositionalEmitter {
-  double coneInnerAngle{6.283185307179586};
-  double coneOuterAngle{6.283185307179586};
-  double coneOuterGain{0.0};
-  double maxDistance{100.0};
-  double refDistance{1.0};
-  double rolloffFactor{1.0};
-
-  PositionalEmitter() = default;
-  DEFAULT_METHODS(PositionalEmitter)
-  bool operator==(const PositionalEmitter &) const;
-
-  ExtensionMap extensions;
-  Value extras;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-};
-
-struct AudioEmitter {
-  std::string name;
-  double gain{1.0};
-  bool loop{false};
-  bool playing{false};
-  std::string
-      type; // positional - Positional audio emitters. Using sound cones, the
-            // orientation is +Z having the same front side for a glTF asset.
-            // global - Global audio emitters are not affected by the position
-            // of audio listeners. coneInnerAngle, coneOuterAngle,
-            // coneOuterGain, distanceModel, maxDistance, refDistance, and
-            // rolloffFactor should all be ignored when set.
-  std::string
-      distanceModel; // linear - A linear distance model calculating the
-                     // gain induced by the distance according to: 1.0
-                     // - rolloffFactor * (distance - refDistance) /
-                     // (maxDistance - refDistance)
-                     // inverse - (default) An inverse distance model
-                     // calculating the gain induced by the distance according
-                     // to: refDistance / (refDistance + rolloffFactor *
-                     // (Math.max(distance, refDistance) - refDistance))
-                     // exponential - An exponential distance model calculating
-                     // the gain induced by the distance according to:
-                     // pow((Math.max(distance, refDistance) / refDistance,
-                     // -rolloffFactor))
-  PositionalEmitter positional;
-  int source{-1};
-
-  AudioEmitter() : type("global"), distanceModel("inverse") {}
-  DEFAULT_METHODS(AudioEmitter)
-
-  bool operator==(const AudioEmitter &) const;
-
-  ExtensionMap extensions;
-  Value extras;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-};
-
-struct AudioSource {
-  std::string name;
-  std::string uri;
-  int bufferView{-1};   // (required if no uri)
-  std::string mimeType; // (required if no uri) The audio's MIME type. Required
-                        // if bufferView is defined. Unless specified by another
-                        // extension, the only supported mimeType is audio/mpeg.
-
-  AudioSource() = default;
-  DEFAULT_METHODS(AudioSource)
-
-  bool operator==(const AudioSource &) const;
-
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-};
-
-class Model {
-public:
-  Model() = default;
-  DEFAULT_METHODS(Model)
-
-  bool operator==(const Model &) const;
-
-  std::vector<Accessor> accessors;
-  std::vector<Animation> animations;
-  std::vector<Buffer> buffers;
-  std::vector<BufferView> bufferViews;
-  std::vector<Material> materials;
-  std::vector<Mesh> meshes;
-  std::vector<Node> nodes;
-  std::vector<Texture> textures;
-  std::vector<Image> images;
-  std::vector<Skin> skins;
-  std::vector<Sampler> samplers;
-  std::vector<Camera> cameras;
-  std::vector<Scene> scenes;
-  std::vector<Light> lights;
-  std::vector<AudioEmitter> audioEmitters;
-  std::vector<AudioSource> audioSources;
-
-  int defaultScene{-1};
-  std::vector<std::string> extensionsUsed;
-  std::vector<std::string> extensionsRequired;
-
-  Asset asset;
-
-  Value extras;
-  ExtensionMap extensions;
-
-  // Filled when SetStoreOriginalJSONForExtrasAndExtensions is enabled.
-  std::string extras_json_string;
-  std::string extensions_json_string;
-};
-
-enum SectionCheck {
-  NO_REQUIRE = 0x00,
-  REQUIRE_VERSION = 0x01,
-  REQUIRE_SCENE = 0x02,
-  REQUIRE_SCENES = 0x04,
-  REQUIRE_NODES = 0x08,
-  REQUIRE_ACCESSORS = 0x10,
-  REQUIRE_BUFFERS = 0x20,
-  REQUIRE_BUFFER_VIEWS = 0x40,
-  REQUIRE_ALL = 0x7f
-};
-
-///
-/// URIEncodeFunction type. Signature for custom URI encoding of external
-/// resources such as .bin and image files. Used by tinygltf to re-encode the
-/// final location of saved files. object_type may be used to encode buffer and
-/// image URIs differently, for example. See
-/// https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#uris
-///
-using URIEncodeFunction = std::function<bool(
-    const std::string & /* in_uri */, const std::string & /* object_type */,
-    std::string * /* out_uri */, void * /* user_data */)>;
-
-///
-/// URIDecodeFunction type. Signature for custom URI decoding of external
-/// resources such as .bin and image files. Used by tinygltf when computing
-/// filenames to write resources.
-///
-using URIDecodeFunction =
-    std::function<bool(const std::string & /* in_uri */,
-                       std::string * /* out_uri */, void * /* user_data */)>;
-
-// Declaration of default uri decode function
-bool URIDecode(const std::string &in_uri, std::string *out_uri,
-               void *user_data);
-
-///
-/// A structure containing URI callbacks and a pointer to their user data.
-///
-struct URICallbacks {
-  URIEncodeFunction encode; // Optional encode method
-  URIDecodeFunction decode; // Required decode method
-
-  void *user_data; // An argument that is passed to all uri callbacks
-};
-
-///
-/// FileExistsFunction type. Signature for custom filesystem callbacks.
-///
-using FileExistsFunction = std::function<bool(
-    const std::string & /* abs_filename */, void * /* user_data */)>;
-
-///
-/// ExpandFilePathFunction type. Signature for custom filesystem callbacks.
-///
-using ExpandFilePathFunction =
-    std::function<std::string(const std::string &, void *)>;
-
-///
-/// ReadWholeFileFunction type. Signature for custom filesystem callbacks.
-///
-using ReadWholeFileFunction = std::function<bool(
-    std::vector<unsigned char> *, std::string *, const std::string &, void *)>;
-
-///
-/// WriteWholeFileFunction type. Signature for custom filesystem callbacks.
-///
-using WriteWholeFileFunction =
-    std::function<bool(std::string *, const std::string &,
-                       const std::vector<unsigned char> &, void *)>;
-
-///
-/// GetFileSizeFunction type. Signature for custom filesystem callbacks.
-///
-using GetFileSizeFunction =
-    std::function<bool(size_t *filesize_out, std::string *err,
-                       const std::string &abs_filename, void *userdata)>;
-
-///
-/// A structure containing all required filesystem callbacks and a pointer to
-/// their user data.
-///
-struct FsCallbacks {
-  FileExistsFunction FileExists;
-  ExpandFilePathFunction ExpandFilePath;
-  ReadWholeFileFunction ReadWholeFile;
-  WriteWholeFileFunction WriteWholeFile;
-  GetFileSizeFunction GetFileSizeInBytes; // To avoid GetFileSize Win32 API,
-                                          // add `InBytes` suffix.
-
-  void *user_data; // An argument that is passed to all fs callbacks
-};
-
-#ifndef TINYGLTF_NO_FS
-// Declaration of default filesystem callbacks
-
-bool FileExists(const std::string &abs_filename, void *);
-
-///
-/// Expand file path(e.g. `~` to home directory on posix, `%APPDATA%` to
-/// `C:\\Users\\tinygltf\\AppData`)
-///
-/// @param[in] filepath File path string. Assume UTF-8
-/// @param[in] userdata User data. Set to `nullptr` if you don't need it.
-///
-std::string ExpandFilePath(const std::string &filepath, void *userdata);
-
-bool ReadWholeFile(std::vector<unsigned char> *out, std::string *err,
-                   const std::string &filepath, void *);
-
-bool WriteWholeFile(std::string *err, const std::string &filepath,
-                    const std::vector<unsigned char> &contents, void *);
-
-bool GetFileSizeInBytes(size_t *filesize_out, std::string *err,
-                        const std::string &filepath, void *);
-#endif
-
-///
-/// LoadImageDataFunction type. Signature for custom image loading callbacks.
-///
-using LoadImageDataFunction = std::function<bool(
-    Image * /* image */, const int /* image_idx */, std::string * /* err */,
-    std::string * /* warn */, int /* req_width */, int /* req_height */,
-    const unsigned char * /* bytes */, int /* size */, void * /*user_data */)>;
-
-///
-/// WriteImageDataFunction type. Signature for custom image writing callbacks.
-/// The out_uri parameter becomes the URI written to the gltf and may reference
-/// a file or contain a data URI.
-///
-using WriteImageDataFunction = std::function<bool(
-    const std::string * /* basepath */, const std::string * /* filename */,
-    const Image *image, bool /* embedImages */, const FsCallbacks * /* fs_cb */,
-    const URICallbacks * /* uri_cb */, std::string * /* out_uri */,
-    void * /* user_pointer */)>;
-
-#ifndef TINYGLTF_NO_STB_IMAGE
-// Declaration of default image loader callback
-bool LoadImageData(Image *image, const int image_idx, std::string *err,
-                   std::string *warn, int req_width, int req_height,
-                   const unsigned char *bytes, int size, void *);
-#endif
-
-#ifndef TINYGLTF_NO_STB_IMAGE_WRITE
-// Declaration of default image writer callback
-bool WriteImageData(const std::string *basepath, const std::string *filename,
-                    const Image *image, bool embedImages,
-                    const FsCallbacks *fs_cb, const URICallbacks *uri_cb,
-                    std::string *out_uri, void *);
-#endif
-
-///
-/// glTF Parser/Serializer context.
-///
-class TinyGLTF {
-public:
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wc++98-compat"
-#endif
-
-  TinyGLTF() = default;
-
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
-
-  ~TinyGLTF() = default;
-
-  ///
-  /// Loads glTF ASCII asset from a file.
-  /// Set warning message to `warn` for example it fails to load asserts.
-  /// Returns false and set error string to `err` if there's an error.
-  ///
-  bool LoadASCIIFromFile(Model *model, std::string *err, std::string *warn,
-                         const std::string &filename,
-                         unsigned int check_sections = REQUIRE_VERSION);
-
-  ///
-  /// Loads glTF ASCII asset from string(memory).
-  /// `length` = strlen(str);
-  /// `base_dir` is a search path of glTF asset(e.g. images). Path Must be an
-  /// expanded path (e.g. no tilde(`~`), no environment variables). Set warning
-  /// message to `warn` for example it fails to load asserts. Returns false and
-  /// set error string to `err` if there's an error.
-  ///
-  bool LoadASCIIFromString(Model *model, std::string *err, std::string *warn,
-                           const char *str, const unsigned int length,
-                           const std::string &base_dir,
-                           unsigned int check_sections = REQUIRE_VERSION);
-
-  ///
-  /// Loads glTF binary asset from a file.
-  /// Set warning message to `warn` for example it fails to load asserts.
-  /// Returns false and set error string to `err` if there's an error.
-  ///
-  bool LoadBinaryFromFile(Model *model, std::string *err, std::string *warn,
-                          const std::string &filename,
-                          unsigned int check_sections = REQUIRE_VERSION);
-
-  ///
-  /// Loads glTF binary asset from memory.
-  /// `length` = strlen(str);
-  /// `base_dir` is a search path of glTF asset(e.g. images). Path Must be an
-  /// expanded path (e.g. no tilde(`~`), no environment variables).
-  /// Set warning message to `warn` for example it fails to load asserts.
-  /// Returns false and set error string to `err` if there's an error.
-  ///
-  bool LoadBinaryFromMemory(Model *model, std::string *err, std::string *warn,
-                            const unsigned char *bytes,
-                            const unsigned int length,
-                            const std::string &base_dir = "",
-                            unsigned int check_sections = REQUIRE_VERSION);
-
-  ///
-  /// Write glTF to stream, buffers and images will be embedded
-  ///
-  bool WriteGltfSceneToStream(const Model *model, std::ostream &stream,
-                              bool prettyPrint, bool writeBinary);
-
-  ///
-  /// Write glTF to file.
-  ///
-  bool WriteGltfSceneToFile(const Model *model, const std::string &filename,
-                            bool embedImages, bool embedBuffers,
-                            bool prettyPrint, bool writeBinary);
-
-  ///
-  /// Sets the parsing strictness.
-  ///
-  void SetParseStrictness(ParseStrictness strictness);
-
-  ///
-  /// Set callback to use for loading image data. Passing the nullptr is akin to
-  /// calling RemoveImageLoader().
-  ///
-  void SetImageLoader(LoadImageDataFunction LoadImageData, void *user_data);
-
-  ///
-  /// Unset(remove) callback of loading image data
-  ///
-  void RemoveImageLoader();
-
-  ///
-  /// Set callback to use for writing image data
-  ///
-  void SetImageWriter(WriteImageDataFunction WriteImageData, void *user_data);
-
-  ///
-  /// Set callbacks to use for URI encoding and decoding and their user data.
-  /// Returns false if there is an error with the callbacks. If err is not
-  /// nullptr, explanation will be written there.
-  ///
-  bool SetURICallbacks(URICallbacks callbacks, std::string *err = nullptr);
-
-  ///
-  /// Set callbacks to use for filesystem (fs) access and their user data.
-  /// Returns false if there is an error with the callbacks. If err is not
-  /// nullptr, explanation will be written there.
-  ///
-  bool SetFsCallbacks(FsCallbacks callbacks, std::string *err = nullptr);
-
-  ///
-  /// Set serializing default values(default = false).
-  /// When true, default values are force serialized to .glTF.
-  /// This may be helpful if you want to serialize a full description of glTF
-  /// data.
-  ///
-  /// TODO(LTE): Supply parsing option as function arguments to
-  /// `LoadASCIIFromFile()` and others, not by a class method
-  ///
-  void SetSerializeDefaultValues(const bool enabled) {
-    serialize_default_values_ = enabled;
-  }
-
-  bool GetSerializeDefaultValues() const { return serialize_default_values_; }
-
-  ///
-  /// Store original JSON string for `extras` and `extensions`.
-  /// This feature will be useful when the user want to reconstruct custom data
-  /// structure from JSON string.
-  ///
-  void SetStoreOriginalJSONForExtrasAndExtensions(const bool enabled) {
-    store_original_json_for_extras_and_extensions_ = enabled;
-  }
-
-  bool GetStoreOriginalJSONForExtrasAndExtensions() const {
-    return store_original_json_for_extras_and_extensions_;
-  }
-
-  ///
-  /// Specify whether preserve image channels when loading images or not.
-  /// (Not effective when the user supplies their own LoadImageData callbacks)
-  ///
-  void SetPreserveImageChannels(bool onoff) {
-    preserve_image_channels_ = onoff;
-  }
-
-  bool GetPreserveImageChannels() const { return preserve_image_channels_; }
-
-  ///
-  /// Specifiy whether image data is decoded/decompressed during load, or left
-  /// as is
-  ///
-  void SetImagesAsIs(bool onoff) { images_as_is_ = onoff; }
-
-  bool GetImagesAsIs() const { return images_as_is_; }
-
-  ///
-  /// Set maximum allowed external file size in bytes.
-  /// Default: 2GB
-  /// Only effective for built-in ReadWholeFileFunction FS function.
-  ///
-  void SetMaxExternalFileSize(size_t max_bytes) {
-    max_external_file_size_ = max_bytes;
-  }
-
-  size_t GetMaxExternalFileSize() const { return max_external_file_size_; }
-
-private:
-  ///
-  /// Loads glTF asset from string(memory).
-  /// `length` = strlen(str);
-  /// Set warning message to `warn` for example it fails to load asserts
-  /// Returns false and set error string to `err` if there's an error.
-  ///
-  bool LoadFromString(Model *model, std::string *err, std::string *warn,
-                      const char *str, const unsigned int length,
-                      const std::string &base_dir, unsigned int check_sections);
-
-  const unsigned char *bin_data_ = nullptr;
-  size_t bin_size_ = 0;
-  bool is_binary_ = false;
-
-  ParseStrictness strictness_ = ParseStrictness::Strict;
-
-  bool serialize_default_values_ = false; ///< Serialize default values?
-
-  bool store_original_json_for_extras_and_extensions_ = false;
-
-  bool preserve_image_channels_ = false; /// Default false(expand channels to
-                                         /// RGBA) for backward compatibility.
-
-  bool images_as_is_ = false; /// Default false (decode/decompress images)
-
-  size_t max_external_file_size_{
-      size_t((std::numeric_limits<int32_t>::max)())}; // Default 2GB
-
-  // Warning & error messages
-  std::string warn_;
-  std::string err_;
-
-  FsCallbacks fs = {
-#ifndef TINYGLTF_NO_FS
-      &tinygltf::FileExists,
-      &tinygltf::ExpandFilePath,
-      &tinygltf::ReadWholeFile,
-      &tinygltf::WriteWholeFile,
-      &tinygltf::GetFileSizeInBytes,
-
-      nullptr // Fs callback user data
-#else
-      nullptr, nullptr, nullptr, nullptr, nullptr,
-
-      nullptr // Fs callback user data
-#endif
-  };
-
-  URICallbacks uri_cb = {
-      // Use paths as-is by default. This will use JSON string escaping.
-      nullptr,
-      // Decode all URIs before using them as paths as the application may have
-      // percent encoded them.
-      &tinygltf::URIDecode,
-      // URI callback user data
-      nullptr};
-
-  LoadImageDataFunction LoadImageData =
-#ifndef TINYGLTF_NO_STB_IMAGE
-      &tinygltf::LoadImageData;
-#else
-      nullptr;
-#endif
-  void *load_image_user_data_{nullptr};
-  bool user_image_loader_{false};
-
-  WriteImageDataFunction WriteImageData =
-#ifndef TINYGLTF_NO_STB_IMAGE_WRITE
-      &tinygltf::WriteImageData;
-#else
-      nullptr;
-#endif
-  void *write_image_user_data_{nullptr};
-};
-
-#ifdef __clang__
-#pragma clang diagnostic pop // -Wpadded
-#endif
-
-} // namespace tinygltf
-
-#endif // TINY_GLTF_H_
-
-#if defined(TINYGLTF_IMPLEMENTATION) || defined(__INTELLISENSE__)
-#include <algorithm>
-// #include <cassert>
-#ifndef TINYGLTF_NO_FS
-#include <sys/stat.h> // for is_directory check
-
-#include <cstdio>
-#include <fstream>
-#endif
-#include <sstream>
-
-#ifdef __clang__
-// Disable some warnings for external files.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wfloat-equal"
-#pragma clang diagnostic ignored "-Wexit-time-destructors"
-#pragma clang diagnostic ignored "-Wconversion"
-#pragma clang diagnostic ignored "-Wold-style-cast"
-#pragma clang diagnostic ignored "-Wglobal-constructors"
-#if __has_warning("-Wreserved-id-macro")
-#pragma clang diagnostic ignored "-Wreserved-id-macro"
-#endif
-#pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
-#pragma clang diagnostic ignored "-Wpadded"
-#pragma clang diagnostic ignored "-Wc++98-compat"
-#pragma clang diagnostic ignored "-Wc++98-compat-pedantic"
-#pragma clang diagnostic ignored "-Wdocumentation-unknown-command"
-#pragma clang diagnostic ignored "-Wswitch-enum"
-#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
-#pragma clang diagnostic ignored "-Wweak-vtables"
-#pragma clang diagnostic ignored "-Wcovered-switch-default"
-#if __has_warning("-Wdouble-promotion")
-#pragma clang diagnostic ignored "-Wdouble-promotion"
-#endif
-#if __has_warning("-Wcomma")
-#pragma clang diagnostic ignored "-Wcomma"
-#endif
-#if __has_warning("-Wzero-as-null-pointer-constant")
-#pragma clang diagnostic ignored "-Wzero-as-null-pointer-constant"
-#endif
-#if __has_warning("-Wcast-qual")
-#pragma clang diagnostic ignored "-Wcast-qual"
-#endif
-#if __has_warning("-Wmissing-variable-declarations")
-#pragma clang diagnostic ignored "-Wmissing-variable-declarations"
-#endif
-#if __has_warning("-Wmissing-prototypes")
-#pragma clang diagnostic ignored "-Wmissing-prototypes"
-#endif
-#if __has_warning("-Wcast-align")
-#pragma clang diagnostic ignored "-Wcast-align"
-#endif
-#if __has_warning("-Wnewline-eof")
-#pragma clang diagnostic ignored "-Wnewline-eof"
-#endif
-#if __has_warning("-Wunused-parameter")
-#pragma clang diagnostic ignored "-Wunused-parameter"
-#endif
-#if __has_warning("-Wmismatched-tags")
-#pragma clang diagnostic ignored "-Wmismatched-tags"
-#endif
-#if __has_warning("-Wextra-semi-stmt")
-#pragma clang diagnostic ignored "-Wextra-semi-stmt"
-#endif
-#endif
-
-// Disable GCC warnings
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wtype-limits"
-#endif // __GNUC__
-
-#ifndef TINYGLTF_NO_INCLUDE_JSON
-#ifndef TINYGLTF_USE_RAPIDJSON
-#include "json.hpp"
-#else
-#ifndef TINYGLTF_NO_INCLUDE_RAPIDJSON
-#include "document.h"
-#include "prettywriter.h"
-#include "rapidjson.h"
-#include "stringbuffer.h"
-#include "writer.h"
-#endif
-#endif
-#endif
-
-#ifdef TINYGLTF_ENABLE_DRACO
-#include "draco/compression/decode.h"
-#include "draco/core/decoder_buffer.h"
-#endif
-
-#ifndef TINYGLTF_NO_STB_IMAGE
-#ifndef TINYGLTF_NO_INCLUDE_STB_IMAGE
-#include "stb_image.h"
-#endif
-#endif
-
-#ifndef TINYGLTF_NO_STB_IMAGE_WRITE
-#ifndef TINYGLTF_NO_INCLUDE_STB_IMAGE_WRITE
-#include "stb_image_write.h"
-#endif
-#endif
-
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
-
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-
-#ifdef _WIN32
-
-// issue 143.
-// Define NOMINMAX to avoid min/max defines,
-// but undef it after included Windows.h
-#ifndef NOMINMAX
-#define TINYGLTF_INTERNAL_NOMINMAX
-#define NOMINMAX
-#endif
-
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#define TINYGLTF_INTERNAL_WIN32_LEAN_AND_MEAN
-#endif
-#ifndef __MINGW32__
-#include <Windows.h> // include API for expanding a file path
-#else
-#include <windows.h>
-#endif
-
-#ifdef TINYGLTF_INTERNAL_WIN32_LEAN_AND_MEAN
-#undef WIN32_LEAN_AND_MEAN
-#endif
-
-#if defined(TINYGLTF_INTERNAL_NOMINMAX)
-#undef NOMINMAX
-#endif
-
-#if defined(__GLIBCXX__) // mingw
-
-#include <fcntl.h> // _O_RDONLY
-
-#include <ext/stdio_filebuf.h> // fstream (all sorts of IO stuff) + stdio_filebuf (=streambuf)
-
-#endif
-
-#elif !defined(__ANDROID__) && !defined(__OpenBSD__)
-// #include <wordexp.h>
-#endif
-
-#if defined(__sparcv9) || defined(__powerpc__)
-// Big endian
-#else
-#if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) || MINIZ_X86_OR_X64_CPU
-#define TINYGLTF_LITTLE_ENDIAN 1
-#endif
-#endif
-
-namespace tinygltf {
-namespace detail {
-#ifdef TINYGLTF_USE_RAPIDJSON
-
-#ifdef TINYGLTF_USE_RAPIDJSON_CRTALLOCATOR
-// This uses the RapidJSON CRTAllocator.  It is thread safe and multiple
-// documents may be active at once.
-using json =
-    rapidjson::GenericValue<rapidjson::UTF8<>, rapidjson::CrtAllocator>;
-using json_iterator = json::MemberIterator;
-using json_const_iterator = json::ConstMemberIterator;
-using json_const_array_iterator = json const *;
-using JsonDocument =
-    rapidjson::GenericDocument<rapidjson::UTF8<>, rapidjson::CrtAllocator>;
-rapidjson::CrtAllocator s_CrtAllocator; // stateless and thread safe
-rapidjson::CrtAllocator &GetAllocator() { return s_CrtAllocator; }
-#else
-// This uses the default RapidJSON MemoryPoolAllocator.  It is very fast, but
-// not thread safe. Only a single JsonDocument may be active at any one time,
-// meaning only a single gltf load/save can be active any one time.
-using json = rapidjson::Value;
-using json_iterator = json::MemberIterator;
-using json_const_iterator = json::ConstMemberIterator;
-using json_const_array_iterator = json const *;
-rapidjson::Document *s_pActiveDocument = nullptr;
-rapidjson::Document::AllocatorType &GetAllocator() {
-  assert(s_pActiveDocument); // Root json node must be JsonDocument type
-  return s_pActiveDocument->GetAllocator();
-}
-
-#ifdef __clang__
-#pragma clang diagnostic push
-// Suppress JsonDocument(JsonDocument &&rhs) noexcept
-#pragma clang diagnostic ignored "-Wunused-member-function"
-#endif
-
-struct JsonDocument : public rapidjson::Document {
-  JsonDocument() {
-    assert(s_pActiveDocument ==
-           nullptr); // When using default allocator, only one document can be
-                     // active at a time, if you need multiple active at once,
-                     // define TINYGLTF_USE_RAPIDJSON_CRTALLOCATOR
-    s_pActiveDocument = this;
-  }
-  JsonDocument(const JsonDocument &) = delete;
-  JsonDocument(JsonDocument &&rhs) noexcept
-      : rapidjson::Document(std::move(rhs)) {
-    s_pActiveDocument = this;
-    rhs.isNil = true;
-  }
-  ~JsonDocument() {
-    if (!isNil) {
-      s_pActiveDocument = nullptr;
-    }
-  }
-
-private:
-  bool isNil = false;
-};
-
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
-
-#endif // TINYGLTF_USE_RAPIDJSON_CRTALLOCATOR
-
-#else
-using nlohmann::json;
-using json_iterator = json::iterator;
-using json_const_iterator = json::const_iterator;
-using json_const_array_iterator = json_const_iterator;
-using JsonDocument = json;
-#endif
-
-void JsonParse(JsonDocument &doc, const char *str, size_t length,
-               bool throwExc = false) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  (void)throwExc;
-  doc.Parse(str, length);
-#else
-  doc = detail::json::parse(str, str + length, nullptr, throwExc);
-#endif
-}
-} // namespace detail
-} // namespace tinygltf
-
-#ifdef __APPLE__
-#include "TargetConditionals.h"
-#endif
-
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wc++98-compat"
-#endif
-
-namespace tinygltf {
-
-///
-/// Internal LoadImageDataOption struct.
-/// This struct is passed through `user_pointer` in LoadImageData.
-/// The struct is not passed when the user supply their own LoadImageData
-/// callbacks.
-///
-struct LoadImageDataOption {
-  // true: preserve image channels(e.g. load as RGB image if the image has RGB
-  // channels) default `false`(channels are expanded to RGBA for backward
-  // compatibility).
-  bool preserve_channels{false};
-  // true: do not decode/decompress image data.
-  // default `false`: decode/decompress image data.
-  bool as_is{false};
-};
-
-// Equals function for Value, for recursivity
-static bool Equals(const tinygltf::Value &one, const tinygltf::Value &other) {
-  if (one.Type() != other.Type())
-    return false;
-
-  switch (one.Type()) {
-  case NULL_TYPE:
-    return true;
-  case BOOL_TYPE:
-    return one.Get<bool>() == other.Get<bool>();
-  case REAL_TYPE:
-    return TINYGLTF_DOUBLE_EQUAL(one.Get<double>(), other.Get<double>());
-  case INT_TYPE:
-    return one.Get<int>() == other.Get<int>();
-  case OBJECT_TYPE: {
-    auto oneObj = one.Get<tinygltf::Value::Object>();
-    auto otherObj = other.Get<tinygltf::Value::Object>();
-    if (oneObj.size() != otherObj.size())
-      return false;
-    for (auto &it : oneObj) {
-      auto otherIt = otherObj.find(it.first);
-      if (otherIt == otherObj.end())
-        return false;
-
-      if (!Equals(it.second, otherIt->second))
-        return false;
-    }
-    return true;
-  }
-  case ARRAY_TYPE: {
-    if (one.Size() != other.Size())
-      return false;
-    for (size_t i = 0; i < one.Size(); ++i)
-      if (!Equals(one.Get(i), other.Get(i)))
-        return false;
-    return true;
-  }
-  case STRING_TYPE:
-    return one.Get<std::string>() == other.Get<std::string>();
-  case BINARY_TYPE:
-    return one.Get<std::vector<unsigned char>>() ==
-           other.Get<std::vector<unsigned char>>();
-  default: {
-    // unhandled type
-    return false;
-  }
-  }
-}
-
-// Equals function for std::vector<double> using TINYGLTF_DOUBLE_EPSILON
-static bool Equals(const std::vector<double> &one,
-                   const std::vector<double> &other) {
-  if (one.size() != other.size())
-    return false;
-  for (int i = 0; i < int(one.size()); ++i) {
-    if (!TINYGLTF_DOUBLE_EQUAL(one[size_t(i)], other[size_t(i)]))
-      return false;
-  }
-  return true;
-}
-
-bool Accessor::operator==(const Accessor &other) const {
-  return this->bufferView == other.bufferView &&
-         this->byteOffset == other.byteOffset &&
-         this->componentType == other.componentType &&
-         this->count == other.count && this->extensions == other.extensions &&
-         this->extras == other.extras &&
-         Equals(this->maxValues, other.maxValues) &&
-         Equals(this->minValues, other.minValues) && this->name == other.name &&
-         this->normalized == other.normalized && this->type == other.type;
-}
-bool Animation::operator==(const Animation &other) const {
-  return this->channels == other.channels &&
-         this->extensions == other.extensions && this->extras == other.extras &&
-         this->name == other.name && this->samplers == other.samplers;
-}
-bool AnimationChannel::operator==(const AnimationChannel &other) const {
-  return this->extensions == other.extensions && this->extras == other.extras &&
-         this->target_node == other.target_node &&
-         this->target_path == other.target_path &&
-         this->sampler == other.sampler;
-}
-bool AnimationSampler::operator==(const AnimationSampler &other) const {
-  return this->extras == other.extras && this->extensions == other.extensions &&
-         this->input == other.input &&
-         this->interpolation == other.interpolation &&
-         this->output == other.output;
-}
-bool Asset::operator==(const Asset &other) const {
-  return this->copyright == other.copyright &&
-         this->extensions == other.extensions && this->extras == other.extras &&
-         this->generator == other.generator &&
-         this->minVersion == other.minVersion && this->version == other.version;
-}
-bool Buffer::operator==(const Buffer &other) const {
-  return this->data == other.data && this->extensions == other.extensions &&
-         this->extras == other.extras && this->name == other.name &&
-         this->uri == other.uri;
-}
-bool BufferView::operator==(const BufferView &other) const {
-  return this->buffer == other.buffer && this->byteLength == other.byteLength &&
-         this->byteOffset == other.byteOffset &&
-         this->byteStride == other.byteStride && this->name == other.name &&
-         this->target == other.target && this->extensions == other.extensions &&
-         this->extras == other.extras &&
-         this->dracoDecoded == other.dracoDecoded;
-}
-bool Camera::operator==(const Camera &other) const {
-  return this->name == other.name && this->extensions == other.extensions &&
-         this->extras == other.extras &&
-         this->orthographic == other.orthographic &&
-         this->perspective == other.perspective && this->type == other.type;
-}
-bool Image::operator==(const Image &other) const {
-  return this->bufferView == other.bufferView &&
-         this->component == other.component &&
-         this->extensions == other.extensions && this->extras == other.extras &&
-         this->height == other.height && this->image == other.image &&
-         this->mimeType == other.mimeType && this->name == other.name &&
-         this->uri == other.uri && this->width == other.width;
-}
-bool Light::operator==(const Light &other) const {
-  return Equals(this->color, other.color) && this->name == other.name &&
-         this->type == other.type;
-}
-bool AudioEmitter::operator==(const AudioEmitter &other) const {
-  return this->name == other.name &&
-         TINYGLTF_DOUBLE_EQUAL(this->gain, other.gain) &&
-         this->loop == other.loop && this->playing == other.playing &&
-         this->type == other.type &&
-         this->distanceModel == other.distanceModel &&
-         this->source == other.source;
-}
-bool AudioSource::operator==(const AudioSource &other) const {
-  return this->name == other.name && this->uri == other.uri;
-}
-bool Material::operator==(const Material &other) const {
-  return (this->pbrMetallicRoughness == other.pbrMetallicRoughness) &&
-         (this->normalTexture == other.normalTexture) &&
-         (this->occlusionTexture == other.occlusionTexture) &&
-         (this->emissiveTexture == other.emissiveTexture) &&
-         Equals(this->emissiveFactor, other.emissiveFactor) &&
-         (this->alphaMode == other.alphaMode) &&
-         TINYGLTF_DOUBLE_EQUAL(this->alphaCutoff, other.alphaCutoff) &&
-         (this->doubleSided == other.doubleSided) &&
-         (this->extensions == other.extensions) &&
-         (this->extras == other.extras) && (this->values == other.values) &&
-         (this->additionalValues == other.additionalValues) &&
-         (this->name == other.name);
-}
-bool Mesh::operator==(const Mesh &other) const {
-  return this->extensions == other.extensions && this->extras == other.extras &&
-         this->name == other.name && Equals(this->weights, other.weights) &&
-         this->primitives == other.primitives;
-}
-bool Model::operator==(const Model &other) const {
-  return this->accessors == other.accessors &&
-         this->animations == other.animations && this->asset == other.asset &&
-         this->buffers == other.buffers &&
-         this->bufferViews == other.bufferViews &&
-         this->cameras == other.cameras &&
-         this->defaultScene == other.defaultScene &&
-         this->extensions == other.extensions &&
-         this->extensionsRequired == other.extensionsRequired &&
-         this->extensionsUsed == other.extensionsUsed &&
-         this->extras == other.extras && this->images == other.images &&
-         this->lights == other.lights && this->materials == other.materials &&
-         this->meshes == other.meshes && this->nodes == other.nodes &&
-         this->samplers == other.samplers && this->scenes == other.scenes &&
-         this->skins == other.skins && this->textures == other.textures;
-}
-bool Node::operator==(const Node &other) const {
-  return this->camera == other.camera && this->children == other.children &&
-         this->extensions == other.extensions && this->extras == other.extras &&
-         Equals(this->matrix, other.matrix) && this->mesh == other.mesh &&
-         (this->light == other.light) && (this->emitter == other.emitter) &&
-         this->name == other.name && Equals(this->rotation, other.rotation) &&
-         Equals(this->scale, other.scale) && this->skin == other.skin &&
-         Equals(this->translation, other.translation) &&
-         Equals(this->weights, other.weights);
-}
-bool SpotLight::operator==(const SpotLight &other) const {
-  return this->extensions == other.extensions && this->extras == other.extras &&
-         TINYGLTF_DOUBLE_EQUAL(this->innerConeAngle, other.innerConeAngle) &&
-         TINYGLTF_DOUBLE_EQUAL(this->outerConeAngle, other.outerConeAngle);
-}
-bool PositionalEmitter::operator==(const PositionalEmitter &other) const {
-  return this->extensions == other.extensions && this->extras == other.extras &&
-         TINYGLTF_DOUBLE_EQUAL(this->coneInnerAngle, other.coneInnerAngle) &&
-         TINYGLTF_DOUBLE_EQUAL(this->coneOuterAngle, other.coneOuterAngle) &&
-         TINYGLTF_DOUBLE_EQUAL(this->coneOuterGain, other.coneOuterGain) &&
-         TINYGLTF_DOUBLE_EQUAL(this->maxDistance, other.maxDistance) &&
-         TINYGLTF_DOUBLE_EQUAL(this->refDistance, other.refDistance) &&
-         TINYGLTF_DOUBLE_EQUAL(this->rolloffFactor, other.rolloffFactor);
-}
-bool OrthographicCamera::operator==(const OrthographicCamera &other) const {
-  return this->extensions == other.extensions && this->extras == other.extras &&
-         TINYGLTF_DOUBLE_EQUAL(this->xmag, other.xmag) &&
-         TINYGLTF_DOUBLE_EQUAL(this->ymag, other.ymag) &&
-         TINYGLTF_DOUBLE_EQUAL(this->zfar, other.zfar) &&
-         TINYGLTF_DOUBLE_EQUAL(this->znear, other.znear);
-}
-bool Parameter::operator==(const Parameter &other) const {
-  if (this->bool_value != other.bool_value ||
-      this->has_number_value != other.has_number_value)
-    return false;
-
-  if (!TINYGLTF_DOUBLE_EQUAL(this->number_value, other.number_value))
-    return false;
-
-  if (this->json_double_value.size() != other.json_double_value.size())
-    return false;
-  for (auto &it : this->json_double_value) {
-    auto otherIt = other.json_double_value.find(it.first);
-    if (otherIt == other.json_double_value.end())
-      return false;
-
-    if (!TINYGLTF_DOUBLE_EQUAL(it.second, otherIt->second))
-      return false;
-  }
-
-  if (!Equals(this->number_array, other.number_array))
-    return false;
-
-  if (this->string_value != other.string_value)
-    return false;
-
-  return true;
-}
-bool PerspectiveCamera::operator==(const PerspectiveCamera &other) const {
-  return TINYGLTF_DOUBLE_EQUAL(this->aspectRatio, other.aspectRatio) &&
-         this->extensions == other.extensions && this->extras == other.extras &&
-         TINYGLTF_DOUBLE_EQUAL(this->yfov, other.yfov) &&
-         TINYGLTF_DOUBLE_EQUAL(this->zfar, other.zfar) &&
-         TINYGLTF_DOUBLE_EQUAL(this->znear, other.znear);
-}
-bool Primitive::operator==(const Primitive &other) const {
-  return this->attributes == other.attributes && this->extras == other.extras &&
-         this->indices == other.indices && this->material == other.material &&
-         this->mode == other.mode && this->targets == other.targets;
-}
-bool Sampler::operator==(const Sampler &other) const {
-  return this->extensions == other.extensions && this->extras == other.extras &&
-         this->magFilter == other.magFilter &&
-         this->minFilter == other.minFilter && this->name == other.name &&
-         this->wrapS == other.wrapS && this->wrapT == other.wrapT;
-
-  // this->wrapR == other.wrapR
-}
-bool Scene::operator==(const Scene &other) const {
-  return this->extensions == other.extensions && this->extras == other.extras &&
-         this->name == other.name && this->nodes == other.nodes;
-}
-bool Skin::operator==(const Skin &other) const {
-  return this->extensions == other.extensions && this->extras == other.extras &&
-         this->inverseBindMatrices == other.inverseBindMatrices &&
-         this->joints == other.joints && this->name == other.name &&
-         this->skeleton == other.skeleton;
-}
-bool Texture::operator==(const Texture &other) const {
-  return this->extensions == other.extensions && this->extras == other.extras &&
-         this->name == other.name && this->sampler == other.sampler &&
-         this->source == other.source;
-}
-bool TextureInfo::operator==(const TextureInfo &other) const {
-  return this->extensions == other.extensions && this->extras == other.extras &&
-         this->index == other.index && this->texCoord == other.texCoord;
-}
-bool NormalTextureInfo::operator==(const NormalTextureInfo &other) const {
-  return this->extensions == other.extensions && this->extras == other.extras &&
-         this->index == other.index && this->texCoord == other.texCoord &&
-         TINYGLTF_DOUBLE_EQUAL(this->scale, other.scale);
-}
-bool OcclusionTextureInfo::operator==(const OcclusionTextureInfo &other) const {
-  return this->extensions == other.extensions && this->extras == other.extras &&
-         this->index == other.index && this->texCoord == other.texCoord &&
-         TINYGLTF_DOUBLE_EQUAL(this->strength, other.strength);
-}
-bool PbrMetallicRoughness::operator==(const PbrMetallicRoughness &other) const {
-  return this->extensions == other.extensions && this->extras == other.extras &&
-         (this->baseColorTexture == other.baseColorTexture) &&
-         (this->metallicRoughnessTexture == other.metallicRoughnessTexture) &&
-         Equals(this->baseColorFactor, other.baseColorFactor) &&
-         TINYGLTF_DOUBLE_EQUAL(this->metallicFactor, other.metallicFactor) &&
-         TINYGLTF_DOUBLE_EQUAL(this->roughnessFactor, other.roughnessFactor);
-}
-bool Value::operator==(const Value &other) const {
-  return Equals(*this, other);
-}
-
-static void swap4(unsigned int *val) {
-#ifdef TINYGLTF_LITTLE_ENDIAN
-  (void)val;
-#else
-  unsigned int tmp = *val;
-  unsigned char *dst = reinterpret_cast<unsigned char *>(val);
-  unsigned char *src = reinterpret_cast<unsigned char *>(&tmp);
-
-  dst[0] = src[3];
-  dst[1] = src[2];
-  dst[2] = src[1];
-  dst[3] = src[0];
-#endif
-}
-
-static std::string JoinPath(const std::string &path0,
-                            const std::string &path1) {
-  if (path0.empty()) {
-    return path1;
-  } else {
-    // check '/'
-    char lastChar = *path0.rbegin();
-    if (lastChar != '/') {
-      return path0 + std::string("/") + path1;
-    } else {
-      return path0 + path1;
-    }
-  }
-}
-
-static std::string FindFile(const std::vector<std::string> &paths,
-                            const std::string &filepath, FsCallbacks *fs) {
-  if (fs == nullptr || fs->ExpandFilePath == nullptr ||
-      fs->FileExists == nullptr) {
-    // Error, fs callback[s] missing
-    return std::string();
-  }
-
-  // https://github.com/syoyo/tinygltf/issues/416
-  // Use strlen() since std::string's size/length reports the number of elements
-  // in the buffer, not the length of string(null-terminated) strip
-  // null-character in the middle of string.
-  size_t slength = strlen(filepath.c_str());
-  if (slength == 0) {
-    return std::string();
-  }
-
-  std::string cleaned_filepath = std::string(filepath.c_str());
-
-  for (size_t i = 0; i < paths.size(); i++) {
-    std::string absPath =
-        fs->ExpandFilePath(JoinPath(paths[i], cleaned_filepath), fs->user_data);
-    if (fs->FileExists(absPath, fs->user_data)) {
-      return absPath;
-    }
-  }
-
-  return std::string();
-}
-
-static std::string GetFilePathExtension(const std::string &FileName) {
-  if (FileName.find_last_of(".") != std::string::npos)
-    return FileName.substr(FileName.find_last_of(".") + 1);
-  return "";
-}
-
-static std::string GetBaseDir(const std::string &filepath) {
-  if (filepath.find_last_of("/\\") != std::string::npos)
-    return filepath.substr(0, filepath.find_last_of("/\\") + 1);
-  return "";
-}
-
-static std::string GetBaseFilename(const std::string &filepath) {
-  auto idx = filepath.find_last_of("/\\");
-  if (idx != std::string::npos)
-    return filepath.substr(idx + 1);
-  return filepath;
-}
-
-std::string base64_encode(unsigned char const *, unsigned int len);
-std::string base64_decode(std::string const &s);
+/*
+ * tiny_gltf_v3.h - Header-only C glTF 2.0 loader and writer (v3)
+ *
+ * The MIT License (MIT)
+ * Copyright (c) 2026 - Present: Syoyo Fujita
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 
 /*
-   base64.cpp and base64.h
+ * Version: v3.0.0-alpha
+ *
+ * Ground-up C-centric API rewrite of tinygltf.
+ * Uses tinygltf_json.h as the sole JSON backend.
+ *
+ * Key differences from v2:
+ *   - Pure C POD structs (no STL containers in public API)
+ *   - Arena-based memory management (single tg3_model_free() frees all)
+ *   - Filesystem and image decoding OFF by default (opt-in)
+ *   - Structured error reporting via tg3_error_stack
+ *   - Streaming parse/write via callbacks
+ *   - No RTTI, no exceptions required
+ *   - C++20 coroutine facade (optional)
+ */
 
-   Copyright (C) 2004-2008 René Nyffenegger
+#ifndef TINY_GLTF_V3_H_
+#define TINY_GLTF_V3_H_
 
-   This source code is provided 'as-is', without any express or implied
-   warranty. In no event will the author be held liable for any damages
-   arising from the use of this software.
+/* ======================================================================
+ * Section 2: Configuration Macros
+ * ====================================================================== */
 
-   Permission is granted to anyone to use this software for any purpose,
-   including commercial applications, and to alter it and redistribute it
-   freely, subject to the following restrictions:
+/* Build mode: define in ONE C++ translation unit (.cpp) */
+/* #define TINYGLTF3_IMPLEMENTATION */
 
-   1. The origin of this source code must not be misrepresented; you must not
-      claim that you wrote the original source code. If you use this source code
-      in a product, an acknowledgment in the product documentation would be
-      appreciated but is not required.
+/* Opt-in features (OFF by default) */
+/* #define TINYGLTF3_ENABLE_FS */
+/* #define TINYGLTF3_ENABLE_STB_IMAGE */
+/* #define TINYGLTF3_ENABLE_STB_IMAGE_WRITE */
 
-   2. Altered source versions must be plainly marked as such, and must not be
-      misrepresented as being the original source code.
+/* Opt-out */
+/* #define TINYGLTF3_NO_IMAGE_DECODE */
 
-   3. This notice may not be removed or altered from any source distribution.
+/* C++20 coroutines (auto-detected, or force) */
+/* #define TINYGLTF3_ENABLE_COROUTINES */
 
-   René Nyffenegger rene.nyffenegger@adp-gmbh.ch
+/* SIMD for JSON parsing (forwarded to tinygltf_json.h) */
+/* #define TINYGLTF3_JSON_SIMD_SSE2 */
+/* #define TINYGLTF3_JSON_SIMD_AVX2 */
+/* #define TINYGLTF3_JSON_SIMD_NEON */
 
-*/
-
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wsign-conversion"
-#pragma clang diagnostic ignored "-Wconversion"
+/* Memory limits */
+#ifndef TINYGLTF3_MAX_MEMORY_BYTES
+#define TINYGLTF3_MAX_MEMORY_BYTES (1ULL << 30) /* 1 GB */
 #endif
 
-static inline bool is_base64(unsigned char c) {
-  return (isalnum(c) || (c == '+') || (c == '/'));
-}
-
-std::string base64_encode(unsigned char const *bytes_to_encode,
-                          unsigned int in_len) {
-  std::string ret;
-  int i = 0;
-  int j = 0;
-  unsigned char char_array_3[3];
-  unsigned char char_array_4[4];
-
-  const char *base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                             "abcdefghijklmnopqrstuvwxyz"
-                             "0123456789+/";
-
-  while (in_len--) {
-    char_array_3[i++] = *(bytes_to_encode++);
-    if (i == 3) {
-      char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
-      char_array_4[1] =
-          ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
-      char_array_4[2] =
-          ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
-      char_array_4[3] = char_array_3[2] & 0x3f;
-
-      for (i = 0; (i < 4); i++)
-        ret += base64_chars[char_array_4[i]];
-      i = 0;
-    }
-  }
-
-  if (i) {
-    for (j = i; j < 3; j++)
-      char_array_3[j] = '\0';
-
-    char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
-    char_array_4[1] =
-        ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
-    char_array_4[2] =
-        ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
-
-    for (j = 0; (j < i + 1); j++)
-      ret += base64_chars[char_array_4[j]];
-
-    while ((i++ < 3))
-      ret += '=';
-  }
-
-  return ret;
-}
-
-std::string base64_decode(std::string const &encoded_string) {
-  int in_len = static_cast<int>(encoded_string.size());
-  int i = 0;
-  int j = 0;
-  int in_ = 0;
-  unsigned char char_array_4[4], char_array_3[3];
-  std::string ret;
-
-  const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                                   "abcdefghijklmnopqrstuvwxyz"
-                                   "0123456789+/";
-
-  while (in_len-- && (encoded_string[in_] != '=') &&
-         is_base64(encoded_string[in_])) {
-    char_array_4[i++] = encoded_string[in_];
-    in_++;
-    if (i == 4) {
-      for (i = 0; i < 4; i++)
-        char_array_4[i] =
-            static_cast<unsigned char>(base64_chars.find(char_array_4[i]));
-
-      char_array_3[0] =
-          (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
-      char_array_3[1] =
-          ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
-      char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
-
-      for (i = 0; (i < 3); i++)
-        ret += char_array_3[i];
-      i = 0;
-    }
-  }
-
-  if (i) {
-    for (j = i; j < 4; j++)
-      char_array_4[j] = 0;
-
-    for (j = 0; j < 4; j++)
-      char_array_4[j] =
-          static_cast<unsigned char>(base64_chars.find(char_array_4[j]));
-
-    char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
-    char_array_3[1] =
-        ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
-    char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
-
-    for (j = 0; (j < i - 1); j++)
-      ret += char_array_3[j];
-  }
-
-  return ret;
-}
-#ifdef __clang__
-#pragma clang diagnostic pop
+#ifndef TINYGLTF3_MAX_NESTING_DEPTH
+#define TINYGLTF3_MAX_NESTING_DEPTH 512
 #endif
 
-// https://github.com/syoyo/tinygltf/issues/228
-// TODO(syoyo): Use uriparser https://uriparser.github.io/ for stricter Uri
-// decoding?
-//
-// Uri Decoding from DLIB
-// http://dlib.net/dlib/server/server_http.cpp.html
-// --- dlib begin ------------------------------------------------------------
-// Copyright (C) 2003  Davis E. King (davis@dlib.net)
-// License: Boost Software License
-// Boost Software License - Version 1.0 - August 17th, 2003
-
-// Permission is hereby granted, free of charge, to any person or organization
-// obtaining a copy of the software and accompanying documentation covered by
-// this license (the "Software") to use, reproduce, display, distribute,
-// execute, and transmit the Software, and to prepare derivative works of the
-// Software, and to permit third-parties to whom the Software is furnished to
-// do so, all subject to the following:
-// The copyright notices in the Software and this entire statement, including
-// the above license grant, this restriction and the following disclaimer,
-// must be included in all copies of the Software, in whole or in part, and
-// all derivative works of the Software, unless such copies or derivative
-// works are solely in the form of machine-executable object code generated by
-// a source language processor.
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO EVENT
-// SHALL THE COPYRIGHT HOLDERS OR ANYONE DISTRIBUTING THE SOFTWARE BE LIABLE
-// FOR ANY DAMAGES OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT OR OTHERWISE,
-// ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-// DEALINGS IN THE SOFTWARE.
-//
-namespace dlib {
-
-inline unsigned char from_hex(unsigned char ch) {
-  if (ch <= '9' && ch >= '0')
-    ch -= '0';
-  else if (ch <= 'f' && ch >= 'a')
-    ch -= 'a' - 10;
-  else if (ch <= 'F' && ch >= 'A')
-    ch -= 'A' - 10;
-  else
-    ch = 0;
-  return ch;
-}
-
-static const std::string urldecode(const std::string &str) {
-  using namespace std;
-  string result;
-  string::size_type i;
-  for (i = 0; i < str.size(); ++i) {
-    if (str[i] == '+') {
-      result += ' ';
-    } else if (str[i] == '%' && str.size() > i + 2) {
-      const unsigned char ch1 =
-          from_hex(static_cast<unsigned char>(str[i + 1]));
-      const unsigned char ch2 =
-          from_hex(static_cast<unsigned char>(str[i + 2]));
-      const unsigned char ch = static_cast<unsigned char>((ch1 << 4) | ch2);
-      result += static_cast<char>(ch);
-      i += 2;
-    } else {
-      result += str[i];
-    }
-  }
-  return result;
-}
-
-} // namespace dlib
-// --- dlib end --------------------------------------------------------------
-
-bool URIDecode(const std::string &in_uri, std::string *out_uri,
-               void *user_data) {
-  (void)user_data;
-  *out_uri = dlib::urldecode(in_uri);
-  return true;
-}
-
-static bool LoadExternalFile(std::vector<unsigned char> *out, std::string *err,
-                             std::string *warn, const std::string &filename,
-                             const std::string &basedir, bool required,
-                             size_t reqBytes, bool checkSize,
-                             size_t maxFileSize, FsCallbacks *fs) {
-  if (fs == nullptr || fs->FileExists == nullptr ||
-      fs->ExpandFilePath == nullptr || fs->ReadWholeFile == nullptr) {
-    // This is a developer error, assert() ?
-    if (err) {
-      (*err) += "FS callback[s] not set\n";
-    }
-    return false;
-  }
-
-  std::string *failMsgOut = required ? err : warn;
-
-  out->clear();
-
-  std::vector<std::string> paths;
-  paths.push_back(basedir);
-  paths.push_back(".");
-
-  std::string filepath = FindFile(paths, filename, fs);
-  if (filepath.empty() || filename.empty()) {
-    if (failMsgOut) {
-      (*failMsgOut) += "File not found : " + filename + "\n";
-    }
-    return false;
-  }
-
-  // Check file size
-  if (fs->GetFileSizeInBytes) {
-    size_t file_size{0};
-    std::string _err;
-    bool ok =
-        fs->GetFileSizeInBytes(&file_size, &_err, filepath, fs->user_data);
-    if (!ok) {
-      if (_err.size()) {
-        if (failMsgOut) {
-          (*failMsgOut) += "Getting file size failed : " + filename +
-                           ", err = " + _err + "\n";
-        }
-      }
-      return false;
-    }
-
-    if (file_size > maxFileSize) {
-      if (failMsgOut) {
-        (*failMsgOut) += "File size " + std::to_string(file_size) +
-                         " exceeds maximum allowed file size " +
-                         std::to_string(maxFileSize) + " : " + filepath + "\n";
-      }
-      return false;
-    }
-  }
-
-  std::vector<unsigned char> buf;
-  std::string fileReadErr;
-  bool fileRead =
-      fs->ReadWholeFile(&buf, &fileReadErr, filepath, fs->user_data);
-  if (!fileRead) {
-    if (failMsgOut) {
-      (*failMsgOut) +=
-          "File read error : " + filepath + " : " + fileReadErr + "\n";
-    }
-    return false;
-  }
-
-  size_t sz = buf.size();
-  if (sz == 0) {
-    if (failMsgOut) {
-      (*failMsgOut) += "File is empty : " + filepath + "\n";
-    }
-    return false;
-  }
-
-  if (checkSize) {
-    if (reqBytes == sz) {
-      out->swap(buf);
-      return true;
-    } else {
-      std::stringstream ss;
-      ss << "File size mismatch : " << filepath << ", requestedBytes "
-         << reqBytes << ", but got " << sz << std::endl;
-      if (failMsgOut) {
-        (*failMsgOut) += ss.str();
-      }
-      return false;
-    }
-  }
-
-  out->swap(buf);
-  return true;
-}
-
-void TinyGLTF::SetParseStrictness(ParseStrictness strictness) {
-  strictness_ = strictness;
-}
-
-void TinyGLTF::SetImageLoader(LoadImageDataFunction func, void *user_data) {
-  if (func == nullptr) {
-    RemoveImageLoader();
-    return;
-  }
-  LoadImageData = std::move(func);
-  load_image_user_data_ = user_data;
-  user_image_loader_ = true;
-}
-
-void TinyGLTF::RemoveImageLoader() {
-  LoadImageData =
-#ifndef TINYGLTF_NO_STB_IMAGE
-      &tinygltf::LoadImageData;
-#else
-      nullptr;
+#ifndef TINYGLTF3_MAX_STRING_LENGTH
+#define TINYGLTF3_MAX_STRING_LENGTH (64 * 1024 * 1024) /* 64 MB */
 #endif
 
-  load_image_user_data_ = nullptr;
-  user_image_loader_ = false;
-}
-
-#ifndef TINYGLTF_NO_STB_IMAGE
-bool LoadImageData(Image *image, const int image_idx, std::string *err,
-                   std::string *warn, int req_width, int req_height,
-                   const unsigned char *bytes, int size, void *user_data) {
-  (void)warn;
-
-  LoadImageDataOption option;
-  if (user_data) {
-    option = *reinterpret_cast<LoadImageDataOption *>(user_data);
-  }
-
-  int w = 0, h = 0, comp = 0, req_comp = 0;
-
-  // Try to decode image header
-  if (!stbi_info_from_memory(bytes, size, &w, &h, &comp)) {
-    // On failure, if we load images as is, we just warn.
-    std::string *msgOut = option.as_is ? warn : err;
-    if (msgOut) {
-      (*msgOut) +=
-          "Unknown image format. STB cannot decode image header for image[" +
-          std::to_string(image_idx) + "] name = \"" + image->name + "\".\n";
-    }
-    if (!option.as_is) {
-      // If we decode images, error out.
-      return false;
-    } else {
-      // If we load images as is, we copy the image data,
-      // set all image properties to invalid, and report success.
-      image->width = image->height = image->component = -1;
-      image->bits = image->pixel_type = -1;
-      image->image.resize(static_cast<size_t>(size));
-      std::copy(bytes, bytes + size, image->image.begin());
-      return true;
-    }
-  }
-
-  int bits = 8;
-  int pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE;
-
-  if (stbi_is_16_bit_from_memory(bytes, size)) {
-    bits = 16;
-    pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT;
-  }
-
-  // preserve_channels true: Use channels stored in the image file.
-  // false: force 32-bit textures for common Vulkan compatibility. It appears
-  // that some GPU drivers do not support 24-bit images for Vulkan
-  req_comp = (option.preserve_channels || option.as_is) ? 0 : 4;
-
-  unsigned char *data = nullptr;
-  // Perform image decoding if requested
-  if (!option.as_is) {
-    // If the image is marked as 16 bit per channel, attempt to decode it as
-    // such first. If that fails, we are going to attempt to load it as 8 bit
-    // per channel image.
-    if (bits == 16) {
-      data = reinterpret_cast<unsigned char *>(
-          stbi_load_16_from_memory(bytes, size, &w, &h, &comp, req_comp));
-    }
-    // Load as 8 bit per channel data
-    if (!data) {
-      data = stbi_load_from_memory(bytes, size, &w, &h, &comp, req_comp);
-      if (!data) {
-        if (err) {
-          (*err) +=
-              "Unknown image format. STB cannot decode image data for image[" +
-              std::to_string(image_idx) + "] name = \"" + image->name + "\".\n";
-        }
-        return false;
-      }
-      // If we were succesful, mark as 8 bit
-      bits = 8;
-      pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE;
-    }
-  }
-
-  if ((w < 1) || (h < 1)) {
-    stbi_image_free(data);
-    if (err) {
-      (*err) += "Invalid image data for image[" + std::to_string(image_idx) +
-                "] name = \"" + image->name + "\"\n";
-    }
-    return false;
-  }
-
-  if (req_width > 0) {
-    if (req_width != w) {
-      stbi_image_free(data);
-      if (err) {
-        (*err) += "Image width mismatch for image[" +
-                  std::to_string(image_idx) + "] name = \"" + image->name +
-                  "\"\n";
-      }
-      return false;
-    }
-  }
-
-  if (req_height > 0) {
-    if (req_height != h) {
-      stbi_image_free(data);
-      if (err) {
-        (*err) += "Image height mismatch. for image[" +
-                  std::to_string(image_idx) + "] name = \"" + image->name +
-                  "\"\n";
-      }
-      return false;
-    }
-  }
-
-  if (req_comp != 0) {
-    // loaded data has `req_comp` channels(components)
-    comp = req_comp;
-  }
-
-  image->width = w;
-  image->height = h;
-  image->component = comp;
-  image->bits = bits;
-  image->pixel_type = pixel_type;
-  image->as_is = option.as_is;
-
-  if (option.as_is) {
-    // Store the original image data
-    image->image.resize(static_cast<size_t>(size));
-    std::copy(bytes, bytes + size, image->image.begin());
-  } else {
-    // Store the decoded image data
-    image->image.resize(static_cast<size_t>(w * h * comp) * size_t(bits / 8));
-    std::copy(data, data + w * h * comp * (bits / 8), image->image.begin());
-  }
-
-  stbi_image_free(data);
-  return true;
-}
+/* Linkage control */
+#ifndef TINYGLTF3_API
+#define TINYGLTF3_API
 #endif
 
-void TinyGLTF::SetImageWriter(WriteImageDataFunction func, void *user_data) {
-  WriteImageData = std::move(func);
-  write_image_user_data_ = user_data;
-}
-
-#ifndef TINYGLTF_NO_STB_IMAGE_WRITE
-static void WriteToMemory_stbi(void *context, void *data, int size) {
-  std::vector<unsigned char> *buffer =
-      reinterpret_cast<std::vector<unsigned char> *>(context);
-
-  unsigned char *pData = reinterpret_cast<unsigned char *>(data);
-
-  buffer->insert(buffer->end(), pData, pData + size);
-}
-
-bool WriteImageData(const std::string *basepath, const std::string *filename,
-                    const Image *image, bool embedImages,
-                    const FsCallbacks *fs_cb, const URICallbacks *uri_cb,
-                    std::string *out_uri, void *) {
-  // Early out on empty images, report the original uri if the image was not
-  // written.
-  if (image->image.empty()) {
-    *out_uri = *filename;
-    return true;
-  }
-
-  const std::string ext = GetFilePathExtension(*filename);
-
-  // Write image to temporary buffer
-  std::string header;
-  std::vector<unsigned char> data;
-
-  // If the image data is already encoded, take it as is
-  if (image->as_is) {
-    data = image->image;
-  }
-
-  if (ext == "png") {
-    if (!image->as_is) {
-      if ((image->bits != 8) ||
-          (image->pixel_type != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)) {
-        // Unsupported pixel format
-        return false;
-      }
-
-      if (!stbi_write_png_to_func(WriteToMemory_stbi, &data, image->width,
-                                  image->height, image->component,
-                                  &image->image[0], 0)) {
-        return false;
-      }
-    }
-    header = "data:image/png;base64,";
-  } else if (ext == "jpg") {
-    if (!image->as_is &&
-        !stbi_write_jpg_to_func(WriteToMemory_stbi, &data, image->width,
-                                image->height, image->component,
-                                &image->image[0], 100)) {
-      return false;
-    }
-    header = "data:image/jpeg;base64,";
-  } else if (ext == "bmp") {
-    if (!image->as_is &&
-        !stbi_write_bmp_to_func(WriteToMemory_stbi, &data, image->width,
-                                image->height, image->component,
-                                &image->image[0])) {
-      return false;
-    }
-    header = "data:image/bmp;base64,";
-  } else if (!embedImages) {
-    // Error: can't output requested format to file
-    return false;
-  }
-
-  if (embedImages) {
-    // Embed base64-encoded image into URI
-    if (data.size()) {
-      *out_uri = header + base64_encode(&data[0],
-                                        static_cast<unsigned int>(data.size()));
-    } else {
-      // Throw error?
-    }
-  } else {
-    // Write image to disc
-    if ((fs_cb != nullptr) && (fs_cb->WriteWholeFile != nullptr)) {
-      const std::string imagefilepath = JoinPath(*basepath, *filename);
-      std::string writeError;
-      if (!fs_cb->WriteWholeFile(&writeError, imagefilepath, data,
-                                 fs_cb->user_data)) {
-        // Could not write image file to disc; Throw error ?
-        return false;
-      }
-    } else {
-      // Throw error?
-    }
-    if (uri_cb->encode) {
-      if (!uri_cb->encode(*filename, "image", out_uri, uri_cb->user_data)) {
-        return false;
-      }
-    } else {
-      *out_uri = *filename;
-    }
-  }
-
-  return true;
-}
+/* Assert override */
+#ifndef TINYGLTF3_ASSERT
+#include <assert.h>
+#define TINYGLTF3_ASSERT(x) assert(x)
 #endif
 
-bool TinyGLTF::SetURICallbacks(URICallbacks callbacks, std::string *err) {
-  if (callbacks.decode == nullptr) {
-    if (err != nullptr) {
-      *err = "URI Callback require a non-null decode function.";
-    }
-    return false;
-  }
+/* ======================================================================
+ * Section 3: C Includes
+ * ====================================================================== */
 
-  if (callbacks.decode) {
-    uri_cb = std::move(callbacks);
-  }
-  return true;
-}
+#include <stddef.h>
+#include <stdint.h>
+#include <stdarg.h>
+#include <string.h>
+#include <stdlib.h>
 
-bool TinyGLTF::SetFsCallbacks(FsCallbacks callbacks, std::string *err) {
-  // If callbacks are defined at all, they must all be defined.
-  if (callbacks.FileExists == nullptr || callbacks.ExpandFilePath == nullptr ||
-      callbacks.ReadWholeFile == nullptr ||
-      callbacks.WriteWholeFile == nullptr ||
-      callbacks.GetFileSizeInBytes == nullptr) {
-    if (err != nullptr) {
-      *err =
-          "FS Callbacks must be completely defined. At least one callback is "
-          "null.";
-    }
-    return false;
-  }
-  fs = std::move(callbacks);
-  return true;
-}
+/* ======================================================================
+ * Section 4: Constants and Enums
+ * ====================================================================== */
 
-#ifdef _WIN32
-static inline std::wstring UTF8ToWchar(const std::string &str) {
-  int wstr_size =
-      MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), nullptr, 0);
-  std::wstring wstr((size_t)wstr_size, 0);
-  MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), &wstr[0],
-                      (int)wstr.size());
-  return wstr;
-}
-
-static inline std::string WcharToUTF8(const std::wstring &wstr) {
-  int str_size = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(),
-                                     nullptr, 0, nullptr, nullptr);
-  std::string str((size_t)str_size, 0);
-  WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(), &str[0],
-                      (int)str.size(), nullptr, nullptr);
-  return str;
-}
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-#ifndef TINYGLTF_NO_FS
-// Default implementations of filesystem functions
-
-bool FileExists(const std::string &abs_filename, void *) {
-  bool ret;
-#ifdef TINYGLTF_ANDROID_LOAD_FROM_ASSETS
-  if (asset_manager) {
-    AAsset *asset = AAssetManager_open(asset_manager, abs_filename.c_str(),
-                                       AASSET_MODE_STREAMING);
-    if (!asset) {
-      return false;
-    }
-    AAsset_close(asset);
-    ret = true;
-  } else {
-    return false;
-  }
-#else
-#ifdef _WIN32
-#if defined(_MSC_VER) || defined(_LIBCPP_VERSION)
-
-  // First check if a file is a directory.
-  DWORD result = GetFileAttributesW(UTF8ToWchar(abs_filename).c_str());
-  if (result == INVALID_FILE_ATTRIBUTES) {
-    return false;
-  }
-  if (result & FILE_ATTRIBUTE_DIRECTORY) {
-    return false;
-  }
-
-  FILE *fp = nullptr;
-  errno_t err = _wfopen_s(&fp, UTF8ToWchar(abs_filename).c_str(), L"rb");
-  if (err != 0) {
-    return false;
-  }
-#elif defined(__GLIBCXX__)
-  FILE *fp = fopen(abs_filename.c_str(), "rb");
-  if (!fp) {
-    return false;
-  }
-#else
-  // TODO: is_directory check
-  FILE *fp = nullptr;
-  errno_t err = fopen_s(&fp, abs_filename.c_str(), "rb");
-  if (err != 0) {
-    return false;
-  }
-#endif
-
-#else
-  struct stat sb;
-  if (stat(abs_filename.c_str(), &sb)) {
-    return false;
-  }
-  if (S_ISDIR(sb.st_mode)) {
-    return false;
-  }
-
-  FILE *fp = fopen(abs_filename.c_str(), "rb");
-#endif
-  if (fp) {
-    ret = true;
-    fclose(fp);
-  } else {
-    ret = false;
-  }
-#endif
-
-  return ret;
-}
-
-std::string ExpandFilePath(const std::string &filepath, void *) {
-  // https://github.com/syoyo/tinygltf/issues/368
-  //
-  // No file path expansion in built-in FS function anymore, since glTF URI
-  // should not contain tilde('~') and environment variables, and for security
-  // reason(`wordexp`).
-  //
-  // Users need to supply `base_dir`(in `LoadASCIIFromString`,
-  // `LoadBinaryFromMemory`) in expanded absolute path.
-
-  return filepath;
-
-#if 0
-#ifdef _WIN32
-  // Assume input `filepath` is encoded in UTF-8
-  std::wstring wfilepath = UTF8ToWchar(filepath);
-  DWORD wlen = ExpandEnvironmentStringsW(wfilepath.c_str(), nullptr, 0);
-  wchar_t *wstr = new wchar_t[wlen];
-  ExpandEnvironmentStringsW(wfilepath.c_str(), wstr, wlen);
-
-  std::wstring ws(wstr);
-  delete[] wstr;
-  return WcharToUTF8(ws);
-
-#else
-
-#if defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR) ||           \
-    defined(__ANDROID__) || defined(__EMSCRIPTEN__) || defined(__OpenBSD__)
-  // no expansion
-  std::string s = filepath;
-#else
-  std::string s;
-  wordexp_t p;
-
-  if (filepath.empty()) {
-    return "";
-  }
-
-  // Quote the string to keep any spaces in filepath intact.
-  std::string quoted_path = "\"" + filepath + "\"";
-  // char** w;
-  int ret = wordexp(quoted_path.c_str(), &p, 0);
-  if (ret) {
-    // err
-    s = filepath;
-    return s;
-  }
-
-  // Use first element only.
-  if (p.we_wordv) {
-    s = std::string(p.we_wordv[0]);
-    wordfree(&p);
-  } else {
-    s = filepath;
-  }
-
-#endif
-
-  return s;
-#endif
-#endif
-}
-
-bool GetFileSizeInBytes(size_t *filesize_out, std::string *err,
-                        const std::string &filepath, void *userdata) {
-  (void)userdata;
-
-#ifdef TINYGLTF_ANDROID_LOAD_FROM_ASSETS
-  if (asset_manager) {
-    AAsset *asset = AAssetManager_open(asset_manager, filepath.c_str(),
-                                       AASSET_MODE_STREAMING);
-    if (!asset) {
-      if (err) {
-        (*err) += "File open error : " + filepath + "\n";
-      }
-      return false;
-    }
-    size_t size = AAsset_getLength(asset);
-
-    if (size == 0) {
-      if (err) {
-        (*err) += "Invalid file size : " + filepath +
-                  " (does the path point to a directory?)";
-      }
-      return false;
-    }
-
-    return true;
-  } else {
-    if (err) {
-      (*err) += "No asset manager specified : " + filepath + "\n";
-    }
-    return false;
-  }
-#else
-#ifdef _WIN32
-#if defined(__GLIBCXX__) // mingw
-  int file_descriptor =
-      _wopen(UTF8ToWchar(filepath).c_str(), _O_RDONLY | _O_BINARY);
-  __gnu_cxx::stdio_filebuf<char> wfile_buf(file_descriptor, std::ios_base::in);
-  std::istream f(&wfile_buf);
-#elif defined(_MSC_VER) || defined(_LIBCPP_VERSION)
-  // For libcxx, assume _LIBCPP_HAS_OPEN_WITH_WCHAR is defined to accept
-  // `wchar_t *`
-  std::ifstream f(UTF8ToWchar(filepath).c_str(), std::ifstream::binary);
-#else
-  // Unknown compiler/runtime
-  std::ifstream f(filepath.c_str(), std::ifstream::binary);
-#endif
-#else
-  std::ifstream f(filepath.c_str(), std::ifstream::binary);
-#endif
-  if (!f) {
-    if (err) {
-      (*err) += "File open error : " + filepath + "\n";
-    }
-    return false;
-  }
-
-  // For directory(and pipe?), peek() will fail(Posix gnustl/libc++ only)
-  f.peek();
-  if (!f) {
-    if (err) {
-      (*err) +=
-          "File read error. Maybe empty file or invalid file : " + filepath +
-          "\n";
-    }
-    return false;
-  }
-
-  f.seekg(0, f.end);
-  const auto sz = f.tellg();
-
-  // std::cout << "sz = " << sz << "\n";
-  f.seekg(0, f.beg);
-
-  if (sz < 0) {
-    if (err) {
-      (*err) += "Invalid file size : " + filepath +
-                " (does the path point to a directory?)";
-    }
-    return false;
-  } else if (sz == std::streamoff(0)) {
-    if (err) {
-      (*err) += "File is empty : " + filepath + "\n";
-    }
-    return false;
-  } else if (sz >= (std::numeric_limits<std::streamoff>::max)()) {
-    if (err) {
-      (*err) += "Invalid file size : " + filepath + "\n";
-    }
-    return false;
-  }
-
-  (*filesize_out) = static_cast<size_t>(sz);
-  return true;
-#endif
-}
-
-bool ReadWholeFile(std::vector<unsigned char> *out, std::string *err,
-                   const std::string &filepath, void *) {
-#ifdef TINYGLTF_ANDROID_LOAD_FROM_ASSETS
-  if (asset_manager) {
-    AAsset *asset = AAssetManager_open(asset_manager, filepath.c_str(),
-                                       AASSET_MODE_STREAMING);
-    if (!asset) {
-      if (err) {
-        (*err) += "File open error : " + filepath + "\n";
-      }
-      return false;
-    }
-    size_t size = AAsset_getLength(asset);
-    if (size == 0) {
-      if (err) {
-        (*err) += "Invalid file size : " + filepath +
-                  " (does the path point to a directory?)";
-      }
-      return false;
-    }
-    out->resize(static_cast<size_t>(size));
-    AAsset_read(asset, reinterpret_cast<char *>(&out->at(0)), size);
-    AAsset_close(asset);
-    return true;
-  } else {
-    if (err) {
-      (*err) += "No asset manager specified : " + filepath + "\n";
-    }
-    return false;
-  }
-#else
-#ifdef _WIN32
-#if defined(__GLIBCXX__) // mingw
-  int file_descriptor =
-      _wopen(UTF8ToWchar(filepath).c_str(), _O_RDONLY | _O_BINARY);
-  __gnu_cxx::stdio_filebuf<char> wfile_buf(file_descriptor, std::ios_base::in);
-  std::istream f(&wfile_buf);
-#elif defined(_MSC_VER) || defined(_LIBCPP_VERSION)
-  // For libcxx, assume _LIBCPP_HAS_OPEN_WITH_WCHAR is defined to accept
-  // `wchar_t *`
-  std::ifstream f(UTF8ToWchar(filepath).c_str(), std::ifstream::binary);
-#else
-  // Unknown compiler/runtime
-  std::ifstream f(filepath.c_str(), std::ifstream::binary);
-#endif
-#else
-  std::ifstream f(filepath.c_str(), std::ifstream::binary);
-#endif
-  if (!f) {
-    if (err) {
-      (*err) += "File open error : " + filepath + "\n";
-    }
-    return false;
-  }
-
-  // For directory(and pipe?), peek() will fail(Posix gnustl/libc++ only)
-  f.peek();
-  if (!f) {
-    if (err) {
-      (*err) +=
-          "File read error. Maybe empty file or invalid file : " + filepath +
-          "\n";
-    }
-    return false;
-  }
-
-  f.seekg(0, f.end);
-  const auto sz = f.tellg();
-
-  // std::cout << "sz = " << sz << "\n";
-  f.seekg(0, f.beg);
-
-  if (sz < 0) {
-    if (err) {
-      (*err) += "Invalid file size : " + filepath +
-                " (does the path point to a directory?)";
-    }
-    return false;
-  } else if (sz == std::streamoff(0)) {
-    if (err) {
-      (*err) += "File is empty : " + filepath + "\n";
-    }
-    return false;
-  } else if (sz >= (std::numeric_limits<std::streamoff>::max)()) {
-    if (err) {
-      (*err) += "Invalid file size : " + filepath + "\n";
-    }
-    return false;
-  }
-
-  out->resize(sz);
-  f.read(reinterpret_cast<char *>(&out->at(0)),
-         static_cast<std::streamsize>(sz));
-
-  return true;
-#endif
-}
-
-bool WriteWholeFile(std::string *err, const std::string &filepath,
-                    const std::vector<unsigned char> &contents, void *) {
-#ifdef _WIN32
-#if defined(__GLIBCXX__) // mingw
-  int file_descriptor =
-      _wopen(UTF8ToWchar(filepath).c_str(),
-             _O_CREAT | _O_WRONLY | _O_TRUNC | _O_BINARY, _S_IWRITE);
-  __gnu_cxx::stdio_filebuf<char> wfile_buf(
-      file_descriptor, std::ios_base::out | std::ios_base::binary);
-  std::ostream f(&wfile_buf);
-#elif defined(_MSC_VER)
-  std::ofstream f(UTF8ToWchar(filepath).c_str(), std::ofstream::binary);
-#else // clang?
-  std::ofstream f(filepath.c_str(), std::ofstream::binary);
-#endif
-#else
-  std::ofstream f(filepath.c_str(), std::ofstream::binary);
-#endif
-  if (!f) {
-    if (err) {
-      (*err) += "File open error for writing : " + filepath + "\n";
-    }
-    return false;
-  }
-
-  f.write(reinterpret_cast<const char *>(&contents.at(0)),
-          static_cast<std::streamsize>(contents.size()));
-  if (!f) {
-    if (err) {
-      (*err) += "File write error: " + filepath + "\n";
-    }
-    return false;
-  }
-
-  return true;
-}
-
-#endif // TINYGLTF_NO_FS
-
-static std::string MimeToExt(const std::string &mimeType) {
-  if (mimeType == "image/jpeg") {
-    return "jpg";
-  } else if (mimeType == "image/png") {
-    return "png";
-  } else if (mimeType == "image/bmp") {
-    return "bmp";
-  } else if (mimeType == "image/gif") {
-    return "gif";
-  }
-
-  return "";
-}
-
-static bool UpdateImageObject(const Image &image, std::string &baseDir,
-                              int index, bool embedImages,
-                              const FsCallbacks *fs_cb,
-                              const URICallbacks *uri_cb,
-                              const WriteImageDataFunction &WriteImageData,
-                              void *user_data, std::string *out_uri) {
-  std::string filename;
-  std::string ext;
-  // If image has uri, use it as a filename
-  if (image.uri.size()) {
-    std::string decoded_uri;
-    if (!uri_cb->decode(image.uri, &decoded_uri, uri_cb->user_data)) {
-      // A decode failure results in a failure to write the gltf.
-      return false;
-    }
-    filename = GetBaseFilename(decoded_uri);
-    ext = GetFilePathExtension(filename);
-  } else if (image.bufferView != -1) {
-    // If there's no URI and the data exists in a buffer,
-    // don't change properties or write images
-  } else if (image.name.size()) {
-    ext = MimeToExt(image.mimeType);
-    // Otherwise use name as filename
-    filename = image.name + "." + ext;
-  } else {
-    ext = MimeToExt(image.mimeType);
-    // Fallback to index of image as filename
-    filename = std::to_string(index) + "." + ext;
-  }
-
-  // If callback is set, modify image data object.
-  // Note that the callback is also invoked for images without data.
-  // The default callback implementation simply returns true for
-  // empty images and sets the out URI to filename.
-  bool imageWritten = false;
-  if (WriteImageData != nullptr && !filename.empty()) {
-    imageWritten = WriteImageData(&baseDir, &filename, &image, embedImages,
-                                  fs_cb, uri_cb, out_uri, user_data);
-    if (!imageWritten) {
-      return false;
-    }
-  }
-
-  // Use the original uri if the image was not written.
-  if (!imageWritten) {
-    *out_uri = image.uri;
-  }
-
-  return true;
-}
-
-bool IsDataURI(const std::string &in) {
-  std::string header = "data:application/octet-stream;base64,";
-  if (in.find(header) == 0) {
-    return true;
-  }
-
-  header = "data:image/jpeg;base64,";
-  if (in.find(header) == 0) {
-    return true;
-  }
-
-  header = "data:image/png;base64,";
-  if (in.find(header) == 0) {
-    return true;
-  }
-
-  header = "data:image/bmp;base64,";
-  if (in.find(header) == 0) {
-    return true;
-  }
-
-  header = "data:image/gif;base64,";
-  if (in.find(header) == 0) {
-    return true;
-  }
-
-  header = "data:text/plain;base64,";
-  if (in.find(header) == 0) {
-    return true;
-  }
-
-  header = "data:application/gltf-buffer;base64,";
-  if (in.find(header) == 0) {
-    return true;
-  }
-
-  return false;
-}
-
-bool DecodeDataURI(std::vector<unsigned char> *out, std::string &mime_type,
-                   const std::string &in, size_t reqBytes, bool checkSize) {
-  std::string header = "data:application/octet-stream;base64,";
-  std::string data;
-  if (in.find(header) == 0) {
-    data = base64_decode(in.substr(header.size())); // cut mime string.
-  }
-
-  if (data.empty()) {
-    header = "data:image/jpeg;base64,";
-    if (in.find(header) == 0) {
-      mime_type = "image/jpeg";
-      data = base64_decode(in.substr(header.size())); // cut mime string.
-    }
-  }
-
-  if (data.empty()) {
-    header = "data:image/png;base64,";
-    if (in.find(header) == 0) {
-      mime_type = "image/png";
-      data = base64_decode(in.substr(header.size())); // cut mime string.
-    }
-  }
-
-  if (data.empty()) {
-    header = "data:image/bmp;base64,";
-    if (in.find(header) == 0) {
-      mime_type = "image/bmp";
-      data = base64_decode(in.substr(header.size())); // cut mime string.
-    }
-  }
-
-  if (data.empty()) {
-    header = "data:image/gif;base64,";
-    if (in.find(header) == 0) {
-      mime_type = "image/gif";
-      data = base64_decode(in.substr(header.size())); // cut mime string.
-    }
-  }
-
-  if (data.empty()) {
-    header = "data:text/plain;base64,";
-    if (in.find(header) == 0) {
-      mime_type = "text/plain";
-      data = base64_decode(in.substr(header.size()));
-    }
-  }
-
-  if (data.empty()) {
-    header = "data:application/gltf-buffer;base64,";
-    if (in.find(header) == 0) {
-      data = base64_decode(in.substr(header.size()));
-    }
-  }
-
-  // TODO(syoyo): Allow empty buffer? #229
-  if (data.empty()) {
-    return false;
-  }
-
-  if (checkSize) {
-    if (data.size() != reqBytes) {
-      return false;
-    }
-    out->resize(reqBytes);
-  } else {
-    out->resize(data.size());
-  }
-  std::copy(data.begin(), data.end(), out->begin());
-  return true;
-}
-
-namespace detail {
-bool GetInt(const detail::json &o, int &val) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  if (!o.IsDouble()) {
-    if (o.IsInt()) {
-      val = o.GetInt();
-      return true;
-    } else if (o.IsUint()) {
-      val = static_cast<int>(o.GetUint());
-      return true;
-    } else if (o.IsInt64()) {
-      val = static_cast<int>(o.GetInt64());
-      return true;
-    } else if (o.IsUint64()) {
-      val = static_cast<int>(o.GetUint64());
-      return true;
-    }
-  }
-
-  return false;
-#else
-  auto type = o.type();
-
-  if ((type == detail::json::value_t::number_integer) ||
-      (type == detail::json::value_t::number_unsigned)) {
-    val = static_cast<int>(o.get<int64_t>());
-    return true;
-  }
-
-  return false;
-#endif
-}
-
-#ifdef TINYGLTF_USE_RAPIDJSON
-bool GetDouble(const detail::json &o, double &val) {
-  if (o.IsDouble()) {
-    val = o.GetDouble();
-    return true;
-  }
-
-  return false;
-}
-#endif
-
-bool GetNumber(const detail::json &o, double &val) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  if (o.IsNumber()) {
-    val = o.GetDouble();
-    return true;
-  }
-
-  return false;
-#else
-  if (o.is_number()) {
-    val = o.get<double>();
-    return true;
-  }
-
-  return false;
-#endif
-}
-
-bool GetString(const detail::json &o, std::string &val) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  if (o.IsString()) {
-    val = o.GetString();
-    return true;
-  }
-
-  return false;
-#else
-  if (o.type() == detail::json::value_t::string) {
-    val = o.get<std::string>();
-    return true;
-  }
-
-  return false;
-#endif
-}
-
-bool IsArray(const detail::json &o) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  return o.IsArray();
-#else
-  return o.is_array();
-#endif
-}
-
-detail::json_const_array_iterator ArrayBegin(const detail::json &o) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  return o.Begin();
-#else
-  return o.begin();
-#endif
-}
-
-detail::json_const_array_iterator ArrayEnd(const detail::json &o) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  return o.End();
-#else
-  return o.end();
-#endif
-}
-
-bool IsObject(const detail::json &o) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  return o.IsObject();
-#else
-  return o.is_object();
-#endif
-}
-
-detail::json_const_iterator ObjectBegin(const detail::json &o) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  return o.MemberBegin();
-#else
-  return o.begin();
-#endif
-}
-
-detail::json_const_iterator ObjectEnd(const detail::json &o) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  return o.MemberEnd();
-#else
-  return o.end();
-#endif
-}
-
-// Making this a const char* results in a pointer to a temporary when
-// TINYGLTF_USE_RAPIDJSON is off.
-std::string GetKey(detail::json_const_iterator &it) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  return it->name.GetString();
-#else
-  return it.key().c_str();
-#endif
-}
-
-bool FindMember(const detail::json &o, const char *member,
-                detail::json_const_iterator &it) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  if (!o.IsObject()) {
-    return false;
-  }
-  it = o.FindMember(member);
-  return it != o.MemberEnd();
-#else
-  it = o.find(member);
-  return it != o.end();
-#endif
-}
-
-bool FindMember(detail::json &o, const char *member,
-                detail::json_iterator &it) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  if (!o.IsObject()) {
-    return false;
-  }
-  it = o.FindMember(member);
-  return it != o.MemberEnd();
-#else
-  it = o.find(member);
-  return it != o.end();
-#endif
-}
-
-void Erase(detail::json &o, detail::json_iterator &it) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  o.EraseMember(it);
-#else
-  o.erase(it);
-#endif
-}
-
-bool IsEmpty(const detail::json &o) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  return o.ObjectEmpty();
-#else
-  return o.empty();
-#endif
-}
-
-const detail::json &GetValue(detail::json_const_iterator &it) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  return it->value;
-#else
-  return it.value();
-#endif
-}
-
-detail::json &GetValue(detail::json_iterator &it) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  return it->value;
-#else
-  return it.value();
-#endif
-}
-
-std::string JsonToString(const detail::json &o, int spacing = -1) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  using namespace rapidjson;
-  StringBuffer buffer;
-  if (spacing == -1) {
-    Writer<StringBuffer> writer(buffer);
-    // TODO: Better error handling.
-    // https://github.com/syoyo/tinygltf/issues/332
-    if (!o.Accept(writer)) {
-      return "tiny_gltf::JsonToString() failed rapidjson conversion";
-    }
-  } else {
-    PrettyWriter<StringBuffer> writer(buffer);
-    writer.SetIndent(' ', uint32_t(spacing));
-    if (!o.Accept(writer)) {
-      return "tiny_gltf::JsonToString() failed rapidjson conversion";
-    }
-  }
-  return buffer.GetString();
-#else
-  return o.dump(spacing);
-#endif
-}
-
-} // namespace detail
-
-static bool ParseJsonAsValue(Value *ret, const detail::json &o) {
-  Value val{};
-#ifdef TINYGLTF_USE_RAPIDJSON
-  using rapidjson::Type;
-  switch (o.GetType()) {
-  case Type::kObjectType: {
-    Value::Object value_object;
-    for (auto it = o.MemberBegin(); it != o.MemberEnd(); ++it) {
-      Value entry;
-      ParseJsonAsValue(&entry, it->value);
-      if (entry.Type() != NULL_TYPE)
-        value_object.emplace(detail::GetKey(it), std::move(entry));
-    }
-    if (value_object.size() > 0)
-      val = Value(std::move(value_object));
-  } break;
-  case Type::kArrayType: {
-    Value::Array value_array;
-    value_array.reserve(o.Size());
-    for (auto it = o.Begin(); it != o.End(); ++it) {
-      Value entry;
-      ParseJsonAsValue(&entry, *it);
-      if (entry.Type() != NULL_TYPE)
-        value_array.emplace_back(std::move(entry));
-    }
-    if (value_array.size() > 0)
-      val = Value(std::move(value_array));
-  } break;
-  case Type::kStringType:
-    val = Value(std::string(o.GetString()));
-    break;
-  case Type::kFalseType:
-  case Type::kTrueType:
-    val = Value(o.GetBool());
-    break;
-  case Type::kNumberType:
-    if (!o.IsDouble()) {
-      int i = 0;
-      detail::GetInt(o, i);
-      val = Value(i);
-    } else {
-      double d = 0.0;
-      detail::GetDouble(o, d);
-      val = Value(d);
-    }
-    break;
-  case Type::kNullType:
-    break;
-    // all types are covered, so no `case default`
-  }
-#else
-  switch (o.type()) {
-  case detail::json::value_t::object: {
-    Value::Object value_object;
-    for (auto it = o.begin(); it != o.end(); it++) {
-      Value entry;
-      ParseJsonAsValue(&entry, it.value());
-      if (entry.Type() != NULL_TYPE)
-        value_object.emplace(it.key(), std::move(entry));
-    }
-    if (value_object.size() > 0)
-      val = Value(std::move(value_object));
-  } break;
-  case detail::json::value_t::array: {
-    Value::Array value_array;
-    value_array.reserve(o.size());
-    for (auto it = o.begin(); it != o.end(); it++) {
-      Value entry;
-      ParseJsonAsValue(&entry, it.value());
-      if (entry.Type() != NULL_TYPE)
-        value_array.emplace_back(std::move(entry));
-    }
-    if (value_array.size() > 0)
-      val = Value(std::move(value_array));
-  } break;
-  case detail::json::value_t::string:
-    val = Value(o.get<std::string>());
-    break;
-  case detail::json::value_t::boolean:
-    val = Value(o.get<bool>());
-    break;
-  case detail::json::value_t::number_integer:
-  case detail::json::value_t::number_unsigned:
-    val = Value(static_cast<int>(o.get<int64_t>()));
-    break;
-  case detail::json::value_t::number_float:
-    val = Value(o.get<double>());
-    break;
-  case detail::json::value_t::null:
-  case detail::json::value_t::discarded:
-  case detail::json::value_t::binary:
-    // default:
-    break;
-  }
-#endif
-  const bool isNotNull = val.Type() != NULL_TYPE;
-
-  if (ret)
-    *ret = std::move(val);
-
-  return isNotNull;
-}
-
-static bool ParseExtrasProperty(Value *ret, const detail::json &o) {
-  detail::json_const_iterator it;
-  if (!detail::FindMember(o, "extras", it)) {
-    return false;
-  }
-
-  return ParseJsonAsValue(ret, detail::GetValue(it));
-}
-
-static bool ParseBooleanProperty(bool *ret, std::string *err,
-                                 const detail::json &o,
-                                 const std::string &property,
-                                 const bool required,
-                                 const std::string &parent_node = "") {
-  detail::json_const_iterator it;
-  if (!detail::FindMember(o, property.c_str(), it)) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is missing";
-        if (!parent_node.empty()) {
-          (*err) += " in " + parent_node;
-        }
-        (*err) += ".\n";
-      }
-    }
-    return false;
-  }
-
-  auto &value = detail::GetValue(it);
-
-  bool isBoolean;
-  bool boolValue = false;
-#ifdef TINYGLTF_USE_RAPIDJSON
-  isBoolean = value.IsBool();
-  if (isBoolean) {
-    boolValue = value.GetBool();
-  }
-#else
-  isBoolean = value.is_boolean();
-  if (isBoolean) {
-    boolValue = value.get<bool>();
-  }
-#endif
-  if (!isBoolean) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is not a bool type.\n";
-      }
-    }
-    return false;
-  }
-
-  if (ret) {
-    (*ret) = boolValue;
-  }
-
-  return true;
-}
-
-static bool ParseIntegerProperty(int *ret, std::string *err,
-                                 const detail::json &o,
-                                 const std::string &property,
-                                 const bool required,
-                                 const std::string &parent_node = "") {
-  detail::json_const_iterator it;
-  if (!detail::FindMember(o, property.c_str(), it)) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is missing";
-        if (!parent_node.empty()) {
-          (*err) += " in " + parent_node;
-        }
-        (*err) += ".\n";
-      }
-    }
-    return false;
-  }
-
-  int intValue;
-  bool isInt = detail::GetInt(detail::GetValue(it), intValue);
-  if (!isInt) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is not an integer type.\n";
-      }
-    }
-    return false;
-  }
-
-  if (ret) {
-    (*ret) = intValue;
-  }
-
-  return true;
-}
-
-static bool ParseUnsignedProperty(size_t *ret, std::string *err,
-                                  const detail::json &o,
-                                  const std::string &property,
-                                  const bool required,
-                                  const std::string &parent_node = "") {
-  detail::json_const_iterator it;
-  if (!detail::FindMember(o, property.c_str(), it)) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is missing";
-        if (!parent_node.empty()) {
-          (*err) += " in " + parent_node;
-        }
-        (*err) += ".\n";
-      }
-    }
-    return false;
-  }
-
-  auto &value = detail::GetValue(it);
-
-  size_t uValue = 0;
-  bool isUValue;
-#ifdef TINYGLTF_USE_RAPIDJSON
-  isUValue = false;
-  if (value.IsUint()) {
-    uValue = value.GetUint();
-    isUValue = true;
-  } else if (value.IsUint64()) {
-    uValue = value.GetUint64();
-    isUValue = true;
-  }
-#else
-  isUValue = value.is_number_unsigned();
-  if (isUValue) {
-    uValue = value.get<size_t>();
-  }
-#endif
-  if (!isUValue) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is not a positive integer.\n";
-      }
-    }
-    return false;
-  }
-
-  if (ret) {
-    (*ret) = uValue;
-  }
-
-  return true;
-}
-
-static bool ParseNumberProperty(double *ret, std::string *err,
-                                const detail::json &o,
-                                const std::string &property,
-                                const bool required,
-                                const std::string &parent_node = "") {
-  detail::json_const_iterator it;
-
-  if (!detail::FindMember(o, property.c_str(), it)) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is missing";
-        if (!parent_node.empty()) {
-          (*err) += " in " + parent_node;
-        }
-        (*err) += ".\n";
-      }
-    }
-    return false;
-  }
-
-  double numberValue;
-  bool isNumber = detail::GetNumber(detail::GetValue(it), numberValue);
-
-  if (!isNumber) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is not a number type.\n";
-      }
-    }
-    return false;
-  }
-
-  if (ret) {
-    (*ret) = numberValue;
-  }
-
-  return true;
-}
-
-static bool ParseNumberArrayProperty(std::vector<double> *ret, std::string *err,
-                                     const detail::json &o,
-                                     const std::string &property, bool required,
-                                     const std::string &parent_node = "") {
-  detail::json_const_iterator it;
-  if (!detail::FindMember(o, property.c_str(), it)) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is missing";
-        if (!parent_node.empty()) {
-          (*err) += " in " + parent_node;
-        }
-        (*err) += ".\n";
-      }
-    }
-    return false;
-  }
-
-  if (!detail::IsArray(detail::GetValue(it))) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is not an array";
-        if (!parent_node.empty()) {
-          (*err) += " in " + parent_node;
-        }
-        (*err) += ".\n";
-      }
-    }
-    return false;
-  }
-
-  ret->clear();
-  auto end = detail::ArrayEnd(detail::GetValue(it));
-  for (auto i = detail::ArrayBegin(detail::GetValue(it)); i != end; ++i) {
-    double numberValue;
-    const bool isNumber = detail::GetNumber(*i, numberValue);
-    if (!isNumber) {
-      if (required) {
-        if (err) {
-          (*err) += "'" + property + "' property is not a number.\n";
-          if (!parent_node.empty()) {
-            (*err) += " in " + parent_node;
-          }
-          (*err) += ".\n";
-        }
-      }
-      return false;
-    }
-    ret->push_back(numberValue);
-  }
-
-  return true;
-}
-
-static bool ParseIntegerArrayProperty(std::vector<int> *ret, std::string *err,
-                                      const detail::json &o,
-                                      const std::string &property,
-                                      bool required,
-                                      const std::string &parent_node = "") {
-  detail::json_const_iterator it;
-  if (!detail::FindMember(o, property.c_str(), it)) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is missing";
-        if (!parent_node.empty()) {
-          (*err) += " in " + parent_node;
-        }
-        (*err) += ".\n";
-      }
-    }
-    return false;
-  }
-
-  if (!detail::IsArray(detail::GetValue(it))) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is not an array";
-        if (!parent_node.empty()) {
-          (*err) += " in " + parent_node;
-        }
-        (*err) += ".\n";
-      }
-    }
-    return false;
-  }
-
-  ret->clear();
-  auto end = detail::ArrayEnd(detail::GetValue(it));
-  for (auto i = detail::ArrayBegin(detail::GetValue(it)); i != end; ++i) {
-    int numberValue;
-    bool isNumber = detail::GetInt(*i, numberValue);
-    if (!isNumber) {
-      if (required) {
-        if (err) {
-          (*err) += "'" + property + "' property is not an integer type.\n";
-          if (!parent_node.empty()) {
-            (*err) += " in " + parent_node;
-          }
-          (*err) += ".\n";
-        }
-      }
-      return false;
-    }
-    ret->push_back(numberValue);
-  }
-
-  return true;
-}
-
-static bool
-ParseStringProperty(std::string *ret, std::string *err, const detail::json &o,
-                    const std::string &property, bool required,
-                    const std::string &parent_node = std::string()) {
-  detail::json_const_iterator it;
-  if (!detail::FindMember(o, property.c_str(), it)) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is missing";
-        if (parent_node.empty()) {
-          (*err) += ".\n";
-        } else {
-          (*err) += " in `" + parent_node + "'.\n";
-        }
-      }
-    }
-    return false;
-  }
-
-  std::string strValue;
-  if (!detail::GetString(detail::GetValue(it), strValue)) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is not a string type.\n";
-      }
-    }
-    return false;
-  }
-
-  if (ret) {
-    (*ret) = std::move(strValue);
-  }
-
-  return true;
-}
-
-static bool ParseStringIntegerProperty(std::map<std::string, int> *ret,
-                                       std::string *err, const detail::json &o,
-                                       const std::string &property,
-                                       bool required,
-                                       const std::string &parent = "") {
-  detail::json_const_iterator it;
-  if (!detail::FindMember(o, property.c_str(), it)) {
-    if (required) {
-      if (err) {
-        if (!parent.empty()) {
-          (*err) +=
-              "'" + property + "' property is missing in " + parent + ".\n";
-        } else {
-          (*err) += "'" + property + "' property is missing.\n";
-        }
-      }
-    }
-    return false;
-  }
-
-  const detail::json &dict = detail::GetValue(it);
-
-  // Make sure we are dealing with an object / dictionary.
-  if (!detail::IsObject(dict)) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is not an object.\n";
-      }
-    }
-    return false;
-  }
-
-  ret->clear();
-
-  detail::json_const_iterator dictIt(detail::ObjectBegin(dict));
-  detail::json_const_iterator dictItEnd(detail::ObjectEnd(dict));
-
-  for (; dictIt != dictItEnd; ++dictIt) {
-    int intVal;
-    if (!detail::GetInt(detail::GetValue(dictIt), intVal)) {
-      if (required) {
-        if (err) {
-          (*err) += "'" + property + "' value is not an integer type.\n";
-        }
-      }
-      return false;
-    }
-
-    // Insert into the list.
-    (*ret)[detail::GetKey(dictIt)] = intVal;
-  }
-  return true;
-}
-
-static bool ParseJSONProperty(std::map<std::string, double> *ret,
-                              std::string *err, const detail::json &o,
-                              const std::string &property, bool required) {
-  detail::json_const_iterator it;
-  if (!detail::FindMember(o, property.c_str(), it)) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is missing. \n'";
-      }
-    }
-    return false;
-  }
-
-  const detail::json &obj = detail::GetValue(it);
-
-  if (!detail::IsObject(obj)) {
-    if (required) {
-      if (err) {
-        (*err) += "'" + property + "' property is not a JSON object.\n";
-      }
-    }
-    return false;
-  }
-
-  ret->clear();
-
-  detail::json_const_iterator it2(detail::ObjectBegin(obj));
-  detail::json_const_iterator itEnd(detail::ObjectEnd(obj));
-  for (; it2 != itEnd; ++it2) {
-    double numVal;
-    if (detail::GetNumber(detail::GetValue(it2), numVal))
-      ret->emplace(std::string(detail::GetKey(it2)), numVal);
-  }
-
-  return true;
-}
-
-static bool ParseParameterProperty(Parameter *param, std::string *err,
-                                   const detail::json &o,
-                                   const std::string &prop, bool required) {
-  // A parameter value can either be a string or an array of either a boolean or
-  // a number. Booleans of any kind aren't supported here. Granted, it
-  // complicates the Parameter structure and breaks it semantically in the sense
-  // that the client probably works off the assumption that if the string is
-  // empty the vector is used, etc. Would a tagged union work?
-  if (ParseStringProperty(&param->string_value, err, o, prop, false)) {
-    // Found string property.
-    return true;
-  } else if (ParseNumberArrayProperty(&param->number_array, err, o, prop,
-                                      false)) {
-    // Found a number array.
-    return true;
-  } else if (ParseNumberProperty(&param->number_value, err, o, prop, false)) {
-    param->has_number_value = true;
-    return true;
-  } else if (ParseJSONProperty(&param->json_double_value, err, o, prop,
-                               false)) {
-    return true;
-  } else if (ParseBooleanProperty(&param->bool_value, err, o, prop, false)) {
-    return true;
-  } else {
-    if (required) {
-      if (err) {
-        (*err) += "parameter must be a string or number / number array.\n";
-      }
-    }
-    return false;
-  }
-}
-
-static bool ParseExtensionsProperty(ExtensionMap *ret, std::string *err,
-                                    const detail::json &o) {
-  (void)err;
-
-  detail::json_const_iterator it;
-  if (!detail::FindMember(o, "extensions", it)) {
-    return false;
-  }
-
-  auto &obj = detail::GetValue(it);
-  if (!detail::IsObject(obj)) {
-    return false;
-  }
-  ExtensionMap extensions;
-  detail::json_const_iterator extIt =
-      detail::ObjectBegin(obj); // it.value().begin();
-  detail::json_const_iterator extEnd = detail::ObjectEnd(obj);
-  for (; extIt != extEnd; ++extIt) {
-    auto &itObj = detail::GetValue(extIt);
-    if (!detail::IsObject(itObj))
-      continue;
-    std::string key(detail::GetKey(extIt));
-    if (!ParseJsonAsValue(&extensions[key], itObj)) {
-      if (!key.empty()) {
-        // create empty object so that an extension object is still of type
-        // object
-        extensions[key] = Value{Value::Object{}};
-      }
-    }
-  }
-  if (ret) {
-    (*ret) = std::move(extensions);
-  }
-  return true;
-}
-
-template <typename GltfType>
-static bool ParseExtrasAndExtensions(GltfType *target, std::string *err,
-                                     const detail::json &o,
-                                     bool store_json_strings) {
-  ParseExtensionsProperty(&target->extensions, err, o);
-  ParseExtrasProperty(&target->extras, o);
-
-  if (store_json_strings) {
-    {
-      detail::json_const_iterator it;
-      if (detail::FindMember(o, "extensions", it)) {
-        target->extensions_json_string =
-            detail::JsonToString(detail::GetValue(it));
-      }
-    }
-    {
-      detail::json_const_iterator it;
-      if (detail::FindMember(o, "extras", it)) {
-        target->extras_json_string = detail::JsonToString(detail::GetValue(it));
-      }
-    }
-  }
-  return true;
-}
-
-static bool ParseAsset(Asset *asset, std::string *err, const detail::json &o,
-                       bool store_original_json_for_extras_and_extensions) {
-  ParseStringProperty(&asset->version, err, o, "version", true, "Asset");
-  ParseStringProperty(&asset->generator, err, o, "generator", false, "Asset");
-  ParseStringProperty(&asset->minVersion, err, o, "minVersion", false, "Asset");
-  ParseStringProperty(&asset->copyright, err, o, "copyright", false, "Asset");
-
-  ParseExtrasAndExtensions(asset, err, o,
-                           store_original_json_for_extras_and_extensions);
-  return true;
-}
-
-static bool ParseImage(Image *image, const int image_idx, std::string *err,
-                       std::string *warn, const detail::json &o,
-                       bool store_original_json_for_extras_and_extensions,
-                       const std::string &basedir, const size_t max_file_size,
-                       FsCallbacks *fs, const URICallbacks *uri_cb,
-                       const LoadImageDataFunction &LoadImageData = nullptr,
-                       void *load_image_user_data = nullptr) {
-  // A glTF image must either reference a bufferView or an image uri
-
-  // schema says oneOf [`bufferView`, `uri`]
-  // TODO(syoyo): Check the type of each parameters.
-  detail::json_const_iterator it;
-  bool hasBufferView = detail::FindMember(o, "bufferView", it);
-  bool hasURI = detail::FindMember(o, "uri", it);
-
-  ParseStringProperty(&image->name, err, o, "name", false);
-
-  if (hasBufferView && hasURI) {
-    // Should not both defined.
-    if (err) {
-      (*err) +=
-          "Only one of `bufferView` or `uri` should be defined, but both are "
-          "defined for image[" +
-          std::to_string(image_idx) + "] name = \"" + image->name + "\"\n";
-    }
-    return false;
-  }
-
-  if (!hasBufferView && !hasURI) {
-    if (err) {
-      (*err) += "Neither required `bufferView` nor `uri` defined for image[" +
-                std::to_string(image_idx) + "] name = \"" + image->name +
-                "\"\n";
-    }
-    return false;
-  }
-
-  ParseExtrasAndExtensions(image, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  if (hasBufferView) {
-    int bufferView = -1;
-    if (!ParseIntegerProperty(&bufferView, err, o, "bufferView", true)) {
-      if (err) {
-        (*err) += "Failed to parse `bufferView` for image[" +
-                  std::to_string(image_idx) + "] name = \"" + image->name +
-                  "\"\n";
-      }
-      return false;
-    }
-
-    std::string mime_type;
-    ParseStringProperty(&mime_type, err, o, "mimeType", false);
-
-    int width = 0;
-    ParseIntegerProperty(&width, err, o, "width", false);
-
-    int height = 0;
-    ParseIntegerProperty(&height, err, o, "height", false);
-
-    // Just only save some information here. Loading actual image data from
-    // bufferView is done after this `ParseImage` function.
-    image->bufferView = bufferView;
-    image->mimeType = mime_type;
-    image->width = width;
-    image->height = height;
-
-    return true;
-  }
-
-  // Parse URI & Load image data.
-
-  std::string uri;
-  std::string tmp_err;
-  if (!ParseStringProperty(&uri, &tmp_err, o, "uri", true)) {
-    if (err) {
-      (*err) += "Failed to parse `uri` for image[" + std::to_string(image_idx) +
-                "] name = \"" + image->name + "\".\n";
-    }
-    return false;
-  }
-
-  std::vector<unsigned char> img;
-
-  if (IsDataURI(uri)) {
-    if (!DecodeDataURI(&img, image->mimeType, uri, 0, false)) {
-      if (err) {
-        (*err) += "Failed to decode 'uri' for image[" +
-                  std::to_string(image_idx) + "] name = \"" + image->name +
-                  "\"\n";
-      }
-      return false;
-    }
-  } else {
-    // Assume external file
-    // Unconditionally keep the external URI of the image
-    image->uri = uri;
-#ifdef TINYGLTF_NO_EXTERNAL_IMAGE
-    return true;
-#else
-    std::string decoded_uri;
-    if (!uri_cb->decode(uri, &decoded_uri, uri_cb->user_data)) {
-      if (warn) {
-        (*warn) += "Failed to decode 'uri' for image[" +
-                   std::to_string(image_idx) + "] name = \"" + image->name +
-                   "\"\n";
-      }
-
-      // Image loading failure is not critical to overall gltf loading.
-      return true;
-    }
-
-    if (!LoadExternalFile(&img, err, warn, decoded_uri, basedir,
-                          /* required */ false, /* required bytes */ 0,
-                          /* checksize */ false,
-                          /* max file size */ max_file_size, fs)) {
-      if (warn) {
-        (*warn) += "Failed to load external 'uri' for image[" +
-                   std::to_string(image_idx) + "] name = \"" + decoded_uri +
-                   "\"\n";
-      }
-      // If the image cannot be loaded, keep uri as image->uri.
-      return true;
-    }
-
-    if (img.empty()) {
-      if (warn) {
-        (*warn) += "Image data is empty for image[" +
-                   std::to_string(image_idx) + "] name = \"" + image->name +
-                   "\" \n";
-      }
-      return false;
-    }
-#endif
-  }
-
-  if (LoadImageData == nullptr) {
-    if (err) {
-      (*err) += "No LoadImageData callback specified.\n";
-    }
-    return false;
-  }
-
-  return LoadImageData(image, image_idx, err, warn, 0, 0, &img.at(0),
-                       static_cast<int>(img.size()), load_image_user_data);
-}
-
-static bool ParseTexture(Texture *texture, std::string *err,
-                         const detail::json &o,
-                         bool store_original_json_for_extras_and_extensions,
-                         const std::string &basedir) {
-  (void)basedir;
-  int sampler = -1;
-  int source = -1;
-  ParseIntegerProperty(&sampler, err, o, "sampler", false);
-
-  ParseIntegerProperty(&source, err, o, "source", false);
-
-  texture->sampler = sampler;
-  texture->source = source;
-
-  ParseExtrasAndExtensions(texture, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  ParseStringProperty(&texture->name, err, o, "name", false);
-
-  return true;
-}
-
-static bool
-ParseTextureInfo(TextureInfo *texinfo, std::string *err, const detail::json &o,
-                 bool store_original_json_for_extras_and_extensions) {
-  if (texinfo == nullptr) {
-    return false;
-  }
-
-  if (!ParseIntegerProperty(&texinfo->index, err, o, "index",
-                            /* required */ true, "TextureInfo")) {
-    return false;
-  }
-
-  ParseIntegerProperty(&texinfo->texCoord, err, o, "texCoord", false);
-
-  ParseExtrasAndExtensions(texinfo, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool
-ParseNormalTextureInfo(NormalTextureInfo *texinfo, std::string *err,
-                       const detail::json &o,
-                       bool store_original_json_for_extras_and_extensions) {
-  if (texinfo == nullptr) {
-    return false;
-  }
-
-  if (!ParseIntegerProperty(&texinfo->index, err, o, "index",
-                            /* required */ true, "NormalTextureInfo")) {
-    return false;
-  }
-
-  ParseIntegerProperty(&texinfo->texCoord, err, o, "texCoord", false);
-  ParseNumberProperty(&texinfo->scale, err, o, "scale", false);
-
-  ParseExtrasAndExtensions(texinfo, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool
-ParseOcclusionTextureInfo(OcclusionTextureInfo *texinfo, std::string *err,
-                          const detail::json &o,
-                          bool store_original_json_for_extras_and_extensions) {
-  if (texinfo == nullptr) {
-    return false;
-  }
-
-  if (!ParseIntegerProperty(&texinfo->index, err, o, "index",
-                            /* required */ true, "NormalTextureInfo")) {
-    return false;
-  }
-
-  ParseIntegerProperty(&texinfo->texCoord, err, o, "texCoord", false);
-  ParseNumberProperty(&texinfo->strength, err, o, "strength", false);
-
-  ParseExtrasAndExtensions(texinfo, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool ParseBuffer(Buffer *buffer, std::string *err, const detail::json &o,
-                        bool store_original_json_for_extras_and_extensions,
-                        FsCallbacks *fs, const URICallbacks *uri_cb,
-                        const std::string &basedir,
-                        const size_t max_buffer_size, bool is_binary = false,
-                        const unsigned char *bin_data = nullptr,
-                        size_t bin_size = 0) {
-  size_t byteLength;
-  if (!ParseUnsignedProperty(&byteLength, err, o, "byteLength", true,
-                             "Buffer")) {
-    return false;
-  }
-
-  // In glTF 2.0, uri is not mandatory anymore
-  buffer->uri.clear();
-  ParseStringProperty(&buffer->uri, err, o, "uri", false, "Buffer");
-
-  // having an empty uri for a non embedded image should not be valid
-  if (!is_binary && buffer->uri.empty()) {
-    if (err) {
-      (*err) += "'uri' is missing from non binary glTF file buffer.\n";
-    }
-  }
-
-  detail::json_const_iterator type;
-  if (detail::FindMember(o, "type", type)) {
-    std::string typeStr;
-    if (detail::GetString(detail::GetValue(type), typeStr)) {
-      if (typeStr.compare("arraybuffer") == 0) {
-        // buffer.type = "arraybuffer";
-      }
-    }
-  }
-
-  if (is_binary) {
-    // Still binary glTF accepts external dataURI.
-    if (!buffer->uri.empty()) {
-      // First try embedded data URI.
-      if (IsDataURI(buffer->uri)) {
-        std::string mime_type;
-        if (!DecodeDataURI(&buffer->data, mime_type, buffer->uri, byteLength,
-                           true)) {
-          if (err) {
-            (*err) +=
-                "Failed to decode 'uri' : " + buffer->uri + " in Buffer\n";
-          }
-          return false;
-        }
-      } else {
-        // External .bin file.
-        std::string decoded_uri;
-        if (!uri_cb->decode(buffer->uri, &decoded_uri, uri_cb->user_data)) {
-          return false;
-        }
-        if (!LoadExternalFile(&buffer->data, err, /* warn */ nullptr,
-                              decoded_uri, basedir, /* required */ true,
-                              byteLength, /* checkSize */ true,
-                              /* max_file_size */ max_buffer_size, fs)) {
-          return false;
-        }
-      }
-    } else {
-      // load data from (embedded) binary data
-
-      if ((bin_size == 0) || (bin_data == nullptr)) {
-        if (err) {
-          (*err) +=
-              "Invalid binary data in `Buffer', or GLB with empty BIN chunk.\n";
-        }
-        return false;
-      }
-
-      if (byteLength > bin_size) {
-        if (err) {
-          std::stringstream ss;
-          ss << "Invalid `byteLength'. Must be equal or less than binary size: "
-                "`byteLength' = "
-             << byteLength << ", binary size = " << bin_size << std::endl;
-          (*err) += ss.str();
-        }
-        return false;
-      }
-
-      // Read buffer data
-      buffer->data.resize(static_cast<size_t>(byteLength));
-      memcpy(&(buffer->data.at(0)), bin_data, static_cast<size_t>(byteLength));
-    }
-
-  } else {
-    if (IsDataURI(buffer->uri)) {
-      std::string mime_type;
-      if (!DecodeDataURI(&buffer->data, mime_type, buffer->uri, byteLength,
-                         true)) {
-        if (err) {
-          (*err) += "Failed to decode 'uri' : " + buffer->uri + " in Buffer\n";
-        }
-        return false;
-      }
-    } else {
-      // Assume external .bin file.
-      std::string decoded_uri;
-      if (!uri_cb->decode(buffer->uri, &decoded_uri, uri_cb->user_data)) {
-        return false;
-      }
-      if (!LoadExternalFile(&buffer->data, err, /* warn */ nullptr, decoded_uri,
-                            basedir, /* required */ true, byteLength,
-                            /* checkSize */ true,
-                            /* max file size */ max_buffer_size, fs)) {
-        return false;
-      }
-    }
-  }
-
-  ParseStringProperty(&buffer->name, err, o, "name", false);
-
-  ParseExtrasAndExtensions(buffer, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool
-ParseBufferView(BufferView *bufferView, std::string *err, const detail::json &o,
-                bool store_original_json_for_extras_and_extensions) {
-  int buffer = -1;
-  if (!ParseIntegerProperty(&buffer, err, o, "buffer", true, "BufferView")) {
-    return false;
-  }
-
-  size_t byteOffset = 0;
-  ParseUnsignedProperty(&byteOffset, err, o, "byteOffset", false);
-
-  size_t byteLength = 1;
-  if (!ParseUnsignedProperty(&byteLength, err, o, "byteLength", true,
-                             "BufferView")) {
-    return false;
-  }
-
-  size_t byteStride = 0;
-  if (!ParseUnsignedProperty(&byteStride, err, o, "byteStride", false)) {
-    // Spec says: When byteStride of referenced bufferView is not defined, it
-    // means that accessor elements are tightly packed, i.e., effective stride
-    // equals the size of the element.
-    // We cannot determine the actual byteStride until Accessor are parsed, thus
-    // set 0(= tightly packed) here(as done in OpenGL's VertexAttribPoiner)
-    byteStride = 0;
-  }
-
-  if ((byteStride > 252) || ((byteStride % 4) != 0)) {
-    if (err) {
-      std::stringstream ss;
-      ss << "Invalid `byteStride' value. `byteStride' must be the multiple of "
-            "4 : "
-         << byteStride << std::endl;
-
-      (*err) += ss.str();
-    }
-    return false;
-  }
-
-  int target = 0;
-  ParseIntegerProperty(&target, err, o, "target", false);
-  if ((target == TINYGLTF_TARGET_ARRAY_BUFFER) ||
-      (target == TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER)) {
-    // OK
-  } else {
-    target = 0;
-  }
-  bufferView->target = target;
-
-  ParseStringProperty(&bufferView->name, err, o, "name", false);
-
-  ParseExtrasAndExtensions(bufferView, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  bufferView->buffer = buffer;
-  bufferView->byteOffset = byteOffset;
-  bufferView->byteLength = byteLength;
-  bufferView->byteStride = byteStride;
-  return true;
-}
-
-static bool
-ParseSparseAccessor(Accessor::Sparse *sparse, std::string *err,
-                    const detail::json &o,
-                    bool store_original_json_for_extras_and_extensions) {
-  sparse->isSparse = true;
-
-  int count = 0;
-  if (!ParseIntegerProperty(&count, err, o, "count", true, "SparseAccessor")) {
-    return false;
-  }
-
-  ParseExtrasAndExtensions(sparse, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  detail::json_const_iterator indices_iterator;
-  detail::json_const_iterator values_iterator;
-  if (!detail::FindMember(o, "indices", indices_iterator)) {
-    (*err) = "the sparse object of this accessor doesn't have indices";
-    return false;
-  }
-
-  if (!detail::FindMember(o, "values", values_iterator)) {
-    (*err) = "the sparse object of this accessor doesn't have values";
-    return false;
-  }
-
-  const detail::json &indices_obj = detail::GetValue(indices_iterator);
-  const detail::json &values_obj = detail::GetValue(values_iterator);
-
-  int indices_buffer_view = 0, component_type = 0;
-  size_t indices_byte_offset = 0;
-  if (!ParseIntegerProperty(&indices_buffer_view, err, indices_obj,
-                            "bufferView", true, "SparseAccessor")) {
-    return false;
-  }
-  ParseUnsignedProperty(&indices_byte_offset, err, indices_obj, "byteOffset",
-                        false);
-  if (!ParseIntegerProperty(&component_type, err, indices_obj, "componentType",
-                            true, "SparseAccessor")) {
-    return false;
-  }
-
-  int values_buffer_view = 0;
-  size_t values_byte_offset = 0;
-  if (!ParseIntegerProperty(&values_buffer_view, err, values_obj, "bufferView",
-                            true, "SparseAccessor")) {
-    return false;
-  }
-  ParseUnsignedProperty(&values_byte_offset, err, values_obj, "byteOffset",
-                        false);
-
-  sparse->count = count;
-  sparse->indices.bufferView = indices_buffer_view;
-  sparse->indices.byteOffset = indices_byte_offset;
-  sparse->indices.componentType = component_type;
-  ParseExtrasAndExtensions(&sparse->indices, err, indices_obj,
-                           store_original_json_for_extras_and_extensions);
-
-  sparse->values.bufferView = values_buffer_view;
-  sparse->values.byteOffset = values_byte_offset;
-  ParseExtrasAndExtensions(&sparse->values, err, values_obj,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool ParseAccessor(Accessor *accessor, std::string *err,
-                          const detail::json &o,
-                          bool store_original_json_for_extras_and_extensions) {
-  int bufferView = -1;
-  ParseIntegerProperty(&bufferView, err, o, "bufferView", false, "Accessor");
-
-  size_t byteOffset = 0;
-  ParseUnsignedProperty(&byteOffset, err, o, "byteOffset", false, "Accessor");
-
-  bool normalized = false;
-  ParseBooleanProperty(&normalized, err, o, "normalized", false, "Accessor");
-
-  size_t componentType = 0;
-  if (!ParseUnsignedProperty(&componentType, err, o, "componentType", true,
-                             "Accessor")) {
-    return false;
-  }
-
-  size_t count = 0;
-  if (!ParseUnsignedProperty(&count, err, o, "count", true, "Accessor")) {
-    return false;
-  }
-
-  std::string type;
-  if (!ParseStringProperty(&type, err, o, "type", true, "Accessor")) {
-    return false;
-  }
-
-  if (type.compare("SCALAR") == 0) {
-    accessor->type = TINYGLTF_TYPE_SCALAR;
-  } else if (type.compare("VEC2") == 0) {
-    accessor->type = TINYGLTF_TYPE_VEC2;
-  } else if (type.compare("VEC3") == 0) {
-    accessor->type = TINYGLTF_TYPE_VEC3;
-  } else if (type.compare("VEC4") == 0) {
-    accessor->type = TINYGLTF_TYPE_VEC4;
-  } else if (type.compare("MAT2") == 0) {
-    accessor->type = TINYGLTF_TYPE_MAT2;
-  } else if (type.compare("MAT3") == 0) {
-    accessor->type = TINYGLTF_TYPE_MAT3;
-  } else if (type.compare("MAT4") == 0) {
-    accessor->type = TINYGLTF_TYPE_MAT4;
-  } else {
-    std::stringstream ss;
-    ss << "Unsupported `type` for accessor object. Got \"" << type << "\"\n";
-    if (err) {
-      (*err) += ss.str();
-    }
-    return false;
-  }
-
-  ParseStringProperty(&accessor->name, err, o, "name", false);
-
-  accessor->minValues.clear();
-  accessor->maxValues.clear();
-  ParseNumberArrayProperty(&accessor->minValues, err, o, "min", false,
-                           "Accessor");
-
-  ParseNumberArrayProperty(&accessor->maxValues, err, o, "max", false,
-                           "Accessor");
-
-  accessor->count = count;
-  accessor->bufferView = bufferView;
-  accessor->byteOffset = byteOffset;
-  accessor->normalized = normalized;
-  {
-    if (componentType >= TINYGLTF_COMPONENT_TYPE_BYTE &&
-        componentType <= TINYGLTF_COMPONENT_TYPE_DOUBLE) {
-      // OK
-      accessor->componentType = int(componentType);
-    } else {
-      std::stringstream ss;
-      ss << "Invalid `componentType` in accessor. Got " << componentType
-         << "\n";
-      if (err) {
-        (*err) += ss.str();
-      }
-      return false;
-    }
-  }
-
-  ParseExtrasAndExtensions(accessor, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  // check if accessor has a "sparse" object:
-  detail::json_const_iterator iterator;
-  if (detail::FindMember(o, "sparse", iterator)) {
-    // here this accessor has a "sparse" subobject
-    return ParseSparseAccessor(&accessor->sparse, err,
-                               detail::GetValue(iterator),
-                               store_original_json_for_extras_and_extensions);
-  }
-
-  return true;
-}
-
-#ifdef TINYGLTF_ENABLE_DRACO
-
-static void DecodeIndexBuffer(draco::Mesh *mesh, size_t componentSize,
-                              std::vector<uint8_t> &outBuffer) {
-  if (componentSize == 4) {
-    assert(sizeof(mesh->face(draco::FaceIndex(0))[0]) == componentSize);
-    memcpy(outBuffer.data(), &mesh->face(draco::FaceIndex(0))[0],
-           outBuffer.size());
-  } else {
-    size_t faceStride = componentSize * 3;
-    for (draco::FaceIndex f(0); f < mesh->num_faces(); ++f) {
-      const draco::Mesh::Face &face = mesh->face(f);
-      if (componentSize == 2) {
-        uint16_t indices[3] = {(uint16_t)face[0].value(),
-                               (uint16_t)face[1].value(),
-                               (uint16_t)face[2].value()};
-        memcpy(outBuffer.data() + f.value() * faceStride, &indices[0],
-               faceStride);
-      } else {
-        uint8_t indices[3] = {(uint8_t)face[0].value(),
-                              (uint8_t)face[1].value(),
-                              (uint8_t)face[2].value()};
-        memcpy(outBuffer.data() + f.value() * faceStride, &indices[0],
-               faceStride);
-      }
-    }
-  }
-}
-
-template <typename T>
-static bool GetAttributeForAllPoints(draco::Mesh *mesh,
-                                     const draco::PointAttribute *pAttribute,
-                                     std::vector<uint8_t> &outBuffer) {
-  size_t byteOffset = 0;
-  T values[4] = {0, 0, 0, 0};
-  for (draco::PointIndex i(0); i < mesh->num_points(); ++i) {
-    const draco::AttributeValueIndex val_index = pAttribute->mapped_index(i);
-    if (!pAttribute->ConvertValue<T>(val_index, pAttribute->num_components(),
-                                     values))
-      return false;
-
-    memcpy(outBuffer.data() + byteOffset, &values[0],
-           sizeof(T) * pAttribute->num_components());
-    byteOffset += sizeof(T) * pAttribute->num_components();
-  }
-
-  return true;
-}
-
-static bool GetAttributeForAllPoints(uint32_t componentType, draco::Mesh *mesh,
-                                     const draco::PointAttribute *pAttribute,
-                                     std::vector<uint8_t> &outBuffer) {
-  bool decodeResult = false;
-  switch (componentType) {
-  case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
-    decodeResult =
-        GetAttributeForAllPoints<uint8_t>(mesh, pAttribute, outBuffer);
-    break;
-  case TINYGLTF_COMPONENT_TYPE_BYTE:
-    decodeResult =
-        GetAttributeForAllPoints<int8_t>(mesh, pAttribute, outBuffer);
-    break;
-  case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
-    decodeResult =
-        GetAttributeForAllPoints<uint16_t>(mesh, pAttribute, outBuffer);
-    break;
-  case TINYGLTF_COMPONENT_TYPE_SHORT:
-    decodeResult =
-        GetAttributeForAllPoints<int16_t>(mesh, pAttribute, outBuffer);
-    break;
-  case TINYGLTF_COMPONENT_TYPE_INT:
-    decodeResult =
-        GetAttributeForAllPoints<int32_t>(mesh, pAttribute, outBuffer);
-    break;
-  case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
-    decodeResult =
-        GetAttributeForAllPoints<uint32_t>(mesh, pAttribute, outBuffer);
-    break;
-  case TINYGLTF_COMPONENT_TYPE_FLOAT:
-    decodeResult = GetAttributeForAllPoints<float>(mesh, pAttribute, outBuffer);
-    break;
-  case TINYGLTF_COMPONENT_TYPE_DOUBLE:
-    decodeResult =
-        GetAttributeForAllPoints<double>(mesh, pAttribute, outBuffer);
-    break;
-  default:
-    return false;
-  }
-
-  return decodeResult;
-}
-
-static bool ParseDracoExtension(Primitive *primitive, Model *model,
-                                std::string *err, std::string *warn,
-                                const Value &dracoExtensionValue,
-                                ParseStrictness strictness) {
-  (void)err;
-  auto bufferViewValue = dracoExtensionValue.Get("bufferView");
-  if (!bufferViewValue.IsInt())
-    return false;
-  auto attributesValue = dracoExtensionValue.Get("attributes");
-  if (!attributesValue.IsObject())
-    return false;
-
-  auto attributesObject = attributesValue.Get<Value::Object>();
-  int bufferView = bufferViewValue.Get<int>();
-
-  BufferView &view = model->bufferViews[bufferView];
-  Buffer &buffer = model->buffers[view.buffer];
-  // BufferView has already been decoded
-  if (view.dracoDecoded)
-    return true;
-  view.dracoDecoded = true;
-
-  const char *bufferViewData =
-      reinterpret_cast<const char *>(buffer.data.data() + view.byteOffset);
-  size_t bufferViewSize = view.byteLength;
-
-  // decode draco
-  draco::DecoderBuffer decoderBuffer;
-  decoderBuffer.Init(bufferViewData, bufferViewSize);
-  draco::Decoder decoder;
-  auto decodeResult = decoder.DecodeMeshFromBuffer(&decoderBuffer);
-  if (!decodeResult.ok()) {
-    return false;
-  }
-  const std::unique_ptr<draco::Mesh> &mesh = decodeResult.value();
-
-  // create new bufferView for indices
-  if (primitive->indices >= 0) {
-    if (strictness == ParseStrictness::Permissive) {
-      const draco::PointIndex::ValueType numPoint = mesh->num_points();
-      // handle the situation where the stored component type does not match the
-      // required type for the actual number of stored points
-      int supposedComponentType = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE;
-      if (numPoint < static_cast<draco::PointIndex::ValueType>(
-                         std::numeric_limits<uint8_t>::max())) {
-        supposedComponentType = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE;
-      } else if (numPoint < static_cast<draco::PointIndex::ValueType>(
-                                std::numeric_limits<uint16_t>::max())) {
-        supposedComponentType = TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT;
-      } else {
-        supposedComponentType = TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT;
-      }
-
-      if (supposedComponentType >
-          model->accessors[primitive->indices].componentType) {
-        if (warn) {
-          (*warn) += "GLTF component type " +
-                     std::to_string(
-                         model->accessors[primitive->indices].componentType) +
-                     " is not sufficient for number of stored points,"
-                     " treating as " +
-                     std::to_string(supposedComponentType) + "\n";
-        }
-        model->accessors[primitive->indices].componentType =
-            supposedComponentType;
-      }
-    }
-
-    int32_t componentSize = GetComponentSizeInBytes(
-        model->accessors[primitive->indices].componentType);
-    Buffer decodedIndexBuffer;
-    decodedIndexBuffer.data.resize(mesh->num_faces() * 3 * componentSize);
-
-    DecodeIndexBuffer(mesh.get(), componentSize, decodedIndexBuffer.data);
-
-    model->buffers.emplace_back(std::move(decodedIndexBuffer));
-
-    BufferView decodedIndexBufferView;
-    decodedIndexBufferView.buffer = int(model->buffers.size() - 1);
-    decodedIndexBufferView.byteLength =
-        int(mesh->num_faces() * 3 * componentSize);
-    decodedIndexBufferView.byteOffset = 0;
-    decodedIndexBufferView.byteStride = 0;
-    decodedIndexBufferView.target = TINYGLTF_TARGET_ARRAY_BUFFER;
-    model->bufferViews.emplace_back(std::move(decodedIndexBufferView));
-
-    model->accessors[primitive->indices].bufferView =
-        int(model->bufferViews.size() - 1);
-    model->accessors[primitive->indices].count = int(mesh->num_faces() * 3);
-  }
-
-  for (const auto &attribute : attributesObject) {
-    if (!attribute.second.IsInt())
-      return false;
-    auto primitiveAttribute = primitive->attributes.find(attribute.first);
-    if (primitiveAttribute == primitive->attributes.end())
-      return false;
-
-    int dracoAttributeIndex = attribute.second.Get<int>();
-    const auto pAttribute = mesh->GetAttributeByUniqueId(dracoAttributeIndex);
-    const auto componentType =
-        model->accessors[primitiveAttribute->second].componentType;
-
-    // Create a new buffer for this decoded buffer
-    Buffer decodedBuffer;
-    size_t bufferSize = mesh->num_points() * pAttribute->num_components() *
-                        GetComponentSizeInBytes(componentType);
-    decodedBuffer.data.resize(bufferSize);
-
-    if (!GetAttributeForAllPoints(componentType, mesh.get(), pAttribute,
-                                  decodedBuffer.data))
-      return false;
-
-    model->buffers.emplace_back(std::move(decodedBuffer));
-
-    BufferView decodedBufferView;
-    decodedBufferView.buffer = int(model->buffers.size() - 1);
-    decodedBufferView.byteLength = bufferSize;
-    decodedBufferView.byteOffset = pAttribute->byte_offset();
-    decodedBufferView.byteStride = pAttribute->byte_stride();
-    decodedBufferView.target = primitive->indices >= 0
-                                   ? TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER
-                                   : TINYGLTF_TARGET_ARRAY_BUFFER;
-    model->bufferViews.emplace_back(std::move(decodedBufferView));
-
-    model->accessors[primitiveAttribute->second].bufferView =
-        int(model->bufferViews.size() - 1);
-    model->accessors[primitiveAttribute->second].count =
-        int(mesh->num_points());
-  }
-
-  return true;
-}
-#endif
-
-static bool ParsePrimitive(Primitive *primitive, Model *model, std::string *err,
-                           std::string *warn, const detail::json &o,
-                           bool store_original_json_for_extras_and_extensions,
-                           ParseStrictness strictness) {
-  int material = -1;
-  ParseIntegerProperty(&material, err, o, "material", false);
-  primitive->material = material;
-
-  int mode = TINYGLTF_MODE_TRIANGLES;
-  ParseIntegerProperty(&mode, err, o, "mode", false);
-  primitive->mode = mode; // Why only triangles were supported ?
-
-  int indices = -1;
-  ParseIntegerProperty(&indices, err, o, "indices", false);
-  primitive->indices = indices;
-  if (!ParseStringIntegerProperty(&primitive->attributes, err, o, "attributes",
-                                  true, "Primitive")) {
-    return false;
-  }
-
-  // Look for morph targets
-  detail::json_const_iterator targetsObject;
-  if (detail::FindMember(o, "targets", targetsObject) &&
-      detail::IsArray(detail::GetValue(targetsObject))) {
-    auto targetsObjectEnd = detail::ArrayEnd(detail::GetValue(targetsObject));
-    for (detail::json_const_array_iterator i =
-             detail::ArrayBegin(detail::GetValue(targetsObject));
-         i != targetsObjectEnd; ++i) {
-      std::map<std::string, int> targetAttribues;
-
-      const detail::json &dict = *i;
-      if (detail::IsObject(dict)) {
-        detail::json_const_iterator dictIt(detail::ObjectBegin(dict));
-        detail::json_const_iterator dictItEnd(detail::ObjectEnd(dict));
-
-        for (; dictIt != dictItEnd; ++dictIt) {
-          int iVal;
-          if (detail::GetInt(detail::GetValue(dictIt), iVal))
-            targetAttribues[detail::GetKey(dictIt)] = iVal;
-        }
-        primitive->targets.emplace_back(std::move(targetAttribues));
-      }
-    }
-  }
-
-  ParseExtrasAndExtensions(primitive, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-#ifdef TINYGLTF_ENABLE_DRACO
-  auto dracoExtension =
-      primitive->extensions.find("KHR_draco_mesh_compression");
-  if (dracoExtension != primitive->extensions.end()) {
-    ParseDracoExtension(primitive, model, err, warn, dracoExtension->second,
-                        strictness);
-  }
-#else
-  (void)model;
-  (void)warn;
-  (void)strictness;
-#endif
-
-  return true;
-}
-
-static bool ParseMesh(Mesh *mesh, Model *model, std::string *err,
-                      std::string *warn, const detail::json &o,
-                      bool store_original_json_for_extras_and_extensions,
-                      ParseStrictness strictness) {
-  ParseStringProperty(&mesh->name, err, o, "name", false);
-
-  mesh->primitives.clear();
-  detail::json_const_iterator primObject;
-  if (detail::FindMember(o, "primitives", primObject) &&
-      detail::IsArray(detail::GetValue(primObject))) {
-    detail::json_const_array_iterator primEnd =
-        detail::ArrayEnd(detail::GetValue(primObject));
-    for (detail::json_const_array_iterator i =
-             detail::ArrayBegin(detail::GetValue(primObject));
-         i != primEnd; ++i) {
-      Primitive primitive;
-      if (ParsePrimitive(&primitive, model, err, warn, *i,
-                         store_original_json_for_extras_and_extensions,
-                         strictness)) {
-        // Only add the primitive if the parsing succeeds.
-        mesh->primitives.emplace_back(std::move(primitive));
-      }
-    }
-  }
-
-  // Should probably check if has targets and if dimensions fit
-  ParseNumberArrayProperty(&mesh->weights, err, o, "weights", false);
-
-  ParseExtrasAndExtensions(mesh, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool ParseNode(Node *node, std::string *err, const detail::json &o,
-                      bool store_original_json_for_extras_and_extensions) {
-  ParseStringProperty(&node->name, err, o, "name", false);
-
-  int skin = -1;
-  ParseIntegerProperty(&skin, err, o, "skin", false);
-  node->skin = skin;
-
-  // Matrix and T/R/S are exclusive
-  if (!ParseNumberArrayProperty(&node->matrix, err, o, "matrix", false)) {
-    ParseNumberArrayProperty(&node->rotation, err, o, "rotation", false);
-    ParseNumberArrayProperty(&node->scale, err, o, "scale", false);
-    ParseNumberArrayProperty(&node->translation, err, o, "translation", false);
-  }
-
-  int camera = -1;
-  ParseIntegerProperty(&camera, err, o, "camera", false);
-  node->camera = camera;
-
-  int mesh = -1;
-  ParseIntegerProperty(&mesh, err, o, "mesh", false);
-  node->mesh = mesh;
-
-  node->children.clear();
-  ParseIntegerArrayProperty(&node->children, err, o, "children", false);
-
-  ParseNumberArrayProperty(&node->weights, err, o, "weights", false);
-
-  ParseExtrasAndExtensions(node, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  // KHR_lights_punctual: parse light source reference
-  int light = -1;
-  if (node->extensions.count("KHR_lights_punctual") != 0) {
-    auto const &light_ext = node->extensions["KHR_lights_punctual"];
-    if (light_ext.Has("light")) {
-      light = light_ext.Get("light").GetNumberAsInt();
-    } else {
-      if (err) {
-        *err +=
-            "Node has extension KHR_lights_punctual, but does not reference "
-            "a light source.\n";
-      }
-      return false;
-    }
-  }
-  node->light = light;
-
-  // KHR_audio: parse audio source reference
-  int emitter = -1;
-  if (node->extensions.count("KHR_audio") != 0) {
-    auto const &audio_ext = node->extensions["KHR_audio"];
-    if (audio_ext.Has("emitter")) {
-      emitter = audio_ext.Get("emitter").GetNumberAsInt();
-    } else {
-      if (err) {
-        *err += "Node has extension KHR_audio, but does not reference "
-                "a audio emitter.\n";
-      }
-      return false;
-    }
-  }
-  node->emitter = emitter;
-
-  node->lods.clear();
-  if (node->extensions.count("MSFT_lod") != 0) {
-    auto const &msft_lod_ext = node->extensions["MSFT_lod"];
-    if (msft_lod_ext.Has("ids")) {
-      auto idsArr = msft_lod_ext.Get("ids");
-      for (size_t i = 0; i < idsArr.ArrayLen(); ++i) {
-        node->lods.emplace_back(idsArr.Get(i).GetNumberAsInt());
-      }
-    } else {
-      if (err) {
-        *err += "Node has extension MSFT_lod, but does not reference "
-                "other nodes via their ids.\n";
-      }
-      return false;
-    }
-  }
-
-  return true;
-}
-
-static bool ParseScene(Scene *scene, std::string *err, const detail::json &o,
-                       bool store_original_json_for_extras_and_extensions) {
-  ParseStringProperty(&scene->name, err, o, "name", false);
-  ParseIntegerArrayProperty(&scene->nodes, err, o, "nodes", false);
-
-  ParseExtrasAndExtensions(scene, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  // Parse KHR_audio global emitters
-  if (scene->extensions.count("KHR_audio") != 0) {
-    auto const &audio_ext = scene->extensions["KHR_audio"];
-    if (audio_ext.Has("emitters")) {
-      auto emittersArr = audio_ext.Get("emitters");
-      for (size_t i = 0; i < emittersArr.ArrayLen(); ++i) {
-        scene->audioEmitters.emplace_back(emittersArr.Get(i).GetNumberAsInt());
-      }
-    } else {
-      if (err) {
-        *err += "Node has extension KHR_audio, but does not reference "
-                "a audio emitter.\n";
-      }
-      return false;
-    }
-  }
-
-  return true;
-}
-
-static bool
-ParsePbrMetallicRoughness(PbrMetallicRoughness *pbr, std::string *err,
-                          const detail::json &o,
-                          bool store_original_json_for_extras_and_extensions) {
-  if (pbr == nullptr) {
-    return false;
-  }
-
-  std::vector<double> baseColorFactor;
-  if (ParseNumberArrayProperty(&baseColorFactor, err, o, "baseColorFactor",
-                               /* required */ false)) {
-    if (baseColorFactor.size() != 4) {
-      if (err) {
-        (*err) += "Array length of `baseColorFactor` parameter in "
-                  "pbrMetallicRoughness must be 4, but got " +
-                  std::to_string(baseColorFactor.size()) + "\n";
-      }
-      return false;
-    }
-    pbr->baseColorFactor = baseColorFactor;
-  }
-
-  {
-    detail::json_const_iterator it;
-    if (detail::FindMember(o, "baseColorTexture", it)) {
-      ParseTextureInfo(&pbr->baseColorTexture, err, detail::GetValue(it),
-                       store_original_json_for_extras_and_extensions);
-    }
-  }
-
-  {
-    detail::json_const_iterator it;
-    if (detail::FindMember(o, "metallicRoughnessTexture", it)) {
-      ParseTextureInfo(&pbr->metallicRoughnessTexture, err,
-                       detail::GetValue(it),
-                       store_original_json_for_extras_and_extensions);
-    }
-  }
-
-  ParseNumberProperty(&pbr->metallicFactor, err, o, "metallicFactor", false);
-  ParseNumberProperty(&pbr->roughnessFactor, err, o, "roughnessFactor", false);
-
-  ParseExtrasAndExtensions(pbr, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool ParseMaterial(Material *material, std::string *err,
-                          std::string *warn, const detail::json &o,
-                          bool store_original_json_for_extras_and_extensions,
-                          ParseStrictness strictness) {
-  ParseStringProperty(&material->name, err, o, "name", /* required */ false);
-
-  if (ParseNumberArrayProperty(&material->emissiveFactor, err, o,
-                               "emissiveFactor",
-                               /* required */ false)) {
-    if (strictness == ParseStrictness::Permissive &&
-        material->emissiveFactor.size() == 4) {
-      if (warn) {
-        (*warn) += "Array length of `emissiveFactor` parameter in "
-                   "material must be 3, but got 4\n";
-      }
-      material->emissiveFactor.resize(3);
-    } else if (material->emissiveFactor.size() != 3) {
-      if (err) {
-        (*err) += "Array length of `emissiveFactor` parameter in "
-                  "material must be 3, but got " +
-                  std::to_string(material->emissiveFactor.size()) + "\n";
-      }
-      return false;
-    }
-  } else {
-    // fill with default values
-    material->emissiveFactor = {0.0, 0.0, 0.0};
-  }
-
-  ParseStringProperty(&material->alphaMode, err, o, "alphaMode",
-                      /* required */ false);
-  ParseNumberProperty(&material->alphaCutoff, err, o, "alphaCutoff",
-                      /* required */ false);
-  ParseBooleanProperty(&material->doubleSided, err, o, "doubleSided",
-                       /* required */ false);
-
-  {
-    detail::json_const_iterator it;
-    if (detail::FindMember(o, "pbrMetallicRoughness", it)) {
-      ParsePbrMetallicRoughness(&material->pbrMetallicRoughness, err,
-                                detail::GetValue(it),
-                                store_original_json_for_extras_and_extensions);
-    }
-  }
-
-  {
-    detail::json_const_iterator it;
-    if (detail::FindMember(o, "normalTexture", it)) {
-      ParseNormalTextureInfo(&material->normalTexture, err,
-                             detail::GetValue(it),
-                             store_original_json_for_extras_and_extensions);
-    }
-  }
-
-  {
-    detail::json_const_iterator it;
-    if (detail::FindMember(o, "occlusionTexture", it)) {
-      ParseOcclusionTextureInfo(&material->occlusionTexture, err,
-                                detail::GetValue(it),
-                                store_original_json_for_extras_and_extensions);
-    }
-  }
-
-  {
-    detail::json_const_iterator it;
-    if (detail::FindMember(o, "emissiveTexture", it)) {
-      ParseTextureInfo(&material->emissiveTexture, err, detail::GetValue(it),
-                       store_original_json_for_extras_and_extensions);
-    }
-  }
-
-  // Old code path. For backward compatibility, we still store material values
-  // as Parameter. This will create duplicated information for
-  // example(pbrMetallicRoughness), but should be negligible in terms of memory
-  // consumption.
-  // TODO(syoyo): Remove in the next major release.
-  material->values.clear();
-  material->additionalValues.clear();
-
-  detail::json_const_iterator it(detail::ObjectBegin(o));
-  detail::json_const_iterator itEnd(detail::ObjectEnd(o));
-
-  for (; it != itEnd; ++it) {
-    std::string key(detail::GetKey(it));
-    if (key == "pbrMetallicRoughness") {
-      if (detail::IsObject(detail::GetValue(it))) {
-        const detail::json &values_object = detail::GetValue(it);
-
-        detail::json_const_iterator itVal(detail::ObjectBegin(values_object));
-        detail::json_const_iterator itValEnd(detail::ObjectEnd(values_object));
-
-        for (; itVal != itValEnd; ++itVal) {
-          Parameter param;
-          if (ParseParameterProperty(&param, err, values_object,
-                                     detail::GetKey(itVal), false)) {
-            material->values.emplace(detail::GetKey(itVal), std::move(param));
-          }
-        }
-      }
-    } else if (key == "extensions" || key == "extras") {
-      // done later, skip, otherwise poorly parsed contents will be saved in the
-      // parametermap and serialized again later
-    } else {
-      Parameter param;
-      if (ParseParameterProperty(&param, err, o, key, false)) {
-        // names of materials have already been parsed. Putting it in this map
-        // doesn't correctly reflect the glTF specification
-        if (key != "name")
-          material->additionalValues.emplace(std::move(key), std::move(param));
-      }
-    }
-  }
-
-  material->extensions.clear(); // Note(agnat): Why?
-  ParseExtrasAndExtensions(material, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  material->lods.clear();
-  if (material->extensions.count("MSFT_lod") != 0) {
-    auto const &msft_lod_ext = material->extensions["MSFT_lod"];
-    if (msft_lod_ext.Has("ids")) {
-      auto idsArr = msft_lod_ext.Get("ids");
-      for (size_t i = 0; i < idsArr.ArrayLen(); ++i) {
-        material->lods.emplace_back(idsArr.Get(i).GetNumberAsInt());
-      }
-    } else {
-      if (err) {
-        *err += "Material has extension MSFT_lod, but does not reference "
-                "other materials via their ids.\n";
-      }
-      return false;
-    }
-  }
-
-  return true;
-}
-
-static bool
-ParseAnimationChannel(AnimationChannel *channel, std::string *err,
-                      const detail::json &o,
-                      bool store_original_json_for_extras_and_extensions) {
-  int samplerIndex = -1;
-  int targetIndex = -1;
-  if (!ParseIntegerProperty(&samplerIndex, err, o, "sampler", true,
-                            "AnimationChannel")) {
-    if (err) {
-      (*err) += "`sampler` field is missing in animation channels\n";
-    }
-    return false;
-  }
-
-  detail::json_const_iterator targetIt;
-  if (detail::FindMember(o, "target", targetIt) &&
-      detail::IsObject(detail::GetValue(targetIt))) {
-    const detail::json &target_object = detail::GetValue(targetIt);
-
-    ParseIntegerProperty(&targetIndex, err, target_object, "node", false);
-
-    if (!ParseStringProperty(&channel->target_path, err, target_object, "path",
-                             true)) {
-      if (err) {
-        (*err) += "`path` field is missing in animation.channels.target\n";
-      }
-      return false;
-    }
-    ParseExtensionsProperty(&channel->target_extensions, err, target_object);
-    ParseExtrasProperty(&channel->target_extras, target_object);
-    if (store_original_json_for_extras_and_extensions) {
-      {
-        detail::json_const_iterator it;
-        if (detail::FindMember(target_object, "extensions", it)) {
-          channel->target_extensions_json_string =
-              detail::JsonToString(detail::GetValue(it));
-        }
-      }
-      {
-        detail::json_const_iterator it;
-        if (detail::FindMember(target_object, "extras", it)) {
-          channel->target_extras_json_string =
-              detail::JsonToString(detail::GetValue(it));
-        }
-      }
-    }
-  }
-
-  channel->sampler = samplerIndex;
-  channel->target_node = targetIndex;
-
-  ParseExtrasAndExtensions(channel, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool ParseAnimation(Animation *animation, std::string *err,
-                           const detail::json &o,
-                           bool store_original_json_for_extras_and_extensions) {
-  {
-    detail::json_const_iterator channelsIt;
-    if (detail::FindMember(o, "channels", channelsIt) &&
-        detail::IsArray(detail::GetValue(channelsIt))) {
-      detail::json_const_array_iterator channelEnd =
-          detail::ArrayEnd(detail::GetValue(channelsIt));
-      for (detail::json_const_array_iterator i =
-               detail::ArrayBegin(detail::GetValue(channelsIt));
-           i != channelEnd; ++i) {
-        AnimationChannel channel;
-        if (ParseAnimationChannel(
-                &channel, err, *i,
-                store_original_json_for_extras_and_extensions)) {
-          // Only add the channel if the parsing succeeds.
-          animation->channels.emplace_back(std::move(channel));
-        }
-      }
-    }
-  }
-
-  {
-    detail::json_const_iterator samplerIt;
-    if (detail::FindMember(o, "samplers", samplerIt) &&
-        detail::IsArray(detail::GetValue(samplerIt))) {
-      const detail::json &sampler_array = detail::GetValue(samplerIt);
-
-      detail::json_const_array_iterator it = detail::ArrayBegin(sampler_array);
-      detail::json_const_array_iterator itEnd = detail::ArrayEnd(sampler_array);
-
-      for (; it != itEnd; ++it) {
-        const detail::json &s = *it;
-
-        AnimationSampler sampler;
-        int inputIndex = -1;
-        int outputIndex = -1;
-        if (!ParseIntegerProperty(&inputIndex, err, s, "input", true)) {
-          if (err) {
-            (*err) += "`input` field is missing in animation.sampler\n";
-          }
-          return false;
-        }
-        ParseStringProperty(&sampler.interpolation, err, s, "interpolation",
-                            false);
-        if (!ParseIntegerProperty(&outputIndex, err, s, "output", true)) {
-          if (err) {
-            (*err) += "`output` field is missing in animation.sampler\n";
-          }
-          return false;
-        }
-        sampler.input = inputIndex;
-        sampler.output = outputIndex;
-        ParseExtrasAndExtensions(&sampler, err, s,
-                                 store_original_json_for_extras_and_extensions);
-
-        animation->samplers.emplace_back(std::move(sampler));
-      }
-    }
-  }
-
-  ParseStringProperty(&animation->name, err, o, "name", false);
-
-  ParseExtrasAndExtensions(animation, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool ParseSampler(Sampler *sampler, std::string *err,
-                         const detail::json &o,
-                         bool store_original_json_for_extras_and_extensions) {
-  ParseStringProperty(&sampler->name, err, o, "name", false);
-
-  int minFilter = -1;
-  int magFilter = -1;
-  int wrapS = TINYGLTF_TEXTURE_WRAP_REPEAT;
-  int wrapT = TINYGLTF_TEXTURE_WRAP_REPEAT;
-  // int wrapR = TINYGLTF_TEXTURE_WRAP_REPEAT;
-  ParseIntegerProperty(&minFilter, err, o, "minFilter", false);
-  ParseIntegerProperty(&magFilter, err, o, "magFilter", false);
-  ParseIntegerProperty(&wrapS, err, o, "wrapS", false);
-  ParseIntegerProperty(&wrapT, err, o, "wrapT", false);
-  // ParseIntegerProperty(&wrapR, err, o, "wrapR", false);  // tinygltf
-  // extension
-
-  // TODO(syoyo): Check the value is allowed one.
-  // (e.g. we allow 9728(NEAREST), but don't allow 9727)
-
-  sampler->minFilter = minFilter;
-  sampler->magFilter = magFilter;
-  sampler->wrapS = wrapS;
-  sampler->wrapT = wrapT;
-  // sampler->wrapR = wrapR;
-
-  ParseExtrasAndExtensions(sampler, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool ParseSkin(Skin *skin, std::string *err, const detail::json &o,
-                      bool store_original_json_for_extras_and_extensions) {
-  ParseStringProperty(&skin->name, err, o, "name", false, "Skin");
-
-  std::vector<int> joints;
-  if (!ParseIntegerArrayProperty(&joints, err, o, "joints", false, "Skin")) {
-    return false;
-  }
-  skin->joints = std::move(joints);
-
-  int skeleton = -1;
-  ParseIntegerProperty(&skeleton, err, o, "skeleton", false, "Skin");
-  skin->skeleton = skeleton;
-
-  int invBind = -1;
-  ParseIntegerProperty(&invBind, err, o, "inverseBindMatrices", false, "Skin");
-  skin->inverseBindMatrices = invBind;
-
-  ParseExtrasAndExtensions(skin, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool
-ParsePerspectiveCamera(PerspectiveCamera *camera, std::string *err,
-                       const detail::json &o,
-                       bool store_original_json_for_extras_and_extensions) {
-  double yfov = 0.0;
-  if (!ParseNumberProperty(&yfov, err, o, "yfov", true, "OrthographicCamera")) {
-    return false;
-  }
-
-  double znear = 0.0;
-  if (!ParseNumberProperty(&znear, err, o, "znear", true,
-                           "PerspectiveCamera")) {
-    return false;
-  }
-
-  double aspectRatio = 0.0; // = invalid
-  ParseNumberProperty(&aspectRatio, err, o, "aspectRatio", false,
-                      "PerspectiveCamera");
-
-  double zfar = 0.0; // = invalid
-  ParseNumberProperty(&zfar, err, o, "zfar", false, "PerspectiveCamera");
-
-  camera->aspectRatio = aspectRatio;
-  camera->zfar = zfar;
-  camera->yfov = yfov;
-  camera->znear = znear;
-
-  ParseExtrasAndExtensions(camera, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  // TODO(syoyo): Validate parameter values.
-
-  return true;
-}
-
-static bool ParseSpotLight(SpotLight *light, std::string *err,
-                           const detail::json &o,
-                           bool store_original_json_for_extras_and_extensions) {
-  ParseNumberProperty(&light->innerConeAngle, err, o, "innerConeAngle", false);
-  ParseNumberProperty(&light->outerConeAngle, err, o, "outerConeAngle", false);
-
-  ParseExtrasAndExtensions(light, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  // TODO(syoyo): Validate parameter values.
-
-  return true;
-}
-
-static bool
-ParseOrthographicCamera(OrthographicCamera *camera, std::string *err,
-                        const detail::json &o,
-                        bool store_original_json_for_extras_and_extensions) {
-  double xmag = 0.0;
-  if (!ParseNumberProperty(&xmag, err, o, "xmag", true, "OrthographicCamera")) {
-    return false;
-  }
-
-  double ymag = 0.0;
-  if (!ParseNumberProperty(&ymag, err, o, "ymag", true, "OrthographicCamera")) {
-    return false;
-  }
-
-  double zfar = 0.0;
-  if (!ParseNumberProperty(&zfar, err, o, "zfar", true, "OrthographicCamera")) {
-    return false;
-  }
-
-  double znear = 0.0;
-  if (!ParseNumberProperty(&znear, err, o, "znear", true,
-                           "OrthographicCamera")) {
-    return false;
-  }
-
-  ParseExtrasAndExtensions(camera, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  camera->xmag = xmag;
-  camera->ymag = ymag;
-  camera->zfar = zfar;
-  camera->znear = znear;
-
-  // TODO(syoyo): Validate parameter values.
-
-  return true;
-}
-
-static bool ParseCamera(Camera *camera, std::string *err, const detail::json &o,
-                        bool store_original_json_for_extras_and_extensions) {
-  if (!ParseStringProperty(&camera->type, err, o, "type", true, "Camera")) {
-    return false;
-  }
-
-  if (camera->type.compare("orthographic") == 0) {
-    detail::json_const_iterator orthoIt;
-    if (!detail::FindMember(o, "orthographic", orthoIt)) {
-      if (err) {
-        std::stringstream ss;
-        ss << "Orthographic camera description not found." << std::endl;
-        (*err) += ss.str();
-      }
-      return false;
-    }
-
-    const detail::json &v = detail::GetValue(orthoIt);
-    if (!detail::IsObject(v)) {
-      if (err) {
-        std::stringstream ss;
-        ss << "\"orthographic\" is not a JSON object." << std::endl;
-        (*err) += ss.str();
-      }
-      return false;
-    }
-
-    if (!ParseOrthographicCamera(
-            &camera->orthographic, err, v,
-            store_original_json_for_extras_and_extensions)) {
-      return false;
-    }
-  } else if (camera->type.compare("perspective") == 0) {
-    detail::json_const_iterator perspIt;
-    if (!detail::FindMember(o, "perspective", perspIt)) {
-      if (err) {
-        std::stringstream ss;
-        ss << "Perspective camera description not found." << std::endl;
-        (*err) += ss.str();
-      }
-      return false;
-    }
-
-    const detail::json &v = detail::GetValue(perspIt);
-    if (!detail::IsObject(v)) {
-      if (err) {
-        std::stringstream ss;
-        ss << "\"perspective\" is not a JSON object." << std::endl;
-        (*err) += ss.str();
-      }
-      return false;
-    }
-
-    if (!ParsePerspectiveCamera(
-            &camera->perspective, err, v,
-            store_original_json_for_extras_and_extensions)) {
-      return false;
-    }
-  } else {
-    if (err) {
-      std::stringstream ss;
-      ss << "Invalid camera type: \"" << camera->type
-         << "\". Must be \"perspective\" or \"orthographic\"" << std::endl;
-      (*err) += ss.str();
-    }
-    return false;
-  }
-
-  ParseStringProperty(&camera->name, err, o, "name", false);
-
-  ParseExtrasAndExtensions(camera, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool ParseLight(Light *light, std::string *err, const detail::json &o,
-                       bool store_original_json_for_extras_and_extensions) {
-  if (!ParseStringProperty(&light->type, err, o, "type", true)) {
-    return false;
-  }
-
-  if (light->type == "spot") {
-    detail::json_const_iterator spotIt;
-    if (!detail::FindMember(o, "spot", spotIt)) {
-      if (err) {
-        std::stringstream ss;
-        ss << "Spot light description not found." << std::endl;
-        (*err) += ss.str();
-      }
-      return false;
-    }
-
-    const detail::json &v = detail::GetValue(spotIt);
-    if (!detail::IsObject(v)) {
-      if (err) {
-        std::stringstream ss;
-        ss << "\"spot\" is not a JSON object." << std::endl;
-        (*err) += ss.str();
-      }
-      return false;
-    }
-
-    if (!ParseSpotLight(&light->spot, err, v,
-                        store_original_json_for_extras_and_extensions)) {
-      return false;
-    }
-  }
-
-  ParseStringProperty(&light->name, err, o, "name", false);
-  ParseNumberArrayProperty(&light->color, err, o, "color", false);
-  ParseNumberProperty(&light->range, err, o, "range", false);
-  ParseNumberProperty(&light->intensity, err, o, "intensity", false);
-
-  ParseExtrasAndExtensions(light, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool
-ParsePositionalEmitter(PositionalEmitter *positional, std::string *err,
-                       const detail::json &o,
-                       bool store_original_json_for_extras_and_extensions) {
-  ParseNumberProperty(&positional->coneInnerAngle, err, o, "coneInnerAngle",
-                      false);
-  ParseNumberProperty(&positional->coneOuterAngle, err, o, "coneOuterAngle",
-                      false);
-  ParseNumberProperty(&positional->coneOuterGain, err, o, "coneOuterGain",
-                      false);
-  ParseNumberProperty(&positional->maxDistance, err, o, "maxDistance", false);
-  ParseNumberProperty(&positional->refDistance, err, o, "refDistance", false);
-  ParseNumberProperty(&positional->rolloffFactor, err, o, "rolloffFactor",
-                      false);
-
-  ParseExtrasAndExtensions(positional, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool
-ParseAudioEmitter(AudioEmitter *emitter, std::string *err,
-                  const detail::json &o,
-                  bool store_original_json_for_extras_and_extensions) {
-  if (!ParseStringProperty(&emitter->type, err, o, "type", true)) {
-    return false;
-  }
-
-  if (emitter->type == "positional") {
-    detail::json_const_iterator positionalIt;
-    if (!detail::FindMember(o, "positional", positionalIt)) {
-      if (err) {
-        std::stringstream ss;
-        ss << "Positional emitter description not found." << std::endl;
-        (*err) += ss.str();
-      }
-      return false;
-    }
-
-    const detail::json &v = detail::GetValue(positionalIt);
-    if (!detail::IsObject(v)) {
-      if (err) {
-        std::stringstream ss;
-        ss << "\"positional\" is not a JSON object." << std::endl;
-        (*err) += ss.str();
-      }
-      return false;
-    }
-
-    if (!ParsePositionalEmitter(
-            &emitter->positional, err, v,
-            store_original_json_for_extras_and_extensions)) {
-      return false;
-    }
-  }
-
-  ParseStringProperty(&emitter->name, err, o, "name", false);
-  ParseNumberProperty(&emitter->gain, err, o, "gain", false);
-  ParseBooleanProperty(&emitter->loop, err, o, "loop", false);
-  ParseBooleanProperty(&emitter->playing, err, o, "playing", false);
-  ParseStringProperty(&emitter->distanceModel, err, o, "distanceModel", false);
-  ParseIntegerProperty(&emitter->source, err, o, "source", true);
-
-  ParseExtrasAndExtensions(emitter, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-static bool
-ParseAudioSource(AudioSource *source, std::string *err, const detail::json &o,
-                 bool store_original_json_for_extras_and_extensions) {
-  ParseStringProperty(&source->name, err, o, "name", false);
-  ParseStringProperty(&source->uri, err, o, "uri", false);
-
-  if (source->uri.empty()) {
-    ParseIntegerProperty(&source->bufferView, err, o, "bufferView", true);
-    ParseStringProperty(&source->mimeType, err, o, "mimeType", true);
-  }
-
-  ParseExtrasAndExtensions(source, err, o,
-                           store_original_json_for_extras_and_extensions);
-
-  return true;
-}
-
-namespace detail {
-
-template <typename Callback>
-bool ForEachInArray(const detail::json &_v, const char *member, Callback &&cb) {
-  detail::json_const_iterator itm;
-  if (detail::FindMember(_v, member, itm) &&
-      detail::IsArray(detail::GetValue(itm))) {
-    const detail::json &root = detail::GetValue(itm);
-    auto it = detail::ArrayBegin(root);
-    auto end = detail::ArrayEnd(root);
-    for (; it != end; ++it) {
-      if (!cb(*it))
-        return false;
-    }
-  }
-  return true;
+/* Primitive modes */
+#define TG3_MODE_POINTS         0
+#define TG3_MODE_LINE           1
+#define TG3_MODE_LINE_LOOP      2
+#define TG3_MODE_LINE_STRIP     3
+#define TG3_MODE_TRIANGLES      4
+#define TG3_MODE_TRIANGLE_STRIP 5
+#define TG3_MODE_TRIANGLE_FAN   6
+
+/* Component types */
+#define TG3_COMPONENT_TYPE_BYTE           5120
+#define TG3_COMPONENT_TYPE_UNSIGNED_BYTE  5121
+#define TG3_COMPONENT_TYPE_SHORT          5122
+#define TG3_COMPONENT_TYPE_UNSIGNED_SHORT 5123
+#define TG3_COMPONENT_TYPE_INT            5124
+#define TG3_COMPONENT_TYPE_UNSIGNED_INT   5125
+#define TG3_COMPONENT_TYPE_FLOAT          5126
+#define TG3_COMPONENT_TYPE_DOUBLE         5130
+
+/* Accessor types */
+#define TG3_TYPE_VEC2   2
+#define TG3_TYPE_VEC3   3
+#define TG3_TYPE_VEC4   4
+#define TG3_TYPE_MAT2   (32 + 2)
+#define TG3_TYPE_MAT3   (32 + 3)
+#define TG3_TYPE_MAT4   (32 + 4)
+#define TG3_TYPE_SCALAR (64 + 1)
+#define TG3_TYPE_VECTOR (64 + 4)
+#define TG3_TYPE_MATRIX (64 + 16)
+
+/* Texture filter */
+#define TG3_TEXTURE_FILTER_NEAREST                9728
+#define TG3_TEXTURE_FILTER_LINEAR                 9729
+#define TG3_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST 9984
+#define TG3_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST  9985
+#define TG3_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR  9986
+#define TG3_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR   9987
+
+/* Texture wrap */
+#define TG3_TEXTURE_WRAP_REPEAT          10497
+#define TG3_TEXTURE_WRAP_CLAMP_TO_EDGE   33071
+#define TG3_TEXTURE_WRAP_MIRRORED_REPEAT 33648
+
+/* Image format */
+#define TG3_IMAGE_FORMAT_JPEG 0
+#define TG3_IMAGE_FORMAT_PNG  1
+#define TG3_IMAGE_FORMAT_BMP  2
+#define TG3_IMAGE_FORMAT_GIF  3
+
+/* Texture format */
+#define TG3_TEXTURE_FORMAT_ALPHA           6406
+#define TG3_TEXTURE_FORMAT_RGB             6407
+#define TG3_TEXTURE_FORMAT_RGBA            6408
+#define TG3_TEXTURE_FORMAT_LUMINANCE       6409
+#define TG3_TEXTURE_FORMAT_LUMINANCE_ALPHA 6410
+
+/* Texture target / type */
+#define TG3_TEXTURE_TARGET_TEXTURE2D    3553
+#define TG3_TEXTURE_TYPE_UNSIGNED_BYTE  5121
+
+/* Buffer targets */
+#define TG3_TARGET_ARRAY_BUFFER         34962
+#define TG3_TARGET_ELEMENT_ARRAY_BUFFER 34963
+
+/* Sentinel for absent index */
+#define TG3_INDEX_NONE (-1)
+
+/* Section check flags */
+#define TG3_NO_REQUIRE       0x00
+#define TG3_REQUIRE_VERSION  0x01
+#define TG3_REQUIRE_SCENE    0x02
+#define TG3_REQUIRE_SCENES   0x04
+#define TG3_REQUIRE_NODES    0x08
+#define TG3_REQUIRE_ACCESSORS    0x10
+#define TG3_REQUIRE_BUFFERS      0x20
+#define TG3_REQUIRE_BUFFER_VIEWS 0x40
+#define TG3_REQUIRE_ALL          0x7f
+
+/* Parse strictness */
+typedef enum tg3_strictness {
+    TG3_PERMISSIVE = 0,
+    TG3_STRICT     = 1
+} tg3_strictness;
+
+/* ======================================================================
+ * Section 5: Foundation Types
+ * ====================================================================== */
+
+typedef struct tg3_str {
+    const char *data;
+    uint32_t    len;
+} tg3_str;
+
+typedef struct tg3_span_i32 {
+    const int32_t *data;
+    uint32_t       count;
+} tg3_span_i32;
+
+typedef struct tg3_span_f64 {
+    const double *data;
+    uint32_t      count;
+} tg3_span_f64;
+
+typedef struct tg3_span_u8 {
+    const uint8_t *data;
+    uint64_t       count;
+} tg3_span_u8;
+
+typedef struct tg3_str_int_pair {
+    tg3_str  key;
+    int32_t  value;
+} tg3_str_int_pair;
+
+/* ======================================================================
+ * Section 6: Allocator Interface
+ * ====================================================================== */
+
+typedef struct tg3_allocator {
+    void *(*alloc)(size_t size, void *user_data);
+    void *(*realloc)(void *ptr, size_t old_size, size_t new_size, void *user_data);
+    void  (*free)(void *ptr, size_t size, void *user_data);
+    void  *user_data;
+} tg3_allocator;
+
+/* ======================================================================
+ * Section 7: Error Reporting
+ * ====================================================================== */
+
+typedef enum tg3_severity {
+    TG3_SEVERITY_INFO    = 0,
+    TG3_SEVERITY_WARNING = 1,
+    TG3_SEVERITY_ERROR   = 2
+} tg3_severity;
+
+typedef enum tg3_error_code {
+    TG3_OK = 0,
+
+    /* I/O errors: 1-9 */
+    TG3_ERR_FILE_NOT_FOUND     = 1,
+    TG3_ERR_FILE_READ          = 2,
+    TG3_ERR_FILE_WRITE         = 3,
+    TG3_ERR_FILE_TOO_LARGE     = 4,
+
+    /* JSON errors: 10-19 */
+    TG3_ERR_JSON_PARSE         = 10,
+    TG3_ERR_JSON_TYPE_MISMATCH = 11,
+    TG3_ERR_JSON_MISSING_FIELD = 12,
+    TG3_ERR_JSON_INVALID_VALUE = 13,
+
+    /* GLB errors: 20-29 */
+    TG3_ERR_GLB_INVALID_MAGIC  = 20,
+    TG3_ERR_GLB_INVALID_VERSION = 21,
+    TG3_ERR_GLB_INVALID_HEADER = 22,
+    TG3_ERR_GLB_CHUNK_ERROR    = 23,
+    TG3_ERR_GLB_SIZE_MISMATCH  = 24,
+
+    /* Schema / validation errors: 30-49 */
+    TG3_ERR_MISSING_REQUIRED   = 30,
+    TG3_ERR_INVALID_INDEX      = 31,
+    TG3_ERR_INVALID_TYPE       = 32,
+    TG3_ERR_INVALID_VALUE      = 33,
+    TG3_ERR_INVALID_ACCESSOR   = 34,
+    TG3_ERR_INVALID_BUFFER     = 35,
+    TG3_ERR_INVALID_BUFFER_VIEW = 36,
+    TG3_ERR_INVALID_IMAGE      = 37,
+    TG3_ERR_INVALID_MATERIAL   = 38,
+    TG3_ERR_INVALID_MESH       = 39,
+    TG3_ERR_INVALID_NODE       = 40,
+    TG3_ERR_INVALID_ANIMATION  = 41,
+    TG3_ERR_INVALID_SKIN       = 42,
+    TG3_ERR_INVALID_CAMERA     = 43,
+    TG3_ERR_INVALID_SCENE      = 44,
+    TG3_ERR_BUFFER_SIZE_MISMATCH = 45,
+
+    /* Resource errors: 50-59 */
+    TG3_ERR_OUT_OF_MEMORY      = 50,
+    TG3_ERR_DATA_URI_DECODE    = 51,
+    TG3_ERR_BASE64_DECODE      = 52,
+    TG3_ERR_EXTERNAL_RESOURCE  = 53,
+    TG3_ERR_IMAGE_DECODE       = 54,
+
+    /* Callback errors: 60-69 */
+    TG3_ERR_CALLBACK_FAILED    = 60,
+    TG3_ERR_FS_NOT_AVAILABLE   = 61,
+
+    /* Streaming errors: 70-79 */
+    TG3_ERR_STREAM_ABORTED     = 70,
+
+    /* Writer errors: 80-89 */
+    TG3_ERR_WRITE_FAILED       = 80,
+    TG3_ERR_SERIALIZE_FAILED   = 81
+} tg3_error_code;
+
+typedef struct tg3_error_entry {
+    tg3_severity   severity;
+    tg3_error_code code;
+    const char    *message;     /* Arena-owned, null-terminated */
+    const char    *json_path;   /* e.g. "/meshes/0/primitives/1" or NULL */
+    int64_t        byte_offset; /* -1 if unknown */
+} tg3_error_entry;
+
+typedef struct tg3_error_stack {
+    tg3_error_entry *entries;
+    uint32_t         count;
+    uint32_t         capacity;
+    int32_t          has_error; /* 1 if any entry with severity == ERROR */
+} tg3_error_stack;
+
+/* Error stack query functions */
+TINYGLTF3_API int32_t  tg3_errors_has_error(const tg3_error_stack *es);
+TINYGLTF3_API uint32_t tg3_errors_count(const tg3_error_stack *es);
+TINYGLTF3_API const tg3_error_entry *tg3_errors_get(const tg3_error_stack *es,
+                                                     uint32_t index);
+
+/* ======================================================================
+ * Section 8: Generic Value Type (for extras/extensions)
+ * ====================================================================== */
+
+typedef enum tg3_value_type {
+    TG3_VALUE_NULL   = 0,
+    TG3_VALUE_BOOL   = 1,
+    TG3_VALUE_INT    = 2,
+    TG3_VALUE_REAL   = 3,
+    TG3_VALUE_STRING = 4,
+    TG3_VALUE_ARRAY  = 5,
+    TG3_VALUE_BINARY = 6,
+    TG3_VALUE_OBJECT = 7
+} tg3_value_type;
+
+typedef struct tg3_kv_pair tg3_kv_pair;
+
+typedef struct tg3_value {
+    tg3_value_type type;
+    union {
+        int32_t  bool_val;
+        int64_t  int_val;
+        double   real_val;
+    };
+    tg3_str                string_val;
+    const struct tg3_value *array_data;
+    uint32_t               array_count;
+    const tg3_kv_pair      *object_data;
+    uint32_t               object_count;
+    tg3_span_u8            binary_val;
+} tg3_value;
+
+struct tg3_kv_pair {
+    tg3_str   key;
+    tg3_value value;
 };
 
-} // end of namespace detail
+typedef struct tg3_extension {
+    tg3_str   name;
+    tg3_value value;
+} tg3_extension;
 
-bool TinyGLTF::LoadFromString(Model *model, std::string *err, std::string *warn,
-                              const char *json_str,
-                              unsigned int json_str_length,
-                              const std::string &base_dir,
-                              unsigned int check_sections) {
-  if (json_str_length < 4) {
-    if (err) {
-      (*err) = "JSON string too short.\n";
-    }
-    return false;
-  }
+typedef struct tg3_extras_ext {
+    const tg3_value     *extras;           /* NULL if absent */
+    const tg3_extension *extensions;       /* Array */
+    uint32_t             extensions_count;
+    tg3_str              extras_json;      /* Raw JSON if store_original_json */
+    tg3_str              extensions_json;
+} tg3_extras_ext;
 
-  detail::JsonDocument v;
+/* ======================================================================
+ * Section 9: Core POD Structs
+ * ====================================================================== */
 
-#if (defined(__cpp_exceptions) || defined(__EXCEPTIONS) ||                     \
-     defined(_CPPUNWIND)) &&                                                   \
-    !defined(TINYGLTF_NOEXCEPTION)
-  try {
-    detail::JsonParse(v, json_str, json_str_length, true);
+/* --- Asset --- */
+typedef struct tg3_asset {
+    tg3_str       version;    /* Required, e.g. "2.0" */
+    tg3_str       generator;
+    tg3_str       min_version;
+    tg3_str       copyright;
+    tg3_extras_ext ext;
+} tg3_asset;
 
-  } catch (const std::exception &e) {
-    if (err) {
-      (*err) = e.what();
-    }
-    return false;
-  }
-#else
-  {
-    detail::JsonParse(v, json_str, json_str_length);
+/* --- Buffer --- */
+typedef struct tg3_buffer {
+    tg3_str       name;
+    tg3_span_u8   data;
+    tg3_str       uri;
+    tg3_extras_ext ext;
+} tg3_buffer;
 
-    if (!detail::IsObject(v)) {
-      // Assume parsing was failed.
-      if (err) {
-        (*err) = "Failed to parse JSON object\n";
-      }
-      return false;
-    }
-  }
+/* --- BufferView --- */
+typedef struct tg3_buffer_view {
+    tg3_str       name;
+    int32_t       buffer;       /* Index, required */
+    uint64_t      byte_offset;
+    uint64_t      byte_length;  /* Required */
+    uint32_t      byte_stride;  /* 0 = tightly packed */
+    int32_t       target;       /* 0 = unspecified */
+    int32_t       draco_decoded;
+    tg3_extras_ext ext;
+} tg3_buffer_view;
+
+/* --- Accessor Sparse --- */
+typedef struct tg3_accessor_sparse_indices {
+    uint64_t  byte_offset;
+    int32_t   buffer_view; /* Required */
+    int32_t   component_type; /* Required */
+    tg3_extras_ext ext;
+} tg3_accessor_sparse_indices;
+
+typedef struct tg3_accessor_sparse_values {
+    int32_t   buffer_view; /* Required */
+    uint64_t  byte_offset;
+    tg3_extras_ext ext;
+} tg3_accessor_sparse_values;
+
+typedef struct tg3_accessor_sparse {
+    int32_t  count;      /* Required if sparse */
+    int32_t  is_sparse;  /* 0 or 1 */
+    tg3_accessor_sparse_indices indices;
+    tg3_accessor_sparse_values  values;
+    tg3_extras_ext ext;
+} tg3_accessor_sparse;
+
+/* --- Accessor --- */
+typedef struct tg3_accessor {
+    tg3_str       name;
+    int32_t       buffer_view;    /* -1 if absent */
+    uint64_t      byte_offset;
+    int32_t       normalized;     /* 0 or 1 */
+    int32_t       component_type; /* Required */
+    uint64_t      count;          /* Required */
+    int32_t       type;           /* Required: TG3_TYPE_* */
+    const double *min_values;
+    uint32_t      min_values_count;
+    const double *max_values;
+    uint32_t      max_values_count;
+    tg3_accessor_sparse sparse;
+    tg3_extras_ext ext;
+} tg3_accessor;
+
+/* --- Image --- */
+typedef struct tg3_image {
+    tg3_str       name;
+    int32_t       width;
+    int32_t       height;
+    int32_t       component;  /* Channels */
+    int32_t       bits;       /* Bits per channel */
+    int32_t       pixel_type; /* Component type */
+    tg3_span_u8   image;      /* Decoded pixel data (or raw if as_is) */
+    int32_t       buffer_view; /* -1 if absent */
+    tg3_str       mime_type;
+    tg3_str       uri;
+    int32_t       as_is;
+    tg3_extras_ext ext;
+} tg3_image;
+
+/* --- Sampler --- */
+typedef struct tg3_sampler {
+    tg3_str  name;
+    int32_t  min_filter;  /* -1 = unspecified */
+    int32_t  mag_filter;  /* -1 = unspecified */
+    int32_t  wrap_s;      /* Default: TG3_TEXTURE_WRAP_REPEAT */
+    int32_t  wrap_t;      /* Default: TG3_TEXTURE_WRAP_REPEAT */
+    tg3_extras_ext ext;
+} tg3_sampler;
+
+/* --- Texture --- */
+typedef struct tg3_texture {
+    tg3_str  name;
+    int32_t  sampler;  /* -1 if absent */
+    int32_t  source;   /* -1 if absent */
+    tg3_extras_ext ext;
+} tg3_texture;
+
+/* --- TextureInfo --- */
+typedef struct tg3_texture_info {
+    int32_t  index;     /* -1 if absent */
+    int32_t  tex_coord; /* Default: 0 */
+    tg3_extras_ext ext;
+} tg3_texture_info;
+
+/* --- NormalTextureInfo --- */
+typedef struct tg3_normal_texture_info {
+    int32_t  index;
+    int32_t  tex_coord;
+    double   scale;     /* Default: 1.0 */
+    tg3_extras_ext ext;
+} tg3_normal_texture_info;
+
+/* --- OcclusionTextureInfo --- */
+typedef struct tg3_occlusion_texture_info {
+    int32_t  index;
+    int32_t  tex_coord;
+    double   strength;  /* Default: 1.0 */
+    tg3_extras_ext ext;
+} tg3_occlusion_texture_info;
+
+/* --- PBR Metallic Roughness --- */
+typedef struct tg3_pbr_metallic_roughness {
+    double             base_color_factor[4]; /* Default: {1,1,1,1} */
+    tg3_texture_info   base_color_texture;
+    double             metallic_factor;      /* Default: 1.0 */
+    double             roughness_factor;     /* Default: 1.0 */
+    tg3_texture_info   metallic_roughness_texture;
+    tg3_extras_ext     ext;
+} tg3_pbr_metallic_roughness;
+
+/* --- Material --- */
+typedef struct tg3_material {
+    tg3_str                     name;
+    double                      emissive_factor[3]; /* Default: {0,0,0} */
+    tg3_str                     alpha_mode;         /* "OPAQUE","MASK","BLEND" */
+    double                      alpha_cutoff;       /* Default: 0.5 */
+    int32_t                     double_sided;       /* 0 or 1 */
+    const int32_t              *lods;
+    uint32_t                    lods_count;
+    tg3_pbr_metallic_roughness  pbr_metallic_roughness;
+    tg3_normal_texture_info     normal_texture;
+    tg3_occlusion_texture_info  occlusion_texture;
+    tg3_texture_info            emissive_texture;
+    tg3_extras_ext              ext;
+} tg3_material;
+
+/* --- Primitive --- */
+typedef struct tg3_primitive {
+    const tg3_str_int_pair *attributes;
+    uint32_t                attributes_count;
+    int32_t                 material;  /* -1 if absent */
+    int32_t                 indices;   /* -1 if absent */
+    int32_t                 mode;      /* -1 = default (TRIANGLES) */
+
+    /* Morph targets: array of arrays of attribute pairs */
+    const tg3_str_int_pair *const *targets;
+    const uint32_t         *target_attribute_counts;
+    uint32_t                targets_count;
+
+    tg3_extras_ext ext;
+} tg3_primitive;
+
+/* --- Mesh --- */
+typedef struct tg3_mesh {
+    tg3_str              name;
+    const tg3_primitive *primitives;
+    uint32_t             primitives_count;
+    const double        *weights;
+    uint32_t             weights_count;
+    tg3_extras_ext       ext;
+} tg3_mesh;
+
+/* --- Node --- */
+typedef struct tg3_node {
+    tg3_str       name;
+    int32_t       camera;     /* -1 if absent */
+    int32_t       skin;       /* -1 if absent */
+    int32_t       mesh;       /* -1 if absent */
+    int32_t       light;      /* -1 if absent (KHR_lights_punctual) */
+    int32_t       emitter;    /* -1 if absent (KHR_audio) */
+
+    const int32_t *lods;
+    uint32_t       lods_count;
+    const int32_t *children;
+    uint32_t       children_count;
+
+    double         rotation[4];     /* Default: {0,0,0,1} */
+    double         scale[3];        /* Default: {1,1,1} */
+    double         translation[3];  /* Default: {0,0,0} */
+    double         matrix[16];      /* Identity if not set */
+    int32_t        has_matrix;      /* 1 if matrix was specified */
+
+    const double  *weights;
+    uint32_t       weights_count;
+
+    tg3_extras_ext ext;
+} tg3_node;
+
+/* --- Skin --- */
+typedef struct tg3_skin {
+    tg3_str        name;
+    int32_t        inverse_bind_matrices; /* -1 if absent */
+    int32_t        skeleton;              /* -1 if absent */
+    const int32_t *joints;
+    uint32_t       joints_count;
+    tg3_extras_ext ext;
+} tg3_skin;
+
+/* --- Animation --- */
+typedef struct tg3_animation_channel_target {
+    int32_t  node;    /* -1 if absent */
+    tg3_str  path;    /* "translation","rotation","scale","weights" */
+    tg3_extras_ext ext;
+} tg3_animation_channel_target;
+
+typedef struct tg3_animation_channel {
+    int32_t  sampler; /* Required */
+    tg3_animation_channel_target target;
+    tg3_extras_ext ext;
+} tg3_animation_channel;
+
+typedef struct tg3_animation_sampler {
+    int32_t  input;          /* Required */
+    int32_t  output;         /* Required */
+    tg3_str  interpolation;  /* "LINEAR","STEP","CUBICSPLINE" */
+    tg3_extras_ext ext;
+} tg3_animation_sampler;
+
+typedef struct tg3_animation {
+    tg3_str                      name;
+    const tg3_animation_channel *channels;
+    uint32_t                     channels_count;
+    const tg3_animation_sampler *samplers;
+    uint32_t                     samplers_count;
+    tg3_extras_ext               ext;
+} tg3_animation;
+
+/* --- Camera --- */
+typedef struct tg3_perspective_camera {
+    double aspect_ratio;
+    double yfov;
+    double zfar;  /* 0 = infinite */
+    double znear;
+    tg3_extras_ext ext;
+} tg3_perspective_camera;
+
+typedef struct tg3_orthographic_camera {
+    double xmag;
+    double ymag;
+    double zfar;
+    double znear;
+    tg3_extras_ext ext;
+} tg3_orthographic_camera;
+
+typedef struct tg3_camera {
+    tg3_str                  name;
+    tg3_str                  type; /* "perspective" or "orthographic" */
+    tg3_perspective_camera   perspective;
+    tg3_orthographic_camera  orthographic;
+    tg3_extras_ext           ext;
+} tg3_camera;
+
+/* --- Scene --- */
+typedef struct tg3_scene {
+    tg3_str        name;
+    const int32_t *nodes;
+    uint32_t       nodes_count;
+    const int32_t *audio_emitters;
+    uint32_t       audio_emitters_count;
+    tg3_extras_ext ext;
+} tg3_scene;
+
+/* --- Light (KHR_lights_punctual) --- */
+typedef struct tg3_spot_light {
+    double inner_cone_angle; /* Default: 0 */
+    double outer_cone_angle; /* Default: PI/4 */
+    tg3_extras_ext ext;
+} tg3_spot_light;
+
+typedef struct tg3_light {
+    tg3_str        name;
+    double         color[3];    /* Default: {1,1,1} */
+    double         intensity;   /* Default: 1.0 */
+    tg3_str        type;        /* "directional","point","spot" */
+    double         range;       /* Default: 0 (infinite) */
+    tg3_spot_light spot;
+    tg3_extras_ext ext;
+} tg3_light;
+
+/* --- Audio (KHR_audio) --- */
+typedef struct tg3_audio_source {
+    tg3_str        name;
+    tg3_str        uri;
+    int32_t        buffer_view; /* -1 if absent */
+    tg3_str        mime_type;
+    tg3_extras_ext ext;
+} tg3_audio_source;
+
+typedef struct tg3_positional_emitter {
+    double cone_inner_angle;   /* Default: 2*PI */
+    double cone_outer_angle;   /* Default: 2*PI */
+    double cone_outer_gain;    /* Default: 0 */
+    double max_distance;       /* Default: 100 */
+    double ref_distance;       /* Default: 1 */
+    double rolloff_factor;     /* Default: 1 */
+    tg3_extras_ext ext;
+} tg3_positional_emitter;
+
+typedef struct tg3_audio_emitter {
+    tg3_str              name;
+    double               gain;           /* Default: 1.0 */
+    int32_t              loop;           /* Default: 0 */
+    int32_t              playing;        /* Default: 0 */
+    tg3_str              type;           /* "positional" or "global" */
+    tg3_str              distance_model; /* "linear","inverse","exponential" */
+    tg3_positional_emitter positional;
+    int32_t              source;         /* -1 if absent */
+    tg3_extras_ext       ext;
+} tg3_audio_emitter;
+
+/* ======================================================================
+ * Section 10: Model Container
+ * ====================================================================== */
+
+/* Opaque arena type */
+struct tg3_arena;
+
+typedef struct tg3_model {
+    struct tg3_arena *arena_;  /* Internal, all memory owned here */
+
+    const tg3_accessor      *accessors;      uint32_t accessors_count;
+    const tg3_animation     *animations;     uint32_t animations_count;
+    const tg3_buffer        *buffers;        uint32_t buffers_count;
+    const tg3_buffer_view   *buffer_views;   uint32_t buffer_views_count;
+    const tg3_material      *materials;      uint32_t materials_count;
+    const tg3_mesh          *meshes;         uint32_t meshes_count;
+    const tg3_node          *nodes;          uint32_t nodes_count;
+    const tg3_texture       *textures;       uint32_t textures_count;
+    const tg3_image         *images;         uint32_t images_count;
+    const tg3_skin          *skins;          uint32_t skins_count;
+    const tg3_sampler       *samplers;       uint32_t samplers_count;
+    const tg3_camera        *cameras;        uint32_t cameras_count;
+    const tg3_scene         *scenes;         uint32_t scenes_count;
+    const tg3_light         *lights;         uint32_t lights_count;
+    const tg3_audio_emitter *audio_emitters; uint32_t audio_emitters_count;
+    const tg3_audio_source  *audio_sources;  uint32_t audio_sources_count;
+
+    int32_t    default_scene;
+    const tg3_str *extensions_used;      uint32_t extensions_used_count;
+    const tg3_str *extensions_required;  uint32_t extensions_required_count;
+    tg3_asset  asset;
+    tg3_extras_ext ext;
+} tg3_model;
+
+/* ======================================================================
+ * Section 11: Callback Typedefs
+ * ====================================================================== */
+
+/* --- Filesystem Callbacks --- */
+
+typedef int32_t (*tg3_file_exists_fn)(const char *path, uint32_t path_len,
+                                      void *user_data);
+
+typedef int32_t (*tg3_read_file_fn)(uint8_t **out_data, uint64_t *out_size,
+                                    const char *path, uint32_t path_len,
+                                    void *user_data);
+
+typedef void (*tg3_free_file_fn)(uint8_t *data, uint64_t size,
+                                  void *user_data);
+
+typedef int32_t (*tg3_write_file_fn)(const char *path, uint32_t path_len,
+                                     const uint8_t *data, uint64_t size,
+                                     void *user_data);
+
+typedef int32_t (*tg3_resolve_path_fn)(char *out_path, uint32_t out_cap,
+                                       uint32_t *out_len,
+                                       const char *path, uint32_t path_len,
+                                       void *user_data);
+
+typedef int32_t (*tg3_get_file_size_fn)(uint64_t *out_size,
+                                        const char *path, uint32_t path_len,
+                                        void *user_data);
+
+typedef struct tg3_fs_callbacks {
+    tg3_file_exists_fn   file_exists;
+    tg3_read_file_fn     read_file;
+    tg3_free_file_fn     free_file;
+    tg3_write_file_fn    write_file;
+    tg3_resolve_path_fn  resolve_path;
+    tg3_get_file_size_fn get_file_size;
+    void                *user_data;
+} tg3_fs_callbacks;
+
+/* --- Image Callbacks --- */
+
+typedef struct tg3_image_request {
+    const uint8_t *data;
+    uint64_t       data_size;
+    int32_t        image_index;
+    int32_t        req_width;
+    int32_t        req_height;
+    const char    *mime_type;
+} tg3_image_request;
+
+typedef struct tg3_image_result {
+    uint8_t  *pixels;     /* Caller must allocate */
+    int32_t   width;
+    int32_t   height;
+    int32_t   component;
+    int32_t   bits;
+    int32_t   pixel_type;
+} tg3_image_result;
+
+typedef int32_t (*tg3_load_image_fn)(tg3_image_result *result,
+                                     const tg3_image_request *request,
+                                     void *user_data);
+
+typedef void (*tg3_free_image_fn)(uint8_t *pixels, void *user_data);
+
+typedef struct tg3_image_callbacks {
+    tg3_load_image_fn  load_image;
+    tg3_free_image_fn  free_image;
+    void              *user_data;
+} tg3_image_callbacks;
+
+/* --- URI Callbacks --- */
+
+typedef int32_t (*tg3_uri_encode_fn)(char *out, uint32_t out_cap,
+                                     uint32_t *out_len,
+                                     const char *uri, uint32_t uri_len,
+                                     const char *obj_type,
+                                     void *user_data);
+
+typedef int32_t (*tg3_uri_decode_fn)(char *out, uint32_t out_cap,
+                                     uint32_t *out_len,
+                                     const char *uri, uint32_t uri_len,
+                                     void *user_data);
+
+typedef struct tg3_uri_callbacks {
+    tg3_uri_encode_fn encode;
+    tg3_uri_decode_fn decode;
+    void             *user_data;
+} tg3_uri_callbacks;
+
+/* --- Streaming Callbacks --- */
+
+typedef enum tg3_stream_action {
+    TG3_STREAM_CONTINUE = 0,
+    TG3_STREAM_ABORT    = 1,
+    TG3_STREAM_SKIP     = 2
+} tg3_stream_action;
+
+typedef tg3_stream_action (*tg3_on_asset_fn)(const tg3_asset *a, void *ud);
+typedef tg3_stream_action (*tg3_on_buffer_fn)(const tg3_buffer *b, int32_t idx, void *ud);
+typedef tg3_stream_action (*tg3_on_buffer_view_fn)(const tg3_buffer_view *bv, int32_t idx, void *ud);
+typedef tg3_stream_action (*tg3_on_accessor_fn)(const tg3_accessor *a, int32_t idx, void *ud);
+typedef tg3_stream_action (*tg3_on_mesh_fn)(const tg3_mesh *m, int32_t idx, void *ud);
+typedef tg3_stream_action (*tg3_on_node_fn)(const tg3_node *n, int32_t idx, void *ud);
+typedef tg3_stream_action (*tg3_on_material_fn)(const tg3_material *m, int32_t idx, void *ud);
+typedef tg3_stream_action (*tg3_on_texture_fn)(const tg3_texture *t, int32_t idx, void *ud);
+typedef tg3_stream_action (*tg3_on_image_fn)(const tg3_image *img, int32_t idx, void *ud);
+typedef tg3_stream_action (*tg3_on_sampler_fn)(const tg3_sampler *s, int32_t idx, void *ud);
+typedef tg3_stream_action (*tg3_on_animation_fn)(const tg3_animation *a, int32_t idx, void *ud);
+typedef tg3_stream_action (*tg3_on_skin_fn)(const tg3_skin *s, int32_t idx, void *ud);
+typedef tg3_stream_action (*tg3_on_camera_fn)(const tg3_camera *c, int32_t idx, void *ud);
+typedef tg3_stream_action (*tg3_on_scene_fn)(const tg3_scene *s, int32_t idx, void *ud);
+typedef tg3_stream_action (*tg3_on_light_fn)(const tg3_light *l, int32_t idx, void *ud);
+
+typedef struct tg3_stream_callbacks {
+    tg3_on_asset_fn       on_asset;
+    tg3_on_buffer_fn      on_buffer;
+    tg3_on_buffer_view_fn on_buffer_view;
+    tg3_on_accessor_fn    on_accessor;
+    tg3_on_mesh_fn        on_mesh;
+    tg3_on_node_fn        on_node;
+    tg3_on_material_fn    on_material;
+    tg3_on_texture_fn     on_texture;
+    tg3_on_image_fn       on_image;
+    tg3_on_sampler_fn     on_sampler;
+    tg3_on_animation_fn   on_animation;
+    tg3_on_skin_fn        on_skin;
+    tg3_on_camera_fn      on_camera;
+    tg3_on_scene_fn       on_scene;
+    tg3_on_light_fn       on_light;
+    void                 *user_data;
+} tg3_stream_callbacks;
+
+/* --- Progress Callback --- */
+
+typedef struct tg3_progress_info {
+    uint64_t    bytes_processed;
+    uint64_t    bytes_total;
+    uint32_t    elements_parsed;
+    const char *current_section; /* e.g. "meshes", "nodes" */
+} tg3_progress_info;
+
+typedef int32_t (*tg3_progress_fn)(const tg3_progress_info *info,
+                                    void *user_data);
+
+/* --- Write Chunk Callback (for streaming writer) --- */
+
+typedef int32_t (*tg3_write_chunk_fn)(const uint8_t *data, uint64_t size,
+                                      void *user_data);
+
+/* ======================================================================
+ * Section 12: Options Structs
+ * ====================================================================== */
+
+typedef struct tg3_memory_config {
+    uint64_t       memory_budget;     /* 0 = use TINYGLTF3_MAX_MEMORY_BYTES */
+    uint64_t       max_single_alloc;  /* 0 = no limit */
+    uint32_t       arena_block_size;  /* 0 = default (256KB) */
+    tg3_allocator  allocator;         /* All zero = use malloc/free */
+} tg3_memory_config;
+
+typedef struct tg3_parse_options {
+    uint32_t             required_sections; /* TG3_REQUIRE_* flags */
+    tg3_strictness       strictness;
+    tg3_memory_config    memory;
+
+    tg3_fs_callbacks     fs;
+    tg3_uri_callbacks    uri;
+    tg3_image_callbacks  image;
+    tg3_stream_callbacks *stream;  /* NULL = no streaming */
+    tg3_progress_fn      progress;
+    void                *progress_user_data;
+
+    int32_t  images_as_is;              /* 1 = don't decode images */
+    int32_t  preserve_image_channels;   /* 1 = keep original channels */
+    int32_t  store_original_json;       /* 1 = store raw JSON strings */
+    int32_t  parse_float32;            /* 1 = parse JSON floats as float32 for speed
+                                        *     (breaks strict double-precision conformance
+                                        *      but sufficient for glTF data which is
+                                        *      typically single-precision anyway) */
+    uint64_t max_external_file_size;    /* 0 = no limit */
+} tg3_parse_options;
+
+typedef struct tg3_write_options {
+    int32_t          pretty_print;     /* 1 = indented JSON */
+    int32_t          write_binary;     /* 1 = GLB format */
+    int32_t          embed_images;     /* 1 = embed as data URIs */
+    int32_t          embed_buffers;    /* 1 = embed as data URIs */
+    int32_t          serialize_defaults; /* 1 = write default values */
+    tg3_fs_callbacks fs;
+    tg3_uri_callbacks uri;
+    tg3_memory_config memory;
+} tg3_write_options;
+
+/* ======================================================================
+ * Section 13: Parser API
+ * ====================================================================== */
+
+/* Parse JSON glTF from memory */
+TINYGLTF3_API tg3_error_code tg3_parse(
+    tg3_model *model, tg3_error_stack *errors,
+    const uint8_t *json_data, uint64_t json_size,
+    const char *base_dir, uint32_t base_dir_len,
+    const tg3_parse_options *options);
+
+/* Parse GLB from memory */
+TINYGLTF3_API tg3_error_code tg3_parse_glb(
+    tg3_model *model, tg3_error_stack *errors,
+    const uint8_t *glb_data, uint64_t glb_size,
+    const char *base_dir, uint32_t base_dir_len,
+    const tg3_parse_options *options);
+
+/* Auto-detect format (JSON or GLB) and parse */
+TINYGLTF3_API tg3_error_code tg3_parse_auto(
+    tg3_model *model, tg3_error_stack *errors,
+    const uint8_t *data, uint64_t size,
+    const char *base_dir, uint32_t base_dir_len,
+    const tg3_parse_options *options);
+
+/* Parse from file (requires fs callbacks or TINYGLTF3_ENABLE_FS) */
+TINYGLTF3_API tg3_error_code tg3_parse_file(
+    tg3_model *model, tg3_error_stack *errors,
+    const char *filename, uint32_t filename_len,
+    const tg3_parse_options *options);
+
+/* Free model and all arena memory */
+TINYGLTF3_API void tg3_model_free(tg3_model *model);
+
+/* Initialize options to defaults */
+TINYGLTF3_API void tg3_parse_options_init(tg3_parse_options *options);
+TINYGLTF3_API void tg3_write_options_init(tg3_write_options *options);
+
+/* Initialize error stack */
+TINYGLTF3_API void tg3_error_stack_init(tg3_error_stack *es);
+TINYGLTF3_API void tg3_error_stack_free(tg3_error_stack *es);
+
+/* ======================================================================
+ * Section 14: Writer API
+ * ====================================================================== */
+
+/* Write model to memory buffer */
+TINYGLTF3_API tg3_error_code tg3_write_to_memory(
+    const tg3_model *model, tg3_error_stack *errors,
+    uint8_t **out_data, uint64_t *out_size,
+    const tg3_write_options *options);
+
+/* Write model to file */
+TINYGLTF3_API tg3_error_code tg3_write_to_file(
+    const tg3_model *model, tg3_error_stack *errors,
+    const char *filename, uint32_t filename_len,
+    const tg3_write_options *options);
+
+/* Free memory from tg3_write_to_memory */
+TINYGLTF3_API void tg3_write_free(uint8_t *data, const tg3_write_options *options);
+
+/* --- Streaming Writer --- */
+
+typedef struct tg3_writer tg3_writer;
+
+TINYGLTF3_API tg3_writer *tg3_writer_create(
+    tg3_write_chunk_fn chunk_fn, void *user_data,
+    const tg3_write_options *options);
+
+TINYGLTF3_API tg3_error_code tg3_writer_begin(tg3_writer *w, const tg3_asset *asset);
+TINYGLTF3_API tg3_error_code tg3_writer_add_buffer(tg3_writer *w, const tg3_buffer *buf);
+TINYGLTF3_API tg3_error_code tg3_writer_add_buffer_view(tg3_writer *w, const tg3_buffer_view *bv);
+TINYGLTF3_API tg3_error_code tg3_writer_add_accessor(tg3_writer *w, const tg3_accessor *acc);
+TINYGLTF3_API tg3_error_code tg3_writer_add_mesh(tg3_writer *w, const tg3_mesh *mesh);
+TINYGLTF3_API tg3_error_code tg3_writer_add_node(tg3_writer *w, const tg3_node *node);
+TINYGLTF3_API tg3_error_code tg3_writer_add_material(tg3_writer *w, const tg3_material *mat);
+TINYGLTF3_API tg3_error_code tg3_writer_add_texture(tg3_writer *w, const tg3_texture *tex);
+TINYGLTF3_API tg3_error_code tg3_writer_add_image(tg3_writer *w, const tg3_image *img);
+TINYGLTF3_API tg3_error_code tg3_writer_add_sampler(tg3_writer *w, const tg3_sampler *samp);
+TINYGLTF3_API tg3_error_code tg3_writer_add_animation(tg3_writer *w, const tg3_animation *anim);
+TINYGLTF3_API tg3_error_code tg3_writer_add_skin(tg3_writer *w, const tg3_skin *skin);
+TINYGLTF3_API tg3_error_code tg3_writer_add_camera(tg3_writer *w, const tg3_camera *cam);
+TINYGLTF3_API tg3_error_code tg3_writer_add_scene(tg3_writer *w, const tg3_scene *scene);
+TINYGLTF3_API tg3_error_code tg3_writer_add_light(tg3_writer *w, const tg3_light *light);
+TINYGLTF3_API tg3_error_code tg3_writer_end(tg3_writer *w);
+TINYGLTF3_API void           tg3_writer_destroy(tg3_writer *w);
+
+/* ======================================================================
+ * Section 15: Utility Functions
+ * ====================================================================== */
+
+/* Get component size in bytes */
+TINYGLTF3_API int32_t tg3_component_size(int32_t component_type);
+
+/* Get number of components for a type */
+TINYGLTF3_API int32_t tg3_num_components(int32_t type);
+
+/* Compute byte stride for an accessor */
+TINYGLTF3_API int32_t tg3_accessor_byte_stride(const tg3_accessor *accessor,
+                                                const tg3_buffer_view *buffer_view);
+
+/* Check if a string is a data URI */
+TINYGLTF3_API int32_t tg3_is_data_uri(const char *uri, uint32_t len);
+
+/* tg3_str helpers */
+TINYGLTF3_API int32_t tg3_str_equals(tg3_str a, tg3_str b);
+TINYGLTF3_API int32_t tg3_str_equals_cstr(tg3_str a, const char *b);
+
+#ifdef __cplusplus
+} /* extern "C" */
 #endif
 
-  if (!detail::IsObject(v)) {
-    // root is not an object.
-    if (err) {
-      (*err) = "Root element is not a JSON object\n";
+/* ======================================================================
+ * Section 16: C++ Convenience Wrappers
+ * ====================================================================== */
+
+#ifdef __cplusplus
+namespace tinygltf3 {
+
+/* RAII model wrapper */
+class Model {
+public:
+    Model() { memset(&m_, 0, sizeof(m_)); m_.default_scene = -1; }
+    ~Model() { tg3_model_free(&m_); }
+
+    Model(const Model &) = delete;
+    Model &operator=(const Model &) = delete;
+    Model(Model &&o) noexcept : m_(o.m_) { memset(&o.m_, 0, sizeof(o.m_)); }
+    Model &operator=(Model &&o) noexcept {
+        if (this != &o) { tg3_model_free(&m_); m_ = o.m_; memset(&o.m_, 0, sizeof(o.m_)); }
+        return *this;
     }
-    return false;
-  }
 
-  {
-    bool version_found = false;
-    detail::json_const_iterator it;
-    if (detail::FindMember(v, "asset", it) &&
-        detail::IsObject(detail::GetValue(it))) {
-      auto &itObj = detail::GetValue(it);
-      detail::json_const_iterator version_it;
-      std::string versionStr;
-      if (detail::FindMember(itObj, "version", version_it) &&
-          detail::GetString(detail::GetValue(version_it), versionStr)) {
-        version_found = true;
-      }
-    }
-    if (version_found) {
-      // OK
-    } else if (check_sections & REQUIRE_VERSION) {
-      if (err) {
-        (*err) += "\"asset\" object not found in .gltf or not an object type\n";
-      }
-      return false;
-    }
-  }
-
-  // scene is not mandatory.
-  // FIXME Maybe a better way to handle it than removing the code
-
-  auto IsArrayMemberPresent = [](const detail::json &_v,
-                                 const char *name) -> bool {
-    detail::json_const_iterator it;
-    return detail::FindMember(_v, name, it) &&
-           detail::IsArray(detail::GetValue(it));
-  };
-
-  {
-    if ((check_sections & REQUIRE_SCENES) &&
-        !IsArrayMemberPresent(v, "scenes")) {
-      if (err) {
-        (*err) += "\"scenes\" object not found in .gltf or not an array type\n";
-      }
-      return false;
-    }
-  }
-
-  {
-    if ((check_sections & REQUIRE_NODES) && !IsArrayMemberPresent(v, "nodes")) {
-      if (err) {
-        (*err) += "\"nodes\" object not found in .gltf\n";
-      }
-      return false;
-    }
-  }
-
-  {
-    if ((check_sections & REQUIRE_ACCESSORS) &&
-        !IsArrayMemberPresent(v, "accessors")) {
-      if (err) {
-        (*err) += "\"accessors\" object not found in .gltf\n";
-      }
-      return false;
-    }
-  }
-
-  {
-    if ((check_sections & REQUIRE_BUFFERS) &&
-        !IsArrayMemberPresent(v, "buffers")) {
-      if (err) {
-        (*err) += "\"buffers\" object not found in .gltf\n";
-      }
-      return false;
-    }
-  }
-
-  {
-    if ((check_sections & REQUIRE_BUFFER_VIEWS) &&
-        !IsArrayMemberPresent(v, "bufferViews")) {
-      if (err) {
-        (*err) += "\"bufferViews\" object not found in .gltf\n";
-      }
-      return false;
-    }
-  }
-
-  // Reset the model
-  (*model) = Model();
-
-  // 1. Parse Asset
-  {
-    detail::json_const_iterator it;
-    if (detail::FindMember(v, "asset", it) &&
-        detail::IsObject(detail::GetValue(it))) {
-      const detail::json &root = detail::GetValue(it);
-
-      ParseAsset(&model->asset, err, root,
-                 store_original_json_for_extras_and_extensions_);
-    }
-  }
-
-  using detail::ForEachInArray;
-
-  // 2. Parse extensionUsed
-  {
-    ForEachInArray(v, "extensionsUsed", [&](const detail::json &o) {
-      std::string str;
-      detail::GetString(o, str);
-      model->extensionsUsed.emplace_back(std::move(str));
-      return true;
-    });
-  }
-
-  {
-    ForEachInArray(v, "extensionsRequired", [&](const detail::json &o) {
-      std::string str;
-      detail::GetString(o, str);
-      model->extensionsRequired.emplace_back(std::move(str));
-      return true;
-    });
-  }
-
-  // 3. Parse Buffer
-  {
-    bool success = ForEachInArray(v, "buffers", [&](const detail::json &o) {
-      if (!detail::IsObject(o)) {
-        if (err) {
-          (*err) += "`buffers' does not contain an JSON object.";
-        }
-        return false;
-      }
-      Buffer buffer;
-      if (!ParseBuffer(&buffer, err, o,
-                       store_original_json_for_extras_and_extensions_, &fs,
-                       &uri_cb, base_dir, max_external_file_size_, is_binary_,
-                       bin_data_, bin_size_)) {
-        return false;
-      }
-
-      model->buffers.emplace_back(std::move(buffer));
-      return true;
-    });
-
-    if (!success) {
-      return false;
-    }
-  }
-  // 4. Parse BufferView
-  {
-    bool success = ForEachInArray(v, "bufferViews", [&](const detail::json &o) {
-      if (!detail::IsObject(o)) {
-        if (err) {
-          (*err) += "`bufferViews' does not contain an JSON object.";
-        }
-        return false;
-      }
-      BufferView bufferView;
-      if (!ParseBufferView(&bufferView, err, o,
-                           store_original_json_for_extras_and_extensions_)) {
-        return false;
-      }
-
-      model->bufferViews.emplace_back(std::move(bufferView));
-      return true;
-    });
-
-    if (!success) {
-      return false;
-    }
-  }
-
-  // 5. Parse Accessor
-  {
-    bool success = ForEachInArray(v, "accessors", [&](const detail::json &o) {
-      if (!detail::IsObject(o)) {
-        if (err) {
-          (*err) += "`accessors' does not contain an JSON object.";
-        }
-        return false;
-      }
-      Accessor accessor;
-      if (!ParseAccessor(&accessor, err, o,
-                         store_original_json_for_extras_and_extensions_)) {
-        return false;
-      }
-
-      model->accessors.emplace_back(std::move(accessor));
-      return true;
-    });
-
-    if (!success) {
-      return false;
-    }
-  }
-
-  // 6. Parse Mesh
-  {
-    bool success = ForEachInArray(v, "meshes", [&](const detail::json &o) {
-      if (!detail::IsObject(o)) {
-        if (err) {
-          (*err) += "`meshes' does not contain an JSON object.";
-        }
-        return false;
-      }
-      Mesh mesh;
-      if (!ParseMesh(&mesh, model, err, warn, o,
-                     store_original_json_for_extras_and_extensions_,
-                     strictness_)) {
-        return false;
-      }
-
-      model->meshes.emplace_back(std::move(mesh));
-      return true;
-    });
-
-    if (!success) {
-      return false;
-    }
-  }
-
-  // Assign missing bufferView target types
-  // - Look for missing Mesh indices
-  // - Look for missing Mesh attributes
-  for (auto &mesh : model->meshes) {
-    for (auto &primitive : mesh.primitives) {
-      if (primitive.indices >
-          -1) // has indices from parsing step, must be Element Array Buffer
-      {
-        if (size_t(primitive.indices) >= model->accessors.size()) {
-          if (err) {
-            (*err) += "primitive indices accessor out of bounds";
-          }
-          return false;
-        }
-
-        const auto bufferView =
-            model->accessors[size_t(primitive.indices)].bufferView;
-        if (bufferView < 0) {
-          // skip, bufferView could be null(-1) for certain extensions
-        } else if (size_t(bufferView) >= model->bufferViews.size()) {
-          if (err) {
-            (*err) += "accessor[" + std::to_string(primitive.indices) +
-                      "] invalid bufferView";
-          }
-          return false;
-        } else {
-          model->bufferViews[size_t(bufferView)].target =
-              TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER;
-          // we could optionally check if accessors' bufferView type is Scalar,
-          // as it should be
-        }
-      }
-
-      for (auto &attribute : primitive.attributes) {
-        const auto accessorsIndex = size_t(attribute.second);
-        if (accessorsIndex < model->accessors.size()) {
-          const auto bufferView = model->accessors[accessorsIndex].bufferView;
-          // bufferView could be null(-1) for sparse morph target
-          if (bufferView >= 0 && bufferView < (int)model->bufferViews.size()) {
-            model->bufferViews[size_t(bufferView)].target =
-                TINYGLTF_TARGET_ARRAY_BUFFER;
-          }
-        }
-      }
-
-      for (auto &target : primitive.targets) {
-        for (auto &attribute : target) {
-          const auto accessorsIndex = size_t(attribute.second);
-          if (accessorsIndex < model->accessors.size()) {
-            const auto bufferView = model->accessors[accessorsIndex].bufferView;
-            // bufferView could be null(-1) for sparse morph target
-            if (bufferView >= 0 &&
-                bufferView < (int)model->bufferViews.size()) {
-              model->bufferViews[size_t(bufferView)].target =
-                  TINYGLTF_TARGET_ARRAY_BUFFER;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // 7. Parse Node
-  {
-    bool success = ForEachInArray(v, "nodes", [&](const detail::json &o) {
-      if (!detail::IsObject(o)) {
-        if (err) {
-          (*err) += "`nodes' does not contain an JSON object.";
-        }
-        return false;
-      }
-      Node node;
-      if (!ParseNode(&node, err, o,
-                     store_original_json_for_extras_and_extensions_)) {
-        return false;
-      }
-
-      model->nodes.emplace_back(std::move(node));
-      return true;
-    });
-
-    if (!success) {
-      return false;
-    }
-  }
-
-  // 8. Parse scenes.
-  {
-    bool success = ForEachInArray(v, "scenes", [&](const detail::json &o) {
-      if (!detail::IsObject(o)) {
-        if (err) {
-          (*err) += "`scenes' does not contain an JSON object.";
-        }
-        return false;
-      }
-
-      Scene scene;
-      if (!ParseScene(&scene, err, o,
-                      store_original_json_for_extras_and_extensions_)) {
-        return false;
-      }
-
-      model->scenes.emplace_back(std::move(scene));
-      return true;
-    });
-
-    if (!success) {
-      return false;
-    }
-  }
-
-  // 9. Parse default scenes.
-  {
-    detail::json_const_iterator rootIt;
-    int iVal;
-    if (detail::FindMember(v, "scene", rootIt) &&
-        detail::GetInt(detail::GetValue(rootIt), iVal)) {
-      model->defaultScene = iVal;
-    }
-  }
-
-  // 10. Parse Material
-  {
-    bool success = ForEachInArray(v, "materials", [&](const detail::json &o) {
-      if (!detail::IsObject(o)) {
-        if (err) {
-          (*err) += "`materials' does not contain an JSON object.";
-        }
-        return false;
-      }
-      Material material;
-      ParseStringProperty(&material.name, err, o, "name", false);
-
-      if (!ParseMaterial(&material, err, warn, o,
-                         store_original_json_for_extras_and_extensions_,
-                         strictness_)) {
-        return false;
-      }
-
-      model->materials.emplace_back(std::move(material));
-      return true;
-    });
-
-    if (!success) {
-      return false;
-    }
-  }
-
-  // 11. Parse Image
-  void *load_image_user_data{nullptr};
-
-  LoadImageDataOption load_image_option;
-
-  if (user_image_loader_) {
-    // Use user supplied pointer
-    load_image_user_data = load_image_user_data_;
-  } else {
-    load_image_option.preserve_channels = preserve_image_channels_;
-    load_image_option.as_is = images_as_is_;
-    load_image_user_data = reinterpret_cast<void *>(&load_image_option);
-  }
-
-  {
-    int idx = 0;
-    bool success = ForEachInArray(v, "images", [&](const detail::json &o) {
-      if (!detail::IsObject(o)) {
-        if (err) {
-          (*err) += "image[" + std::to_string(idx) + "] is not a JSON object.";
-        }
-        return false;
-      }
-      Image image;
-      if (!ParseImage(&image, idx, err, warn, o,
-                      store_original_json_for_extras_and_extensions_, base_dir,
-                      max_external_file_size_, &fs, &uri_cb,
-                      this->LoadImageData, load_image_user_data)) {
-        return false;
-      }
-
-      if (image.bufferView != -1) {
-        // Load image from the buffer view.
-        if (size_t(image.bufferView) >= model->bufferViews.size()) {
-          if (err) {
-            std::stringstream ss;
-            ss << "image[" << idx << "] bufferView \"" << image.bufferView
-               << "\" not found in the scene." << std::endl;
-            (*err) += ss.str();
-          }
-          return false;
-        }
-
-        const BufferView &bufferView =
-            model->bufferViews[size_t(image.bufferView)];
-        if (size_t(bufferView.buffer) >= model->buffers.size()) {
-          if (err) {
-            std::stringstream ss;
-            ss << "image[" << idx << "] buffer \"" << bufferView.buffer
-               << "\" not found in the scene." << std::endl;
-            (*err) += ss.str();
-          }
-          return false;
-        }
-        const Buffer &buffer = model->buffers[size_t(bufferView.buffer)];
-        if (bufferView.byteOffset >= buffer.data.size()) {
-          if (err) {
-            std::stringstream ss;
-            ss << "image[" << idx << "] bufferView \"" << image.bufferView
-               << "\" indexed out of bounds of its buffer." << std::endl;
-            (*err) += ss.str();
-          }
-          return false;
-        }
-
-        if (LoadImageData == nullptr) {
-          if (err) {
-            (*err) += "No LoadImageData callback specified.\n";
-          }
-          return false;
-        }
-        bool ret = LoadImageData(
-            &image, idx, err, warn, image.width, image.height,
-            &buffer.data[bufferView.byteOffset],
-            static_cast<int>(bufferView.byteLength), load_image_user_data);
-        if (!ret) {
-          return false;
-        }
-      }
-
-      model->images.emplace_back(std::move(image));
-      ++idx;
-      return true;
-    });
-
-    if (!success) {
-      return false;
-    }
-  }
-
-  // 12. Parse Texture
-  {
-    bool success = ForEachInArray(v, "textures", [&](const detail::json &o) {
-      if (!detail::IsObject(o)) {
-        if (err) {
-          (*err) += "`textures' does not contain an JSON object.";
-        }
-        return false;
-      }
-      Texture texture;
-      if (!ParseTexture(&texture, err, o,
-                        store_original_json_for_extras_and_extensions_,
-                        base_dir)) {
-        return false;
-      }
-
-      model->textures.emplace_back(std::move(texture));
-      return true;
-    });
-
-    if (!success) {
-      return false;
-    }
-  }
-
-  // 13. Parse Animation
-  {
-    bool success = ForEachInArray(v, "animations", [&](const detail::json &o) {
-      if (!detail::IsObject(o)) {
-        if (err) {
-          (*err) += "`animations' does not contain an JSON object.";
-        }
-        return false;
-      }
-      Animation animation;
-      if (!ParseAnimation(&animation, err, o,
-                          store_original_json_for_extras_and_extensions_)) {
-        return false;
-      }
-
-      model->animations.emplace_back(std::move(animation));
-      return true;
-    });
-
-    if (!success) {
-      return false;
-    }
-  }
-
-  // 14. Parse Skin
-  {
-    bool success = ForEachInArray(v, "skins", [&](const detail::json &o) {
-      if (!detail::IsObject(o)) {
-        if (err) {
-          (*err) += "`skins' does not contain an JSON object.";
-        }
-        return false;
-      }
-      Skin skin;
-      if (!ParseSkin(&skin, err, o,
-                     store_original_json_for_extras_and_extensions_)) {
-        return false;
-      }
-
-      model->skins.emplace_back(std::move(skin));
-      return true;
-    });
-
-    if (!success) {
-      return false;
-    }
-  }
-
-  // 15. Parse Sampler
-  {
-    bool success = ForEachInArray(v, "samplers", [&](const detail::json &o) {
-      if (!detail::IsObject(o)) {
-        if (err) {
-          (*err) += "`samplers' does not contain an JSON object.";
-        }
-        return false;
-      }
-      Sampler sampler;
-      if (!ParseSampler(&sampler, err, o,
-                        store_original_json_for_extras_and_extensions_)) {
-        return false;
-      }
-
-      model->samplers.emplace_back(std::move(sampler));
-      return true;
-    });
-
-    if (!success) {
-      return false;
-    }
-  }
-
-  // 16. Parse Camera
-  {
-    bool success = ForEachInArray(v, "cameras", [&](const detail::json &o) {
-      if (!detail::IsObject(o)) {
-        if (err) {
-          (*err) += "`cameras' does not contain an JSON object.";
-        }
-        return false;
-      }
-      Camera camera;
-      if (!ParseCamera(&camera, err, o,
-                       store_original_json_for_extras_and_extensions_)) {
-        return false;
-      }
-
-      model->cameras.emplace_back(std::move(camera));
-      return true;
-    });
-
-    if (!success) {
-      return false;
-    }
-  }
-
-  // 17. Parse Extras & Extensions
-  ParseExtrasAndExtensions(model, err, v,
-                           store_original_json_for_extras_and_extensions_);
-
-  // 18. Specific extension implementations
-  {
-    detail::json_const_iterator rootIt;
-    if (detail::FindMember(v, "extensions", rootIt) &&
-        detail::IsObject(detail::GetValue(rootIt))) {
-      const detail::json &root = detail::GetValue(rootIt);
-
-      detail::json_const_iterator it(detail::ObjectBegin(root));
-      detail::json_const_iterator itEnd(detail::ObjectEnd(root));
-      for (; it != itEnd; ++it) {
-        // parse KHR_lights_punctual extension
-        std::string key(detail::GetKey(it));
-        if ((key == "KHR_lights_punctual") &&
-            detail::IsObject(detail::GetValue(it))) {
-          const detail::json &object = detail::GetValue(it);
-          detail::json_const_iterator itLight;
-          if (detail::FindMember(object, "lights", itLight)) {
-            const detail::json &lights = detail::GetValue(itLight);
-            if (!detail::IsArray(lights)) {
-              continue;
-            }
-
-            auto arrayIt(detail::ArrayBegin(lights));
-            auto arrayItEnd(detail::ArrayEnd(lights));
-            for (; arrayIt != arrayItEnd; ++arrayIt) {
-              Light light;
-              if (!ParseLight(&light, err, *arrayIt,
-                              store_original_json_for_extras_and_extensions_)) {
-                return false;
-              }
-              model->lights.emplace_back(std::move(light));
-            }
-          }
-        }
-        // parse KHR_audio extension
-        if ((key == "KHR_audio") && detail::IsObject(detail::GetValue(it))) {
-          const detail::json &object = detail::GetValue(it);
-          detail::json_const_iterator itKhrAudio;
-          if (detail::FindMember(object, "emitters", itKhrAudio)) {
-            const detail::json &emitters = detail::GetValue(itKhrAudio);
-            if (!detail::IsArray(emitters)) {
-              continue;
-            }
-
-            auto arrayIt(detail::ArrayBegin(emitters));
-            auto arrayItEnd(detail::ArrayEnd(emitters));
-            for (; arrayIt != arrayItEnd; ++arrayIt) {
-              AudioEmitter emitter;
-              if (!ParseAudioEmitter(
-                      &emitter, err, *arrayIt,
-                      store_original_json_for_extras_and_extensions_)) {
-                return false;
-              }
-              model->audioEmitters.emplace_back(std::move(emitter));
-            }
-          }
-
-          if (detail::FindMember(object, "sources", itKhrAudio)) {
-            const detail::json &sources = detail::GetValue(itKhrAudio);
-            if (!detail::IsArray(sources)) {
-              continue;
-            }
-
-            auto arrayIt(detail::ArrayBegin(sources));
-            auto arrayItEnd(detail::ArrayEnd(sources));
-            for (; arrayIt != arrayItEnd; ++arrayIt) {
-              AudioSource source;
-              if (!ParseAudioSource(
-                      &source, err, *arrayIt,
-                      store_original_json_for_extras_and_extensions_)) {
-                return false;
-              }
-              model->audioSources.emplace_back(std::move(source));
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return true;
+    tg3_model       *get()       { return &m_; }
+    const tg3_model *get() const { return &m_; }
+    tg3_model       *operator->()       { return &m_; }
+    const tg3_model *operator->() const { return &m_; }
+
+private:
+    tg3_model m_;
+};
+
+/* RAII error stack wrapper */
+class ErrorStack {
+public:
+    ErrorStack()  { tg3_error_stack_init(&es_); }
+    ~ErrorStack() { tg3_error_stack_free(&es_); }
+
+    ErrorStack(const ErrorStack &) = delete;
+    ErrorStack &operator=(const ErrorStack &) = delete;
+
+    tg3_error_stack       *get()       { return &es_; }
+    const tg3_error_stack *get() const { return &es_; }
+
+    bool has_error() const { return tg3_errors_has_error(&es_) != 0; }
+    uint32_t count() const { return tg3_errors_count(&es_); }
+    const tg3_error_entry *entry(uint32_t i) const { return tg3_errors_get(&es_, i); }
+
+private:
+    tg3_error_stack es_;
+};
+
+/* Parse helpers returning error code */
+inline tg3_error_code parse_file(Model &model, ErrorStack &errors,
+                                  const char *filename,
+                                  const tg3_parse_options *options = nullptr) {
+    tg3_parse_options opts;
+    if (!options) { tg3_parse_options_init(&opts); options = &opts; }
+    return tg3_parse_file(model.get(), errors.get(), filename,
+                          filename ? (uint32_t)strlen(filename) : 0, options);
 }
 
-bool TinyGLTF::LoadASCIIFromString(Model *model, std::string *err,
-                                   std::string *warn, const char *str,
-                                   unsigned int length,
-                                   const std::string &base_dir,
-                                   unsigned int check_sections) {
-  is_binary_ = false;
-  bin_data_ = nullptr;
-  bin_size_ = 0;
-
-  return LoadFromString(model, err, warn, str, length, base_dir,
-                        check_sections);
+inline tg3_error_code parse(Model &model, ErrorStack &errors,
+                             const uint8_t *data, uint64_t size,
+                             const char *base_dir = "",
+                             const tg3_parse_options *options = nullptr) {
+    tg3_parse_options opts;
+    if (!options) { tg3_parse_options_init(&opts); options = &opts; }
+    return tg3_parse_auto(model.get(), errors.get(), data, size,
+                          base_dir, base_dir ? (uint32_t)strlen(base_dir) : 0,
+                          options);
 }
 
-bool TinyGLTF::LoadASCIIFromFile(Model *model, std::string *err,
-                                 std::string *warn, const std::string &filename,
-                                 unsigned int check_sections) {
-  std::stringstream ss;
+} /* namespace tinygltf3 */
+#endif /* __cplusplus */
 
-  if (fs.ReadWholeFile == nullptr) {
-    // Programmer error, assert() ?
-    ss << "Failed to read file: " << filename
-       << ": one or more FS callback not set" << std::endl;
-    if (err) {
-      (*err) = ss.str();
-    }
-    return false;
-  }
+/* ======================================================================
+ * Section 17: C++20 Coroutine Facade
+ * ====================================================================== */
 
-  std::vector<unsigned char> data;
-  std::string fileerr;
-  bool fileread = fs.ReadWholeFile(&data, &fileerr, filename, fs.user_data);
-  if (!fileread) {
-    ss << "Failed to read file: " << filename << ": " << fileerr << std::endl;
-    if (err) {
-      (*err) = ss.str();
-    }
-    return false;
-  }
+#ifdef __cplusplus
+#if defined(TINYGLTF3_ENABLE_COROUTINES) || \
+    (defined(__cpp_impl_coroutine) && __cpp_impl_coroutine >= 201902L && \
+     defined(__cpp_lib_coroutine) && __cpp_lib_coroutine >= 201902L)
 
-  size_t sz = data.size();
-  if (sz == 0) {
-    if (err) {
-      (*err) = "Empty file.";
-    }
-    return false;
-  }
+#include <coroutine>
 
-  std::string basedir = GetBaseDir(filename);
+namespace tinygltf3 {
 
-  bool ret = LoadASCIIFromString(
-      model, err, warn, reinterpret_cast<const char *>(&data.at(0)),
-      static_cast<unsigned int>(data.size()), basedir, check_sections);
+struct ParsedElement {
+    enum Kind {
+        Asset, Buffer, BufferView, Accessor, Mesh, Node, Material,
+        Texture, Image, Sampler, Animation, Skin, Camera, Scene,
+        Light, Done, Error
+    };
 
-  return ret;
-}
+    Kind    kind;
+    int32_t index;
 
-bool TinyGLTF::LoadBinaryFromMemory(Model *model, std::string *err,
-                                    std::string *warn,
-                                    const unsigned char *bytes,
-                                    unsigned int size,
-                                    const std::string &base_dir,
-                                    unsigned int check_sections) {
-  if (size < 20) {
-    if (err) {
-      (*err) = "Too short data size for glTF Binary.";
-    }
-    return false;
-  }
+    union {
+        const tg3_asset      *asset;
+        const tg3_buffer     *buffer;
+        const tg3_buffer_view *buffer_view;
+        const tg3_accessor   *accessor;
+        const tg3_mesh       *mesh;
+        const tg3_node       *node;
+        const tg3_material   *material;
+        const tg3_texture    *texture;
+        const tg3_image      *image;
+        const tg3_sampler    *sampler;
+        const tg3_animation  *animation;
+        const tg3_skin       *skin;
+        const tg3_camera     *camera;
+        const tg3_scene      *scene;
+        const tg3_light      *light;
+        const void           *ptr;
+    };
 
-  if (bytes[0] == 'g' && bytes[1] == 'l' && bytes[2] == 'T' &&
-      bytes[3] == 'F') {
-    // ok
-  } else {
-    if (err) {
-      (*err) = "Invalid magic.";
-    }
-    return false;
-  }
+    tg3_error_code error_code;
+};
 
-  unsigned int version;       // 4 bytes
-  unsigned int length;        // 4 bytes
-  unsigned int chunk0_length; // 4 bytes
-  unsigned int chunk0_format; // 4 bytes;
-
-  memcpy(&version, bytes + 4, 4);
-  swap4(&version);
-  memcpy(&length, bytes + 8,
-         4); // Total glb size, including header and all chunks.
-  swap4(&length);
-  memcpy(&chunk0_length, bytes + 12, 4); // JSON data length
-  swap4(&chunk0_length);
-  memcpy(&chunk0_format, bytes + 16, 4);
-  swap4(&chunk0_format);
-
-  // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#binary-gltf-layout
-  //
-  // In case the Bin buffer is not present, the size is exactly 20 + size of
-  // JSON contents,
-  // so use "greater than" operator.
-  //
-  // https://github.com/syoyo/tinygltf/issues/372
-  // Use 64bit uint to avoid integer overflow.
-  uint64_t header_and_json_size = 20ull + uint64_t(chunk0_length);
-
-  if (header_and_json_size > (std::numeric_limits<uint32_t>::max)()) {
-    // Do not allow 4GB or more GLB data.
-    if (err) {
-      (*err) = "Invalid glTF binary. GLB data exceeds 4GB.";
-    }
-    return false;
-  }
-
-  if ((header_and_json_size > uint64_t(size)) || (chunk0_length < 1) ||
-      (length > size) || (header_and_json_size > uint64_t(length)) ||
-      (chunk0_format != 0x4E4F534A)) { // 0x4E4F534A = JSON format.
-    if (err) {
-      (*err) = "Invalid glTF binary.";
-    }
-    return false;
-  }
-
-  // Padding check
-  // The start and the end of each chunk must be aligned to a 4-byte boundary.
-  // No padding check for chunk0 start since its 4byte-boundary is ensured.
-  if ((header_and_json_size % 4) != 0) {
-    if (err) {
-      (*err) = "JSON Chunk end does not aligned to a 4-byte boundary.";
-    }
-    return false;
-  }
-
-  // std::cout << "header_and_json_size = " << header_and_json_size << "\n";
-  // std::cout << "length = " << length << "\n";
-
-  // Chunk1(BIN) data
-  // The spec says: When the binary buffer is empty or when it is stored by
-  // other means, this chunk SHOULD be omitted. So when header + JSON data ==
-  // binary size, Chunk1 is omitted.
-  if (header_and_json_size == uint64_t(length)) {
-    bin_data_ = nullptr;
-    bin_size_ = 0;
-  } else {
-    // Read Chunk1 info(BIN data)
-    //
-    // issue-440:
-    // 'SHOULD' in glTF spec means 'RECOMMENDED',
-    // So there is a situation that Chunk1(BIN) is composed of zero-sized BIN
-    // data (chunksize(0) + binformat(BIN) = 8bytes).
-    //
-    if ((header_and_json_size + 8ull) > uint64_t(length)) {
-      if (err) {
-        (*err) =
-            "Insufficient storage space for Chunk1(BIN data). At least Chunk1 "
-            "Must have 8 or more bytes, but got " +
-            std::to_string((header_and_json_size + 8ull) - uint64_t(length)) +
-            ".\n";
-      }
-      return false;
-    }
-
-    unsigned int chunk1_length{0}; // 4 bytes
-    unsigned int chunk1_format{0}; // 4 bytes;
-    memcpy(&chunk1_length, bytes + header_and_json_size,
-           4); // Bin data length
-    swap4(&chunk1_length);
-    memcpy(&chunk1_format, bytes + header_and_json_size + 4, 4);
-    swap4(&chunk1_format);
-
-    if (chunk1_format != 0x004e4942) {
-      if (err) {
-        (*err) = "Invalid chunkType for Chunk1.";
-      }
-      return false;
-    }
-
-    if (chunk1_length == 0) {
-
-      if (header_and_json_size + 8 > uint64_t(length)) {
-        if (err) {
-          (*err) = "BIN Chunk header location exceeds the GLB size.";
+class ParseGenerator {
+public:
+    struct promise_type {
+        ParsedElement current_;
+        std::suspend_always initial_suspend() noexcept { return {}; }
+        std::suspend_always final_suspend() noexcept { return {}; }
+        ParseGenerator get_return_object() {
+            return ParseGenerator(
+                std::coroutine_handle<promise_type>::from_promise(*this));
         }
-        return false;
-      }
+        std::suspend_always yield_value(ParsedElement elem) noexcept {
+            current_ = elem;
+            return {};
+        }
+        void return_void() {}
+        void unhandled_exception() {}
+    };
 
-      bin_data_ = nullptr;
+    ParseGenerator() : handle_(nullptr) {}
+    explicit ParseGenerator(std::coroutine_handle<promise_type> h) : handle_(h) {}
+    ~ParseGenerator() { if (handle_) handle_.destroy(); }
 
+    ParseGenerator(const ParseGenerator &) = delete;
+    ParseGenerator &operator=(const ParseGenerator &) = delete;
+    ParseGenerator(ParseGenerator &&o) noexcept : handle_(o.handle_) { o.handle_ = nullptr; }
+    ParseGenerator &operator=(ParseGenerator &&o) noexcept {
+        if (this != &o) { if (handle_) handle_.destroy(); handle_ = o.handle_; o.handle_ = nullptr; }
+        return *this;
+    }
+
+    bool next() {
+        if (!handle_ || handle_.done()) return false;
+        handle_.resume();
+        return !handle_.done();
+    }
+
+    const ParsedElement &current() const { return handle_.promise().current_; }
+    bool done() const { return !handle_ || handle_.done(); }
+
+private:
+    std::coroutine_handle<promise_type> handle_;
+};
+
+/* Coroutine parse entry point — declaration only, implemented in TINYGLTF3_IMPLEMENTATION */
+ParseGenerator tg3_parse_coro(
+    const uint8_t *data, uint64_t size,
+    const char *base_dir, uint32_t base_dir_len,
+    tg3_model *model, tg3_error_stack *errors,
+    const tg3_parse_options *options);
+
+} /* namespace tinygltf3 */
+
+#endif /* coroutines */
+#endif /* __cplusplus */
+
+/* ======================================================================
+ * Section 18: Implementation
+ * ====================================================================== */
+
+#ifdef TINYGLTF3_IMPLEMENTATION
+
+#if !defined(__cplusplus)
+#error "TINYGLTF3_IMPLEMENTATION requires a C++ translation unit (compile as .cpp)"
+#endif
+
+/* Include JSON parser */
+#include "tinygltf_json.h"
+
+#include <stdio.h>
+#include <math.h>
+
+/* Implementation uses C++ features from tinygltf_json.h */
+#include <string>
+#include <algorithm>
+
+/* Forward SIMD macros to tinygltf_json.h */
+#ifdef TINYGLTF3_JSON_SIMD_SSE2
+#ifndef TINYGLTF_JSON_SIMD_SSE2
+#define TINYGLTF_JSON_SIMD_SSE2
+#endif
+#endif
+#ifdef TINYGLTF3_JSON_SIMD_AVX2
+#ifndef TINYGLTF_JSON_SIMD_AVX2
+#define TINYGLTF_JSON_SIMD_AVX2
+#endif
+#endif
+#ifdef TINYGLTF3_JSON_SIMD_NEON
+#ifndef TINYGLTF_JSON_SIMD_NEON
+#define TINYGLTF_JSON_SIMD_NEON
+#endif
+#endif
+
+/* ======================================================================
+ * Internal: Arena Allocator
+ * ====================================================================== */
+
+#define TG3__ARENA_DEFAULT_BLOCK_SIZE (256u * 1024u) /* 256 KB */
+#define TG3__ARENA_ALIGNMENT 8
+
+typedef struct tg3__arena_block {
+    struct tg3__arena_block *next;
+    uint8_t *base;
+    size_t   used;
+    size_t   capacity;
+} tg3__arena_block;
+
+struct tg3_arena {
+    tg3__arena_block *head;
+    tg3__arena_block *current;
+    size_t            total_allocated;
+    size_t            memory_budget;
+    size_t            block_size;
+    tg3_allocator     alloc;
+};
+
+static void *tg3__default_alloc(size_t size, void *ud) {
+    (void)ud;
+    return malloc(size);
+}
+static void *tg3__default_realloc(void *ptr, size_t old_size, size_t new_size, void *ud) {
+    (void)old_size; (void)ud;
+    return realloc(ptr, new_size);
+}
+static void tg3__default_free(void *ptr, size_t size, void *ud) {
+    (void)size; (void)ud;
+    free(ptr);
+}
+
+static tg3_arena *tg3__arena_create(const tg3_memory_config *config) {
+    tg3_allocator alloc;
+    if (config && config->allocator.alloc) {
+        alloc = config->allocator;
     } else {
-
-      // When BIN chunk size is not zero, at least Chunk1 should have 12 bytes(8
-      // bytes(header) + 4 bytes(bin payload could be 1~3 bytes, but need to be
-      // aligned to 4 bytes)
-
-      if (chunk1_length < 4) {
-        if (err) {
-          (*err) = "Insufficient Chunk1(BIN) data size.";
-        }
-        return false;
-      }
-
-      if ((chunk1_length % 4) != 0) {
-        if (strictness_ == ParseStrictness::Permissive) {
-          if (warn) {
-            (*warn) += "BIN Chunk end is not aligned to a 4-byte boundary.\n";
-          }
-        } else {
-          if (err) {
-            (*err) = "BIN Chunk end is not aligned to a 4-byte boundary.";
-          }
-          return false;
-        }
-      }
-
-      // +8 chunk1 header size.
-      if (uint64_t(chunk1_length) + header_and_json_size + 8 >
-          uint64_t(length)) {
-        if (err) {
-          (*err) = "BIN Chunk data length exceeds the GLB size.";
-        }
-        return false;
-      }
-
-      bin_data_ = bytes + header_and_json_size +
-                  8; // 4 bytes (bin_buffer_length) + 4 bytes(bin_buffer_format)
+        alloc.alloc = tg3__default_alloc;
+        alloc.realloc = tg3__default_realloc;
+        alloc.free = tg3__default_free;
+        alloc.user_data = NULL;
     }
 
-    bin_size_ = size_t(chunk1_length);
-  }
+    tg3_arena *arena = (tg3_arena *)alloc.alloc(sizeof(tg3_arena), alloc.user_data);
+    if (!arena) return NULL;
 
-  is_binary_ = true;
+    memset(arena, 0, sizeof(tg3_arena));
+    arena->alloc = alloc;
+    arena->block_size = (config && config->arena_block_size > 0)
+        ? config->arena_block_size : TG3__ARENA_DEFAULT_BLOCK_SIZE;
+    arena->memory_budget = (config && config->memory_budget > 0)
+        ? (size_t)config->memory_budget : (size_t)TINYGLTF3_MAX_MEMORY_BYTES;
 
-  bool ret = LoadFromString(model, err, warn,
-                            reinterpret_cast<const char *>(&bytes[20]),
-                            chunk0_length, base_dir, check_sections);
-  if (!ret) {
-    return ret;
-  }
-
-  return true;
+    return arena;
 }
 
-bool TinyGLTF::LoadBinaryFromFile(Model *model, std::string *err,
-                                  std::string *warn,
-                                  const std::string &filename,
-                                  unsigned int check_sections) {
-  std::stringstream ss;
+static tg3__arena_block *tg3__arena_new_block(tg3_arena *arena, size_t min_size) {
+    size_t cap = arena->block_size;
+    if (cap < min_size) cap = min_size;
 
-  if (fs.ReadWholeFile == nullptr) {
-    // Programmer error, assert() ?
-    ss << "Failed to read file: " << filename
-       << ": one or more FS callback not set" << std::endl;
-    if (err) {
-      (*err) = ss.str();
+    if (arena->total_allocated + sizeof(tg3__arena_block) + cap > arena->memory_budget) {
+        return NULL; /* OOM */
     }
-    return false;
-  }
 
-  std::vector<unsigned char> data;
-  std::string fileerr;
-  bool fileread = fs.ReadWholeFile(&data, &fileerr, filename, fs.user_data);
-  if (!fileread) {
-    ss << "Failed to read file: " << filename << ": " << fileerr << std::endl;
-    if (err) {
-      (*err) = ss.str();
-    }
-    return false;
-  }
+    uint8_t *raw = (uint8_t *)arena->alloc.alloc(
+        sizeof(tg3__arena_block) + cap, arena->alloc.user_data);
+    if (!raw) return NULL;
 
-  std::string basedir = GetBaseDir(filename);
+    tg3__arena_block *block = (tg3__arena_block *)raw;
+    block->base = raw + sizeof(tg3__arena_block);
+    block->used = 0;
+    block->capacity = cap;
+    block->next = NULL;
 
-  bool ret = LoadBinaryFromMemory(model, err, warn, &data.at(0),
-                                  static_cast<unsigned int>(data.size()),
-                                  basedir, check_sections);
+    arena->total_allocated += sizeof(tg3__arena_block) + cap;
 
-  return ret;
-}
-
-///////////////////////
-// GLTF Serialization
-///////////////////////
-namespace detail {
-detail::json JsonFromString(const char *s) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  return detail::json(s, detail::GetAllocator());
-#else
-  return detail::json(s);
-#endif
-}
-
-void JsonAssign(detail::json &dest, const detail::json &src) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  dest.CopyFrom(src, detail::GetAllocator());
-#else
-  dest = src;
-#endif
-}
-
-void JsonAddMember(detail::json &o, const char *key, detail::json &&value) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  if (!o.IsObject()) {
-    o.SetObject();
-  }
-
-  // Issue 420.
-  // AddMember may create duplicated key, so use [] API when a key already
-  // exists.
-  // https://github.com/Tencent/rapidjson/issues/771#issuecomment-254386863
-  detail::json_const_iterator it;
-  if (detail::FindMember(o, key, it)) {
-    o[key] = std::move(value); // replace
-  } else {
-    o.AddMember(detail::json(key, detail::GetAllocator()), std::move(value),
-                detail::GetAllocator());
-  }
-#else
-  o[key] = std::move(value);
-#endif
-}
-
-void JsonPushBack(detail::json &o, detail::json &&value) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  o.PushBack(std::move(value), detail::GetAllocator());
-#else
-  o.push_back(std::move(value));
-#endif
-}
-
-bool JsonIsNull(const detail::json &o) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  return o.IsNull();
-#else
-  return o.is_null();
-#endif
-}
-
-void JsonSetObject(detail::json &o) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  o.SetObject();
-#else
-  o = o.object({});
-#endif
-}
-
-void JsonReserveArray(detail::json &o, size_t s) {
-#ifdef TINYGLTF_USE_RAPIDJSON
-  o.SetArray();
-  o.Reserve(static_cast<rapidjson::SizeType>(s), detail::GetAllocator());
-#endif
-  (void)(o);
-  (void)(s);
-}
-} // namespace detail
-
-// typedef std::pair<std::string, detail::json> json_object_pair;
-
-template <typename T>
-static void SerializeNumberProperty(const std::string &key, T number,
-                                    detail::json &obj) {
-  // obj.insert(
-  //    json_object_pair(key, detail::json(static_cast<double>(number))));
-  // obj[key] = static_cast<double>(number);
-  detail::JsonAddMember(obj, key.c_str(), detail::json(number));
-}
-
-#ifdef TINYGLTF_USE_RAPIDJSON
-template <>
-void SerializeNumberProperty(const std::string &key, size_t number,
-                             detail::json &obj) {
-  detail::JsonAddMember(obj, key.c_str(),
-                        detail::json(static_cast<uint64_t>(number)));
-}
-#endif
-
-template <typename T>
-static void SerializeNumberArrayProperty(const std::string &key,
-                                         const std::vector<T> &value,
-                                         detail::json &obj) {
-  if (value.empty())
-    return;
-
-  detail::json ary;
-  detail::JsonReserveArray(ary, value.size());
-  for (const auto &s : value) {
-    detail::JsonPushBack(ary, detail::json(s));
-  }
-  detail::JsonAddMember(obj, key.c_str(), std::move(ary));
-}
-
-static void SerializeStringProperty(const std::string &key,
-                                    const std::string &value,
-                                    detail::json &obj) {
-  detail::JsonAddMember(obj, key.c_str(),
-                        detail::JsonFromString(value.c_str()));
-}
-
-static void SerializeStringArrayProperty(const std::string &key,
-                                         const std::vector<std::string> &value,
-                                         detail::json &obj) {
-  detail::json ary;
-  detail::JsonReserveArray(ary, value.size());
-  for (auto &s : value) {
-    detail::JsonPushBack(ary, detail::JsonFromString(s.c_str()));
-  }
-  detail::JsonAddMember(obj, key.c_str(), std::move(ary));
-}
-
-static bool ValueToJson(const Value &value, detail::json *ret) {
-  detail::json obj;
-#ifdef TINYGLTF_USE_RAPIDJSON
-  switch (value.Type()) {
-  case REAL_TYPE:
-    obj.SetDouble(value.Get<double>());
-    break;
-  case INT_TYPE:
-    obj.SetInt(value.Get<int>());
-    break;
-  case BOOL_TYPE:
-    obj.SetBool(value.Get<bool>());
-    break;
-  case STRING_TYPE:
-    obj.SetString(value.Get<std::string>().c_str(), detail::GetAllocator());
-    break;
-  case ARRAY_TYPE: {
-    obj.SetArray();
-    obj.Reserve(static_cast<rapidjson::SizeType>(value.ArrayLen()),
-                detail::GetAllocator());
-    for (unsigned int i = 0; i < value.ArrayLen(); ++i) {
-      Value elementValue = value.Get(int(i));
-      detail::json elementJson;
-      if (ValueToJson(value.Get(int(i)), &elementJson))
-        obj.PushBack(std::move(elementJson), detail::GetAllocator());
-    }
-    break;
-  }
-  case BINARY_TYPE:
-    // TODO
-    // obj = detail::json(value.Get<std::vector<unsigned char>>());
-    return false;
-    break;
-  case OBJECT_TYPE: {
-    obj.SetObject();
-    Value::Object objMap = value.Get<Value::Object>();
-    for (auto &it : objMap) {
-      detail::json elementJson;
-      if (ValueToJson(it.second, &elementJson)) {
-        obj.AddMember(detail::json(it.first.c_str(), detail::GetAllocator()),
-                      std::move(elementJson), detail::GetAllocator());
-      }
-    }
-    break;
-  }
-  case NULL_TYPE:
-  default:
-    return false;
-  }
-#else
-  switch (value.Type()) {
-  case REAL_TYPE:
-    obj = detail::json(value.Get<double>());
-    break;
-  case INT_TYPE:
-    obj = detail::json(value.Get<int>());
-    break;
-  case BOOL_TYPE:
-    obj = detail::json(value.Get<bool>());
-    break;
-  case STRING_TYPE:
-    obj = detail::json(value.Get<std::string>());
-    break;
-  case ARRAY_TYPE: {
-    for (size_t i = 0; i < value.ArrayLen(); ++i) {
-      Value elementValue = value.Get(i);
-      detail::json elementJson;
-      if (ValueToJson(value.Get(i), &elementJson))
-        obj.push_back(elementJson);
-    }
-    break;
-  }
-  case BINARY_TYPE:
-    // TODO
-    // obj = json(value.Get<std::vector<unsigned char>>());
-    return false;
-    break;
-  case OBJECT_TYPE: {
-    Value::Object objMap = value.Get<Value::Object>();
-    for (auto &it : objMap) {
-      detail::json elementJson;
-      if (ValueToJson(it.second, &elementJson))
-        obj[it.first] = elementJson;
-    }
-    break;
-  }
-  case NULL_TYPE:
-  default:
-    return false;
-  }
-#endif
-  if (ret)
-    *ret = std::move(obj);
-  return true;
-}
-
-static void SerializeValue(const std::string &key, const Value &value,
-                           detail::json &obj) {
-  detail::json ret;
-  if (ValueToJson(value, &ret)) {
-    detail::JsonAddMember(obj, key.c_str(), std::move(ret));
-  }
-}
-
-static void SerializeGltfBufferData(const std::vector<unsigned char> &data,
-                                    detail::json &o) {
-  std::string header = "data:application/octet-stream;base64,";
-  if (data.size() > 0) {
-    std::string encodedData =
-        base64_encode(&data[0], static_cast<unsigned int>(data.size()));
-    SerializeStringProperty("uri", header + encodedData, o);
-  } else {
-    // Issue #229
-    // size 0 is allowed. Just emit mime header.
-    SerializeStringProperty("uri", header, o);
-  }
-}
-
-static bool SerializeGltfBufferData(const std::vector<unsigned char> &data,
-                                    const std::string &binFilename) {
-#ifndef TINYGLTF_NO_FS
-#ifdef _WIN32
-#if defined(__GLIBCXX__) // mingw
-  int file_descriptor =
-      _wopen(UTF8ToWchar(binFilename).c_str(),
-             _O_CREAT | _O_WRONLY | _O_TRUNC | _O_BINARY, _S_IWRITE);
-  __gnu_cxx::stdio_filebuf<char> wfile_buf(
-      file_descriptor, std::ios_base::out | std::ios_base::binary);
-  std::ostream output(&wfile_buf);
-  if (!wfile_buf.is_open())
-    return false;
-#elif defined(_MSC_VER)
-  std::ofstream output(UTF8ToWchar(binFilename).c_str(), std::ofstream::binary);
-  if (!output.is_open())
-    return false;
-#else
-  std::ofstream output(binFilename.c_str(), std::ofstream::binary);
-  if (!output.is_open())
-    return false;
-#endif
-#else
-  std::ofstream output(binFilename.c_str(), std::ofstream::binary);
-  if (!output.is_open())
-    return false;
-#endif
-  if (data.size() > 0) {
-    output.write(reinterpret_cast<const char *>(&data[0]),
-                 std::streamsize(data.size()));
-  } else {
-    // Issue #229
-    // size 0 will be still valid buffer data.
-    // write empty file.
-  }
-  return true;
-#else
-  return false;
-#endif
-}
-
-#if 0 // FIXME(syoyo): not used. will be removed in the future release.
-static void SerializeParameterMap(ParameterMap &param, detail::json &o) {
-  for (ParameterMap::iterator paramIt = param.begin(); paramIt != param.end();
-       ++paramIt) {
-    if (paramIt->second.number_array.size()) {
-      SerializeNumberArrayProperty<double>(paramIt->first,
-                                           paramIt->second.number_array, o);
-    } else if (paramIt->second.json_double_value.size()) {
-      detail::json json_double_value;
-      for (std::map<std::string, double>::iterator it =
-               paramIt->second.json_double_value.begin();
-           it != paramIt->second.json_double_value.end(); ++it) {
-        if (it->first == "index") {
-          json_double_value[it->first] = paramIt->second.TextureIndex();
-        } else {
-          json_double_value[it->first] = it->second;
-        }
-      }
-
-      o[paramIt->first] = json_double_value;
-    } else if (!paramIt->second.string_value.empty()) {
-      SerializeStringProperty(paramIt->first, paramIt->second.string_value, o);
-    } else if (paramIt->second.has_number_value) {
-      o[paramIt->first] = paramIt->second.number_value;
+    if (arena->current) {
+        arena->current->next = block;
     } else {
-      o[paramIt->first] = paramIt->second.bool_value;
+        arena->head = block;
     }
-  }
-}
-#endif
+    arena->current = block;
 
-static void SerializeExtensionMap(const ExtensionMap &extensions,
-                                  detail::json &o) {
-  if (!extensions.size())
-    return;
-
-  detail::json extMap;
-  for (ExtensionMap::const_iterator extIt = extensions.begin();
-       extIt != extensions.end(); ++extIt) {
-    // Allow an empty object for extension(#97)
-    detail::json ret;
-    bool isNull = true;
-    if (ValueToJson(extIt->second, &ret)) {
-      isNull = detail::JsonIsNull(ret);
-      detail::JsonAddMember(extMap, extIt->first.c_str(), std::move(ret));
-    }
-    if (isNull) {
-      if (!(extIt->first.empty())) { // name should not be empty, but for sure
-        // create empty object so that an extension name is still included in
-        // json.
-        detail::json empty;
-        detail::JsonSetObject(empty);
-        detail::JsonAddMember(extMap, extIt->first.c_str(), std::move(empty));
-      }
-    }
-  }
-  detail::JsonAddMember(o, "extensions", std::move(extMap));
+    return block;
 }
 
-static void SerializeExtras(const Value &extras, detail::json &o) {
-  if (extras.Type() != NULL_TYPE)
-    SerializeValue("extras", extras, o);
-}
+static void *tg3__arena_alloc(tg3_arena *arena, size_t size) {
+    if (size == 0) return NULL;
 
-template <typename GltfType>
-void SerializeExtrasAndExtensions(const GltfType &obj, detail::json &o) {
-  SerializeExtensionMap(obj.extensions, o);
-  SerializeExtras(obj.extras, o);
-}
+    /* Align up */
+    size = (size + (TG3__ARENA_ALIGNMENT - 1)) & ~(size_t)(TG3__ARENA_ALIGNMENT - 1);
 
-static void SerializeGltfAccessor(const Accessor &accessor, detail::json &o) {
-  if (accessor.bufferView >= 0)
-    SerializeNumberProperty<int>("bufferView", accessor.bufferView, o);
-
-  if (accessor.byteOffset != 0)
-    SerializeNumberProperty<size_t>("byteOffset", accessor.byteOffset, o);
-
-  SerializeNumberProperty<int>("componentType", accessor.componentType, o);
-  SerializeNumberProperty<size_t>("count", accessor.count, o);
-
-  if ((accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) ||
-      (accessor.componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE)) {
-    SerializeNumberArrayProperty<double>("min", accessor.minValues, o);
-    SerializeNumberArrayProperty<double>("max", accessor.maxValues, o);
-  } else {
-    // Issue #301. Serialize as integer.
-    // Assume int value is within [-2**31-1, 2**31-1]
-    {
-      std::vector<int> values;
-      std::transform(accessor.minValues.begin(), accessor.minValues.end(),
-                     std::back_inserter(values),
-                     [](double v) { return static_cast<int>(v); });
-
-      SerializeNumberArrayProperty<int>("min", values, o);
+    tg3__arena_block *block = arena->current;
+    if (!block || block->used + size > block->capacity) {
+        block = tg3__arena_new_block(arena, size);
+        if (!block) return NULL;
     }
 
-    {
-      std::vector<int> values;
-      std::transform(accessor.maxValues.begin(), accessor.maxValues.end(),
-                     std::back_inserter(values),
-                     [](double v) { return static_cast<int>(v); });
-
-      SerializeNumberArrayProperty<int>("max", values, o);
-    }
-  }
-
-  if (accessor.normalized)
-    SerializeValue("normalized", Value(accessor.normalized), o);
-  std::string type;
-  switch (accessor.type) {
-  case TINYGLTF_TYPE_SCALAR:
-    type = "SCALAR";
-    break;
-  case TINYGLTF_TYPE_VEC2:
-    type = "VEC2";
-    break;
-  case TINYGLTF_TYPE_VEC3:
-    type = "VEC3";
-    break;
-  case TINYGLTF_TYPE_VEC4:
-    type = "VEC4";
-    break;
-  case TINYGLTF_TYPE_MAT2:
-    type = "MAT2";
-    break;
-  case TINYGLTF_TYPE_MAT3:
-    type = "MAT3";
-    break;
-  case TINYGLTF_TYPE_MAT4:
-    type = "MAT4";
-    break;
-  }
-
-  SerializeStringProperty("type", type, o);
-  if (!accessor.name.empty())
-    SerializeStringProperty("name", accessor.name, o);
-
-  SerializeExtrasAndExtensions(accessor, o);
-
-  // sparse
-  if (accessor.sparse.isSparse) {
-    detail::json sparse;
-    SerializeNumberProperty<int>("count", accessor.sparse.count, sparse);
-    {
-      detail::json indices;
-      SerializeNumberProperty<int>("bufferView",
-                                   accessor.sparse.indices.bufferView, indices);
-      SerializeNumberProperty<size_t>(
-          "byteOffset", accessor.sparse.indices.byteOffset, indices);
-      SerializeNumberProperty<int>(
-          "componentType", accessor.sparse.indices.componentType, indices);
-      SerializeExtrasAndExtensions(accessor.sparse.indices, indices);
-      detail::JsonAddMember(sparse, "indices", std::move(indices));
-    }
-    {
-      detail::json values;
-      SerializeNumberProperty<int>("bufferView",
-                                   accessor.sparse.values.bufferView, values);
-      SerializeNumberProperty<size_t>(
-          "byteOffset", accessor.sparse.values.byteOffset, values);
-      SerializeExtrasAndExtensions(accessor.sparse.values, values);
-      detail::JsonAddMember(sparse, "values", std::move(values));
-    }
-    SerializeExtrasAndExtensions(accessor.sparse, sparse);
-    detail::JsonAddMember(o, "sparse", std::move(sparse));
-  }
+    void *ptr = block->base + block->used;
+    block->used += size;
+    return ptr;
 }
 
-static void SerializeGltfAnimationChannel(const AnimationChannel &channel,
-                                          detail::json &o) {
-  SerializeNumberProperty("sampler", channel.sampler, o);
-  {
-    detail::json target;
+static char *tg3__arena_strdup(tg3_arena *arena, const char *s, size_t len) {
+    if (!s) return NULL;
+    /* Allocate len+1 bytes; when len==0 this produces a 1-byte "\0" buffer so
+     * that empty strings (data!=NULL, len==0) remain distinguishable from
+     * absent strings (data==NULL, len==0). */
+    char *dst = (char *)tg3__arena_alloc(arena, len + 1);
+    if (!dst) return NULL;
+    if (len > 0) memcpy(dst, s, len);
+    dst[len] = '\0';
+    return dst;
+}
 
-    if (channel.target_node >= 0) {
-      SerializeNumberProperty("node", channel.target_node, target);
+static tg3_str tg3__arena_str(tg3_arena *arena, const char *s, uint32_t len) {
+    tg3_str result;
+    result.data = tg3__arena_strdup(arena, s, len);
+    result.len = result.data ? len : 0;
+    return result;
+}
+
+static tg3_str tg3__arena_str_from_std(tg3_arena *arena, const std::string &s) {
+    return tg3__arena_str(arena, s.c_str(), (uint32_t)s.size());
+}
+
+static void tg3__arena_destroy(tg3_arena *arena) {
+    if (!arena) return;
+    tg3_allocator alloc = arena->alloc;
+    tg3__arena_block *block = arena->head;
+    while (block) {
+        tg3__arena_block *next = block->next;
+        size_t block_total = sizeof(tg3__arena_block) + block->capacity;
+        alloc.free(block, block_total, alloc.user_data);
+        block = next;
+    }
+    alloc.free(arena, sizeof(tg3_arena), alloc.user_data);
+}
+
+/* ======================================================================
+ * Internal: Error Stack Implementation
+ * ====================================================================== */
+
+static void tg3__error_push(tg3_error_stack *es, tg3_severity sev,
+                             tg3_error_code code, const char *msg,
+                             const char *json_path, int64_t byte_offset) {
+    if (!es) return;
+
+    if (es->count >= es->capacity) {
+        uint32_t new_cap = es->capacity ? es->capacity * 2 : 16;
+        tg3_error_entry *new_entries = (tg3_error_entry *)realloc(
+            es->entries, new_cap * sizeof(tg3_error_entry));
+        if (!new_entries) return; /* Drop error on OOM */
+        es->entries = new_entries;
+        es->capacity = new_cap;
     }
 
-    SerializeStringProperty("path", channel.target_path, target);
+    tg3_error_entry *e = &es->entries[es->count++];
+    e->severity = sev;
+    e->code = code;
+    e->message = msg; /* Caller must ensure lifetime (arena or static) */
+    e->json_path = json_path;
+    e->byte_offset = byte_offset;
 
-    SerializeExtensionMap(channel.target_extensions, target);
-    SerializeExtras(channel.target_extras, target);
-
-    detail::JsonAddMember(o, "target", std::move(target));
-  }
-
-  SerializeExtrasAndExtensions(channel, o);
+    if (sev == TG3_SEVERITY_ERROR) es->has_error = 1;
 }
 
-static void SerializeGltfAnimationSampler(const AnimationSampler &sampler,
-                                          detail::json &o) {
-  SerializeNumberProperty("input", sampler.input, o);
-  SerializeNumberProperty("output", sampler.output, o);
-  SerializeStringProperty("interpolation", sampler.interpolation, o);
+/* Push an error with a dynamically formatted message allocated from arena */
+static void tg3__error_pushf(tg3_error_stack *es, tg3_arena *arena,
+                              tg3_severity sev, tg3_error_code code,
+                              const char *json_path, const char *fmt, ...) {
+    if (!es) return;
+    char buf[1024];
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    if (n < 0) n = 0;
+    if ((size_t)n >= sizeof(buf)) n = (int)(sizeof(buf) - 1);
 
-  SerializeExtrasAndExtensions(sampler, o);
-}
-
-static void SerializeGltfAnimation(const Animation &animation,
-                                   detail::json &o) {
-  if (!animation.name.empty())
-    SerializeStringProperty("name", animation.name, o);
-
-  {
-    detail::json channels;
-    detail::JsonReserveArray(channels, animation.channels.size());
-    for (unsigned int i = 0; i < animation.channels.size(); ++i) {
-      detail::json channel;
-      AnimationChannel gltfChannel = animation.channels[i];
-      SerializeGltfAnimationChannel(gltfChannel, channel);
-      detail::JsonPushBack(channels, std::move(channel));
+    const char *msg = buf;
+    if (arena) {
+        char *dup = tg3__arena_strdup(arena, buf, (size_t)n);
+        if (dup) msg = dup;
     }
+    tg3__error_push(es, sev, code, msg, json_path, -1);
+}
 
-    detail::JsonAddMember(o, "channels", std::move(channels));
-  }
+/* ======================================================================
+ * Public: Error Stack API
+ * ====================================================================== */
 
-  {
-    detail::json samplers;
-    detail::JsonReserveArray(samplers, animation.samplers.size());
-    for (unsigned int i = 0; i < animation.samplers.size(); ++i) {
-      detail::json sampler;
-      AnimationSampler gltfSampler = animation.samplers[i];
-      SerializeGltfAnimationSampler(gltfSampler, sampler);
-      detail::JsonPushBack(samplers, std::move(sampler));
+TINYGLTF3_API int32_t tg3_errors_has_error(const tg3_error_stack *es) {
+    return es ? es->has_error : 0;
+}
+
+TINYGLTF3_API uint32_t tg3_errors_count(const tg3_error_stack *es) {
+    return es ? es->count : 0;
+}
+
+TINYGLTF3_API const tg3_error_entry *tg3_errors_get(const tg3_error_stack *es,
+                                                     uint32_t index) {
+    if (!es || index >= es->count) return NULL;
+    return &es->entries[index];
+}
+
+TINYGLTF3_API void tg3_error_stack_init(tg3_error_stack *es) {
+    if (!es) return;
+    memset(es, 0, sizeof(tg3_error_stack));
+}
+
+TINYGLTF3_API void tg3_error_stack_free(tg3_error_stack *es) {
+    if (!es) return;
+    free(es->entries);
+    memset(es, 0, sizeof(tg3_error_stack));
+}
+
+/* ======================================================================
+ * Public: Options Init
+ * ====================================================================== */
+
+TINYGLTF3_API void tg3_parse_options_init(tg3_parse_options *options) {
+    if (!options) return;
+    memset(options, 0, sizeof(tg3_parse_options));
+    options->required_sections = TG3_REQUIRE_VERSION;
+    options->strictness = TG3_PERMISSIVE;
+}
+
+TINYGLTF3_API void tg3_write_options_init(tg3_write_options *options) {
+    if (!options) return;
+    memset(options, 0, sizeof(tg3_write_options));
+    options->pretty_print = 1;
+}
+
+/* ======================================================================
+ * Public: Utility Functions
+ * ====================================================================== */
+
+TINYGLTF3_API int32_t tg3_component_size(int32_t component_type) {
+    switch (component_type) {
+        case TG3_COMPONENT_TYPE_BYTE:           return 1;
+        case TG3_COMPONENT_TYPE_UNSIGNED_BYTE:  return 1;
+        case TG3_COMPONENT_TYPE_SHORT:          return 2;
+        case TG3_COMPONENT_TYPE_UNSIGNED_SHORT: return 2;
+        case TG3_COMPONENT_TYPE_INT:            return 4;
+        case TG3_COMPONENT_TYPE_UNSIGNED_INT:   return 4;
+        case TG3_COMPONENT_TYPE_FLOAT:          return 4;
+        case TG3_COMPONENT_TYPE_DOUBLE:         return 8;
+        default: return -1;
     }
-    detail::JsonAddMember(o, "samplers", std::move(samplers));
-  }
-
-  SerializeExtrasAndExtensions(animation, o);
 }
 
-static void SerializeGltfAsset(const Asset &asset, detail::json &o) {
-  if (!asset.generator.empty()) {
-    SerializeStringProperty("generator", asset.generator, o);
-  }
-
-  if (!asset.copyright.empty()) {
-    SerializeStringProperty("copyright", asset.copyright, o);
-  }
-
-  auto version = asset.version;
-  if (version.empty()) {
-    // Just in case
-    // `version` must be defined
-    version = "2.0";
-  }
-
-  // TODO(syoyo): Do we need to check if `version` is greater or equal to 2.0?
-  SerializeStringProperty("version", version, o);
-
-  SerializeExtrasAndExtensions(asset, o);
-}
-
-static void SerializeGltfBufferBin(const Buffer &buffer, detail::json &o,
-                                   std::vector<unsigned char> &binBuffer) {
-  SerializeNumberProperty("byteLength", buffer.data.size(), o);
-  binBuffer = buffer.data;
-
-  if (buffer.name.size())
-    SerializeStringProperty("name", buffer.name, o);
-
-  SerializeExtrasAndExtensions(buffer, o);
-}
-
-static void SerializeGltfBuffer(const Buffer &buffer, detail::json &o) {
-  SerializeNumberProperty("byteLength", buffer.data.size(), o);
-  SerializeGltfBufferData(buffer.data, o);
-
-  if (buffer.name.size())
-    SerializeStringProperty("name", buffer.name, o);
-
-  SerializeExtrasAndExtensions(buffer, o);
-}
-
-static bool SerializeGltfBuffer(const Buffer &buffer, detail::json &o,
-                                const std::string &binFilename,
-                                const std::string &binUri) {
-  if (!SerializeGltfBufferData(buffer.data, binFilename))
-    return false;
-  SerializeNumberProperty("byteLength", buffer.data.size(), o);
-  SerializeStringProperty("uri", binUri, o);
-
-  if (buffer.name.size())
-    SerializeStringProperty("name", buffer.name, o);
-
-  SerializeExtrasAndExtensions(buffer, o);
-  return true;
-}
-
-static void SerializeGltfBufferView(const BufferView &bufferView,
-                                    detail::json &o) {
-  SerializeNumberProperty("buffer", bufferView.buffer, o);
-  SerializeNumberProperty<size_t>("byteLength", bufferView.byteLength, o);
-
-  // byteStride is optional, minimum allowed is 4
-  if (bufferView.byteStride >= 4) {
-    SerializeNumberProperty<size_t>("byteStride", bufferView.byteStride, o);
-  }
-  // byteOffset is optional, default is 0
-  if (bufferView.byteOffset > 0) {
-    SerializeNumberProperty<size_t>("byteOffset", bufferView.byteOffset, o);
-  }
-  // Target is optional, check if it contains a valid value
-  if (bufferView.target == TINYGLTF_TARGET_ARRAY_BUFFER ||
-      bufferView.target == TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER) {
-    SerializeNumberProperty("target", bufferView.target, o);
-  }
-  if (bufferView.name.size()) {
-    SerializeStringProperty("name", bufferView.name, o);
-  }
-
-  SerializeExtrasAndExtensions(bufferView, o);
-}
-
-static void SerializeGltfImage(const Image &image, const std::string &uri,
-                               detail::json &o) {
-  // From 2.7.0, we look for `uri` parameter, not `Image.uri`
-  // if uri is empty, the mimeType and bufferview should be set
-  if (uri.empty()) {
-    SerializeStringProperty("mimeType", image.mimeType, o);
-    SerializeNumberProperty<int>("bufferView", image.bufferView, o);
-  } else {
-    SerializeStringProperty("uri", uri, o);
-  }
-
-  if (image.name.size()) {
-    SerializeStringProperty("name", image.name, o);
-  }
-
-  SerializeExtrasAndExtensions(image, o);
-}
-
-static void SerializeGltfTextureInfo(const TextureInfo &texinfo,
-                                     detail::json &o) {
-  SerializeNumberProperty("index", texinfo.index, o);
-
-  if (texinfo.texCoord != 0) {
-    SerializeNumberProperty("texCoord", texinfo.texCoord, o);
-  }
-
-  SerializeExtrasAndExtensions(texinfo, o);
-}
-
-static void SerializeGltfNormalTextureInfo(const NormalTextureInfo &texinfo,
-                                           detail::json &o) {
-  SerializeNumberProperty("index", texinfo.index, o);
-
-  if (texinfo.texCoord != 0) {
-    SerializeNumberProperty("texCoord", texinfo.texCoord, o);
-  }
-
-  if (!TINYGLTF_DOUBLE_EQUAL(texinfo.scale, 1.0)) {
-    SerializeNumberProperty("scale", texinfo.scale, o);
-  }
-
-  SerializeExtrasAndExtensions(texinfo, o);
-}
-
-static void
-SerializeGltfOcclusionTextureInfo(const OcclusionTextureInfo &texinfo,
-                                  detail::json &o) {
-  SerializeNumberProperty("index", texinfo.index, o);
-
-  if (texinfo.texCoord != 0) {
-    SerializeNumberProperty("texCoord", texinfo.texCoord, o);
-  }
-
-  if (!TINYGLTF_DOUBLE_EQUAL(texinfo.strength, 1.0)) {
-    SerializeNumberProperty("strength", texinfo.strength, o);
-  }
-
-  SerializeExtrasAndExtensions(texinfo, o);
-}
-
-static void SerializeGltfPbrMetallicRoughness(const PbrMetallicRoughness &pbr,
-                                              detail::json &o) {
-  std::vector<double> default_baseColorFactor = {1.0, 1.0, 1.0, 1.0};
-  if (!Equals(pbr.baseColorFactor, default_baseColorFactor)) {
-    SerializeNumberArrayProperty<double>("baseColorFactor", pbr.baseColorFactor,
-                                         o);
-  }
-
-  if (!TINYGLTF_DOUBLE_EQUAL(pbr.metallicFactor, 1.0)) {
-    SerializeNumberProperty("metallicFactor", pbr.metallicFactor, o);
-  }
-
-  if (!TINYGLTF_DOUBLE_EQUAL(pbr.roughnessFactor, 1.0)) {
-    SerializeNumberProperty("roughnessFactor", pbr.roughnessFactor, o);
-  }
-
-  if (pbr.baseColorTexture.index > -1) {
-    detail::json texinfo;
-    SerializeGltfTextureInfo(pbr.baseColorTexture, texinfo);
-    detail::JsonAddMember(o, "baseColorTexture", std::move(texinfo));
-  }
-
-  if (pbr.metallicRoughnessTexture.index > -1) {
-    detail::json texinfo;
-    SerializeGltfTextureInfo(pbr.metallicRoughnessTexture, texinfo);
-    detail::JsonAddMember(o, "metallicRoughnessTexture", std::move(texinfo));
-  }
-
-  SerializeExtrasAndExtensions(pbr, o);
-}
-
-static void SerializeGltfMaterial(const Material &material, detail::json &o) {
-  if (material.name.size()) {
-    SerializeStringProperty("name", material.name, o);
-  }
-
-  // QUESTION(syoyo): Write material parameters regardless of its default value?
-
-  if (!TINYGLTF_DOUBLE_EQUAL(material.alphaCutoff, 0.5)) {
-    SerializeNumberProperty("alphaCutoff", material.alphaCutoff, o);
-  }
-
-  if (material.alphaMode.compare("OPAQUE") != 0) {
-    SerializeStringProperty("alphaMode", material.alphaMode, o);
-  }
-
-  if (material.doubleSided != false)
-    detail::JsonAddMember(o, "doubleSided", detail::json(material.doubleSided));
-
-  if (material.normalTexture.index > -1) {
-    detail::json texinfo;
-    SerializeGltfNormalTextureInfo(material.normalTexture, texinfo);
-    detail::JsonAddMember(o, "normalTexture", std::move(texinfo));
-  }
-
-  if (material.occlusionTexture.index > -1) {
-    detail::json texinfo;
-    SerializeGltfOcclusionTextureInfo(material.occlusionTexture, texinfo);
-    detail::JsonAddMember(o, "occlusionTexture", std::move(texinfo));
-  }
-
-  if (material.emissiveTexture.index > -1) {
-    detail::json texinfo;
-    SerializeGltfTextureInfo(material.emissiveTexture, texinfo);
-    detail::JsonAddMember(o, "emissiveTexture", std::move(texinfo));
-  }
-
-  std::vector<double> default_emissiveFactor = {0.0, 0.0, 0.0};
-  if (!Equals(material.emissiveFactor, default_emissiveFactor)) {
-    SerializeNumberArrayProperty<double>("emissiveFactor",
-                                         material.emissiveFactor, o);
-  }
-
-  {
-    detail::json pbrMetallicRoughness;
-    SerializeGltfPbrMetallicRoughness(material.pbrMetallicRoughness,
-                                      pbrMetallicRoughness);
-    // Issue 204
-    // Do not serialize `pbrMetallicRoughness` if pbrMetallicRoughness has all
-    // default values(json is null). Otherwise it will serialize to
-    // `pbrMetallicRoughness : null`, which cannot be read by other glTF
-    // importers (and validators).
-    //
-    if (!detail::JsonIsNull(pbrMetallicRoughness)) {
-      detail::JsonAddMember(o, "pbrMetallicRoughness",
-                            std::move(pbrMetallicRoughness));
+TINYGLTF3_API int32_t tg3_num_components(int32_t type) {
+    switch (type) {
+        case TG3_TYPE_SCALAR: return 1;
+        case TG3_TYPE_VEC2:   return 2;
+        case TG3_TYPE_VEC3:   return 3;
+        case TG3_TYPE_VEC4:   return 4;
+        case TG3_TYPE_MAT2:   return 4;
+        case TG3_TYPE_MAT3:   return 9;
+        case TG3_TYPE_MAT4:   return 16;
+        default: return -1;
     }
-  }
-
-#if 0 // legacy way. just for the record.
-  if (material.values.size()) {
-    detail::json pbrMetallicRoughness;
-    SerializeParameterMap(material.values, pbrMetallicRoughness);
-    detail::JsonAddMember(o, "pbrMetallicRoughness", std::move(pbrMetallicRoughness));
-  }
-
-  SerializeParameterMap(material.additionalValues, o);
-#endif
-
-  SerializeExtrasAndExtensions(material, o);
-
-  // MSFT_lod
-  if (!material.lods.empty()) {
-    detail::json_iterator it;
-    if (!detail::FindMember(o, "extensions", it)) {
-      detail::json extensions;
-      detail::JsonSetObject(extensions);
-      detail::JsonAddMember(o, "extensions", std::move(extensions));
-      detail::FindMember(o, "extensions", it);
-    }
-    auto &extensions = detail::GetValue(it);
-    if (!detail::FindMember(extensions, "MSFT_lod", it)) {
-      detail::json lod;
-      detail::JsonSetObject(lod);
-      detail::JsonAddMember(extensions, "MSFT_lod", std::move(lod));
-      detail::FindMember(extensions, "MSFT_lod", it);
-    }
-    SerializeNumberArrayProperty<int>("ids", material.lods,
-                                      detail::GetValue(it));
-  } else {
-    detail::json_iterator ext_it;
-    if (detail::FindMember(o, "extensions", ext_it)) {
-      auto &extensions = detail::GetValue(ext_it);
-      detail::json_iterator lp_it;
-      if (detail::FindMember(extensions, "MSFT_lod", lp_it)) {
-        detail::Erase(extensions, lp_it);
-      }
-      if (detail::IsEmpty(extensions)) {
-        detail::Erase(o, ext_it);
-      }
-    }
-  }
 }
 
-static void SerializeGltfMesh(const Mesh &mesh, detail::json &o) {
-  detail::json primitives;
-  detail::JsonReserveArray(primitives, mesh.primitives.size());
-  for (unsigned int i = 0; i < mesh.primitives.size(); ++i) {
-    detail::json primitive;
-    const Primitive &gltfPrimitive = mesh.primitives[i]; // don't make a copy
-    {
-      detail::json attributes;
-      for (auto attrIt = gltfPrimitive.attributes.begin();
-           attrIt != gltfPrimitive.attributes.end(); ++attrIt) {
-        SerializeNumberProperty<int>(attrIt->first, attrIt->second, attributes);
-      }
+TINYGLTF3_API int32_t tg3_accessor_byte_stride(const tg3_accessor *accessor,
+                                                const tg3_buffer_view *bv) {
+    if (bv && bv->byte_stride > 0) return (int32_t)bv->byte_stride;
+    int32_t comp = tg3_component_size(accessor->component_type);
+    int32_t num = tg3_num_components(accessor->type);
+    if (comp < 0 || num < 0) return -1;
+    return comp * num;
+}
 
-      detail::JsonAddMember(primitive, "attributes", std::move(attributes));
-    }
+TINYGLTF3_API int32_t tg3_str_equals(tg3_str a, tg3_str b) {
+    if (a.len != b.len) return 0;
+    if (a.len == 0) return 1;
+    return memcmp(a.data, b.data, a.len) == 0 ? 1 : 0;
+}
 
-    // Indices is optional
-    if (gltfPrimitive.indices > -1) {
-      SerializeNumberProperty<int>("indices", gltfPrimitive.indices, primitive);
-    }
-    // Material is optional
-    if (gltfPrimitive.material > -1) {
-      SerializeNumberProperty<int>("material", gltfPrimitive.material,
-                                   primitive);
-    }
-    SerializeNumberProperty<int>("mode", gltfPrimitive.mode, primitive);
+TINYGLTF3_API int32_t tg3_str_equals_cstr(tg3_str a, const char *b) {
+    if (!b) return a.len == 0 ? 1 : 0;
+    uint32_t blen = (uint32_t)strlen(b);
+    if (a.len != blen) return 0;
+    if (a.len == 0) return 1;
+    return memcmp(a.data, b, a.len) == 0 ? 1 : 0;
+}
 
-    // Morph targets
-    if (gltfPrimitive.targets.size()) {
-      detail::json targets;
-      detail::JsonReserveArray(targets, gltfPrimitive.targets.size());
-      for (unsigned int k = 0; k < gltfPrimitive.targets.size(); ++k) {
-        detail::json targetAttributes;
-        std::map<std::string, int> targetData = gltfPrimitive.targets[k];
-        for (std::map<std::string, int>::iterator attrIt = targetData.begin();
-             attrIt != targetData.end(); ++attrIt) {
-          SerializeNumberProperty<int>(attrIt->first, attrIt->second,
-                                       targetAttributes);
+/* ======================================================================
+ * Internal: Base64 Encode/Decode
+ * ====================================================================== */
+
+static const char tg3__b64_chars[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static int tg3__b64_is_valid(unsigned char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+           (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=';
+}
+
+static int tg3__b64_decode_char(unsigned char c) {
+    if (c >= 'A' && c <= 'Z') return c - 'A';
+    if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+    if (c >= '0' && c <= '9') return c - '0' + 52;
+    if (c == '+') return 62;
+    if (c == '/') return 63;
+    return -1;
+}
+
+static uint8_t *tg3__b64_decode(const char *input, size_t input_len,
+                                 size_t *out_len, tg3_arena *arena) {
+    if (input_len == 0) { *out_len = 0; return NULL; }
+
+    /* Strip trailing padding */
+    size_t pad = 0;
+    while (input_len > 0 && input[input_len - 1] == '=') { ++pad; --input_len; }
+
+    size_t decoded_len = (input_len * 3) / 4;
+    uint8_t *out = (uint8_t *)tg3__arena_alloc(arena, decoded_len + 1);
+    if (!out) { *out_len = 0; return NULL; }
+
+    size_t j = 0;
+    uint32_t accum = 0;
+    int bits = 0;
+
+    for (size_t i = 0; i < input_len; ++i) {
+        int val = tg3__b64_decode_char((unsigned char)input[i]);
+        if (val < 0) continue; /* skip whitespace/invalid */
+        accum = (accum << 6) | (uint32_t)val;
+        bits += 6;
+        if (bits >= 8) {
+            bits -= 8;
+            out[j++] = (uint8_t)((accum >> bits) & 0xFF);
         }
-        detail::JsonPushBack(targets, std::move(targetAttributes));
-      }
-      detail::JsonAddMember(primitive, "targets", std::move(targets));
     }
 
-    SerializeExtrasAndExtensions(gltfPrimitive, primitive);
-
-    detail::JsonPushBack(primitives, std::move(primitive));
-  }
-
-  detail::JsonAddMember(o, "primitives", std::move(primitives));
-
-  if (mesh.weights.size()) {
-    SerializeNumberArrayProperty<double>("weights", mesh.weights, o);
-  }
-
-  if (mesh.name.size()) {
-    SerializeStringProperty("name", mesh.name, o);
-  }
-
-  SerializeExtrasAndExtensions(mesh, o);
+    *out_len = j;
+    return out;
 }
 
-static void SerializeSpotLight(const SpotLight &spot, detail::json &o) {
-  SerializeNumberProperty("innerConeAngle", spot.innerConeAngle, o);
-  SerializeNumberProperty("outerConeAngle", spot.outerConeAngle, o);
-  SerializeExtrasAndExtensions(spot, o);
+static char *tg3__b64_encode(const uint8_t *input, size_t input_len,
+                              size_t *out_len) {
+    size_t enc_len = ((input_len + 2) / 3) * 4;
+    char *out = (char *)malloc(enc_len + 1);
+    if (!out) { *out_len = 0; return NULL; }
+
+    size_t j = 0;
+    for (size_t i = 0; i < input_len; i += 3) {
+        uint32_t a = input[i];
+        uint32_t b = (i + 1 < input_len) ? input[i + 1] : 0;
+        uint32_t c = (i + 2 < input_len) ? input[i + 2] : 0;
+        uint32_t triple = (a << 16) | (b << 8) | c;
+
+        out[j++] = tg3__b64_chars[(triple >> 18) & 0x3F];
+        out[j++] = tg3__b64_chars[(triple >> 12) & 0x3F];
+        out[j++] = (i + 1 < input_len) ? tg3__b64_chars[(triple >> 6) & 0x3F] : '=';
+        out[j++] = (i + 2 < input_len) ? tg3__b64_chars[triple & 0x3F] : '=';
+    }
+    out[j] = '\0';
+    *out_len = j;
+    return out;
 }
 
-static void SerializeGltfLight(const Light &light, detail::json &o) {
-  if (!light.name.empty())
-    SerializeStringProperty("name", light.name, o);
-  SerializeNumberProperty("intensity", light.intensity, o);
-  if (light.range > 0.0) {
-    SerializeNumberProperty("range", light.range, o);
-  }
-  SerializeNumberArrayProperty("color", light.color, o);
-  SerializeStringProperty("type", light.type, o);
-  if (light.type == "spot") {
-    detail::json spot;
-    SerializeSpotLight(light.spot, spot);
-    detail::JsonAddMember(o, "spot", std::move(spot));
-  }
-  SerializeExtrasAndExtensions(light, o);
+/* ======================================================================
+ * Internal: Data URI Handling
+ * ====================================================================== */
+
+TINYGLTF3_API int32_t tg3_is_data_uri(const char *uri, uint32_t len) {
+    if (len < 5) return 0;
+    return (memcmp(uri, "data:", 5) == 0) ? 1 : 0;
 }
 
-static void SerializeGltfPositionalEmitter(const PositionalEmitter &positional,
-                                           detail::json &o) {
-  if (!TINYGLTF_DOUBLE_EQUAL(positional.coneInnerAngle, 6.283185307179586))
-    SerializeNumberProperty("coneInnerAngle", positional.coneInnerAngle, o);
-  if (!TINYGLTF_DOUBLE_EQUAL(positional.coneOuterAngle, 6.283185307179586))
-    SerializeNumberProperty("coneOuterAngle", positional.coneOuterAngle, o);
-  if (positional.coneOuterGain > 0.0)
-    SerializeNumberProperty("coneOuterGain", positional.coneOuterGain, o);
-  if (!TINYGLTF_DOUBLE_EQUAL(positional.maxDistance, 100.0))
-    SerializeNumberProperty("maxDistance", positional.maxDistance, o);
-  if (!TINYGLTF_DOUBLE_EQUAL(positional.refDistance, 1.0))
-    SerializeNumberProperty("refDistance", positional.refDistance, o);
-  if (!TINYGLTF_DOUBLE_EQUAL(positional.rolloffFactor, 1.0))
-    SerializeNumberProperty("rolloffFactor", positional.rolloffFactor, o);
+typedef struct tg3__data_uri_result {
+    const char *data_start;
+    size_t      data_len;
+    char        mime_type[64];
+} tg3__data_uri_result;
 
-  SerializeExtrasAndExtensions(positional, o);
+static int tg3__parse_data_uri(const char *uri, uint32_t uri_len,
+                                tg3__data_uri_result *result) {
+    /* Expected format: data:<mime>;base64,<data> */
+    if (uri_len < 5 || memcmp(uri, "data:", 5) != 0) return 0;
+
+    const char *p = uri + 5;
+    const char *end = uri + uri_len;
+
+    /* Find semicolon */
+    const char *semi = p;
+    while (semi < end && *semi != ';') ++semi;
+    if (semi >= end) return 0;
+
+    /* Extract MIME type */
+    size_t mime_len = (size_t)(semi - p);
+    if (mime_len >= sizeof(result->mime_type)) mime_len = sizeof(result->mime_type) - 1;
+    memcpy(result->mime_type, p, mime_len);
+    result->mime_type[mime_len] = '\0';
+
+    /* Skip ";base64," */
+    p = semi + 1;
+    if (end - p < 7 || memcmp(p, "base64,", 7) != 0) return 0;
+    p += 7;
+
+    result->data_start = p;
+    result->data_len = (size_t)(end - p);
+    return 1;
 }
 
-static void SerializeGltfAudioEmitter(const AudioEmitter &emitter,
-                                      detail::json &o) {
-  if (!emitter.name.empty())
-    SerializeStringProperty("name", emitter.name, o);
-  if (!TINYGLTF_DOUBLE_EQUAL(emitter.gain, 1.0))
-    SerializeNumberProperty("gain", emitter.gain, o);
-  if (emitter.loop)
-    SerializeNumberProperty("loop", emitter.loop, o);
-  if (emitter.playing)
-    SerializeNumberProperty("playing", emitter.playing, o);
-  if (!emitter.type.empty())
-    SerializeStringProperty("type", emitter.type, o);
-  if (!emitter.distanceModel.empty())
-    SerializeStringProperty("distanceModel", emitter.distanceModel, o);
-  if (emitter.type == "positional") {
-    detail::json positional;
-    SerializeGltfPositionalEmitter(emitter.positional, positional);
-    detail::JsonAddMember(o, "positional", std::move(positional));
-  }
-  SerializeNumberProperty("source", emitter.source, o);
-  SerializeExtrasAndExtensions(emitter, o);
+static uint8_t *tg3__decode_data_uri(tg3_arena *arena, const char *uri,
+                                      uint32_t uri_len, size_t *out_len,
+                                      char *out_mime, size_t out_mime_cap) {
+    tg3__data_uri_result dr;
+    if (!tg3__parse_data_uri(uri, uri_len, &dr)) {
+        *out_len = 0;
+        return NULL;
+    }
+
+    if (out_mime && out_mime_cap > 0) {
+        size_t mlen = strlen(dr.mime_type);
+        if (mlen >= out_mime_cap) mlen = out_mime_cap - 1;
+        memcpy(out_mime, dr.mime_type, mlen);
+        out_mime[mlen] = '\0';
+    }
+
+    return tg3__b64_decode(dr.data_start, dr.data_len, out_len, arena);
 }
 
-static void SerializeGltfAudioSource(const AudioSource &source,
-                                     detail::json &o) {
-  std::string name;
-  std::string uri;
-  std::string mimeType; // (required if no uri) ["audio/mp3", "audio/ogg",
-                        // "audio/wav", "audio/m4a"]
+/* ======================================================================
+ * Internal: Parse Context
+ * ====================================================================== */
 
-  if (!source.name.empty())
-    SerializeStringProperty("name", source.name, o);
-  if (source.uri.empty()) {
-    SerializeStringProperty("mimeType", source.mimeType, o);
-    SerializeNumberProperty<int>("bufferView", source.bufferView, o);
-  } else {
-    SerializeStringProperty("uri", source.uri, o);
-  }
-  SerializeExtrasAndExtensions(source, o);
+typedef struct tg3__parse_ctx {
+    tg3_arena        *arena;
+    tg3_error_stack  *errors;
+    tg3_parse_options opts;
+    const char       *base_dir;
+    uint32_t          base_dir_len;
+
+    /* GLB binary chunk */
+    const uint8_t    *bin_data;
+    uint64_t          bin_size;
+    int32_t           is_binary;
+} tg3__parse_ctx;
+
+/* ======================================================================
+ * Internal: JSON Property Helpers
+ * ====================================================================== */
+
+/* Type alias for JSON */
+typedef tinygltf_json tg3__json;
+
+static int tg3__json_has(const tg3__json &o, const char *key) {
+    auto it = o.find(key);
+    return (it != o.end()) ? 1 : 0;
 }
 
-static void SerializeGltfNode(const Node &node, detail::json &o) {
-  if (node.translation.size() > 0) {
-    SerializeNumberArrayProperty<double>("translation", node.translation, o);
-  }
-  if (node.rotation.size() > 0) {
-    SerializeNumberArrayProperty<double>("rotation", node.rotation, o);
-  }
-  if (node.scale.size() > 0) {
-    SerializeNumberArrayProperty<double>("scale", node.scale, o);
-  }
-  if (node.matrix.size() > 0) {
-    SerializeNumberArrayProperty<double>("matrix", node.matrix, o);
-  }
-  if (node.mesh != -1) {
-    SerializeNumberProperty<int>("mesh", node.mesh, o);
-  }
-
-  if (node.skin != -1) {
-    SerializeNumberProperty<int>("skin", node.skin, o);
-  }
-
-  if (node.camera != -1) {
-    SerializeNumberProperty<int>("camera", node.camera, o);
-  }
-
-  if (node.weights.size() > 0) {
-    SerializeNumberArrayProperty<double>("weights", node.weights, o);
-  }
-
-  SerializeExtrasAndExtensions(node, o);
-
-  // Note(agnat): If the asset was loaded from disk, the node may already
-  // contain the KHR_lights_punctual extension. If it was constructed in
-  // memory it does not. In any case we update the JSON property using
-  // the value from the struct. Last, if the node does not have a light
-  // reference but the extension is still present, we remove it.
-  if (node.light != -1) {
-    detail::json_iterator it;
-    if (!detail::FindMember(o, "extensions", it)) {
-      detail::json extensions;
-      detail::JsonSetObject(extensions);
-      detail::JsonAddMember(o, "extensions", std::move(extensions));
-      detail::FindMember(o, "extensions", it);
+static int tg3__parse_string(tg3__parse_ctx *ctx, const tg3__json &o,
+                              const char *key, tg3_str *out,
+                              int required, const char *parent) {
+    auto it = o.find(key);
+    if (it == o.end()) {
+        if (required) {
+            tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                             TG3_ERR_JSON_MISSING_FIELD, parent,
+                             "Missing required field '%s'", key);
+            return 0;
+        }
+        out->data = NULL; out->len = 0;
+        return 1;
     }
-    auto &extensions = detail::GetValue(it);
-    if (!detail::FindMember(extensions, "KHR_lights_punctual", it)) {
-      detail::json lights_punctual;
-      detail::JsonSetObject(lights_punctual);
-      detail::JsonAddMember(extensions, "KHR_lights_punctual",
-                            std::move(lights_punctual));
-      detail::FindMember(extensions, "KHR_lights_punctual", it);
+    if (!it->is_string()) {
+        tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                         TG3_ERR_JSON_TYPE_MISMATCH, parent,
+                         "Field '%s' must be a string", key);
+        return 0;
     }
-    SerializeNumberProperty("light", node.light, detail::GetValue(it));
-  } else {
-    // node has no light ref (any longer)... so we clean up
-    detail::json_iterator ext_it;
-    if (detail::FindMember(o, "extensions", ext_it)) {
-      auto &extensions = detail::GetValue(ext_it);
-      detail::json_iterator lp_it;
-      if (detail::FindMember(extensions, "KHR_lights_punctual", lp_it)) {
-        detail::Erase(extensions, lp_it);
-      }
-      if (detail::IsEmpty(extensions)) {
-        detail::Erase(o, ext_it);
-      }
-    }
-  }
-
-  // KHR_audio
-  if (node.emitter != -1) {
-    detail::json_iterator it;
-    if (!detail::FindMember(o, "extensions", it)) {
-      detail::json extensions;
-      detail::JsonSetObject(extensions);
-      detail::JsonAddMember(o, "extensions", std::move(extensions));
-      detail::FindMember(o, "extensions", it);
-    }
-    auto &extensions = detail::GetValue(it);
-    if (!detail::FindMember(extensions, "KHR_audio", it)) {
-      detail::json audio;
-      detail::JsonSetObject(audio);
-      detail::JsonAddMember(extensions, "KHR_audio", std::move(audio));
-      detail::FindMember(extensions, "KHR_audio", it);
-    }
-    SerializeNumberProperty("emitter", node.emitter, detail::GetValue(it));
-  } else {
-    detail::json_iterator ext_it;
-    if (detail::FindMember(o, "extensions", ext_it)) {
-      auto &extensions = detail::GetValue(ext_it);
-      detail::json_iterator lp_it;
-      if (detail::FindMember(extensions, "KHR_audio", lp_it)) {
-        detail::Erase(extensions, lp_it);
-      }
-      if (detail::IsEmpty(extensions)) {
-        detail::Erase(o, ext_it);
-      }
-    }
-  }
-
-  // MSFT_lod
-  if (!node.lods.empty()) {
-    detail::json_iterator it;
-    if (!detail::FindMember(o, "extensions", it)) {
-      detail::json extensions;
-      detail::JsonSetObject(extensions);
-      detail::JsonAddMember(o, "extensions", std::move(extensions));
-      detail::FindMember(o, "extensions", it);
-    }
-    auto &extensions = detail::GetValue(it);
-    if (!detail::FindMember(extensions, "MSFT_lod", it)) {
-      detail::json lod;
-      detail::JsonSetObject(lod);
-      detail::JsonAddMember(extensions, "MSFT_lod", std::move(lod));
-      detail::FindMember(extensions, "MSFT_lod", it);
-    }
-    SerializeNumberArrayProperty<int>("ids", node.lods, detail::GetValue(it));
-  } else {
-    detail::json_iterator ext_it;
-    if (detail::FindMember(o, "extensions", ext_it)) {
-      auto &extensions = detail::GetValue(ext_it);
-      detail::json_iterator lp_it;
-      if (detail::FindMember(extensions, "MSFT_lod", lp_it)) {
-        detail::Erase(extensions, lp_it);
-      }
-      if (detail::IsEmpty(extensions)) {
-        detail::Erase(o, ext_it);
-      }
-    }
-  }
-
-  if (!node.name.empty())
-    SerializeStringProperty("name", node.name, o);
-  SerializeNumberArrayProperty<int>("children", node.children, o);
+    std::string s = it->get<std::string>();
+    *out = tg3__arena_str_from_std(ctx->arena, s);
+    return 1;
 }
 
-static void SerializeGltfSampler(const Sampler &sampler, detail::json &o) {
-  if (!sampler.name.empty()) {
-    SerializeStringProperty("name", sampler.name, o);
-  }
-  if (sampler.magFilter != -1) {
-    SerializeNumberProperty("magFilter", sampler.magFilter, o);
-  }
-  if (sampler.minFilter != -1) {
-    SerializeNumberProperty("minFilter", sampler.minFilter, o);
-  }
-  // SerializeNumberProperty("wrapR", sampler.wrapR, o);
-  SerializeNumberProperty("wrapS", sampler.wrapS, o);
-  SerializeNumberProperty("wrapT", sampler.wrapT, o);
-
-  SerializeExtrasAndExtensions(sampler, o);
+static int tg3__parse_int(tg3__parse_ctx *ctx, const tg3__json &o,
+                           const char *key, int32_t *out,
+                           int required, const char *parent) {
+    auto it = o.find(key);
+    if (it == o.end()) {
+        if (required) {
+            tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                             TG3_ERR_JSON_MISSING_FIELD, parent,
+                             "Missing required field '%s'", key);
+            return 0;
+        }
+        return 1;
+    }
+    if (!it->is_number()) {
+        tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                         TG3_ERR_JSON_TYPE_MISMATCH, parent,
+                         "Field '%s' must be a number", key);
+        return 0;
+    }
+    if (it->is_number_integer()) {
+        int64_t v = it->get<int64_t>();
+        if (v < (int64_t)INT32_MIN || v > (int64_t)INT32_MAX) {
+            tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                             TG3_ERR_JSON_TYPE_MISMATCH, parent,
+                             "Field '%s' value %" PRId64 " is out of range for int32", key, v);
+            return 0;
+        }
+        *out = (int32_t)v;
+    } else {
+        double d = it->get<double>();
+        if (d < (double)INT32_MIN || d > (double)INT32_MAX) {
+            tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                             TG3_ERR_JSON_TYPE_MISMATCH, parent,
+                             "Field '%s' value %f is out of range for int32", key, d);
+            return 0;
+        }
+        *out = (int32_t)d;
+    }
+    return 1;
 }
 
-static void SerializeGltfOrthographicCamera(const OrthographicCamera &camera,
-                                            detail::json &o) {
-  SerializeNumberProperty("zfar", camera.zfar, o);
-  SerializeNumberProperty("znear", camera.znear, o);
-  SerializeNumberProperty("xmag", camera.xmag, o);
-  SerializeNumberProperty("ymag", camera.ymag, o);
-
-  SerializeExtrasAndExtensions(camera, o);
+static int tg3__parse_uint64(tg3__parse_ctx *ctx, const tg3__json &o,
+                              const char *key, uint64_t *out,
+                              int required, const char *parent) {
+    auto it = o.find(key);
+    if (it == o.end()) {
+        if (required) {
+            tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                             TG3_ERR_JSON_MISSING_FIELD, parent,
+                             "Missing required field '%s'", key);
+            return 0;
+        }
+        return 1;
+    }
+    if (!it->is_number()) {
+        tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                         TG3_ERR_JSON_TYPE_MISMATCH, parent,
+                         "Field '%s' must be a number", key);
+        return 0;
+    }
+    if (it->is_number_integer()) {
+        int64_t v = it->get<int64_t>();
+        *out = (v >= 0) ? (uint64_t)v : 0;
+    } else {
+        *out = (uint64_t)it->get<double>();
+    }
+    return 1;
 }
 
-static void SerializeGltfPerspectiveCamera(const PerspectiveCamera &camera,
-                                           detail::json &o) {
-  SerializeNumberProperty("zfar", camera.zfar, o);
-  SerializeNumberProperty("znear", camera.znear, o);
-  if (camera.aspectRatio > 0) {
-    SerializeNumberProperty("aspectRatio", camera.aspectRatio, o);
-  }
-
-  if (camera.yfov > 0) {
-    SerializeNumberProperty("yfov", camera.yfov, o);
-  }
-
-  SerializeExtrasAndExtensions(camera, o);
+static int tg3__parse_double(tg3__parse_ctx *ctx, const tg3__json &o,
+                              const char *key, double *out,
+                              int required, const char *parent) {
+    auto it = o.find(key);
+    if (it == o.end()) {
+        if (required) {
+            tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                             TG3_ERR_JSON_MISSING_FIELD, parent,
+                             "Missing required field '%s'", key);
+            return 0;
+        }
+        return 1;
+    }
+    if (!it->is_number()) {
+        tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                         TG3_ERR_JSON_TYPE_MISMATCH, parent,
+                         "Field '%s' must be a number", key);
+        return 0;
+    }
+    *out = it->get<double>();
+    return 1;
 }
 
-static void SerializeGltfCamera(const Camera &camera, detail::json &o) {
-  SerializeStringProperty("type", camera.type, o);
-  if (!camera.name.empty()) {
-    SerializeStringProperty("name", camera.name, o);
-  }
-
-  if (camera.type.compare("orthographic") == 0) {
-    detail::json orthographic;
-    SerializeGltfOrthographicCamera(camera.orthographic, orthographic);
-    detail::JsonAddMember(o, "orthographic", std::move(orthographic));
-  } else if (camera.type.compare("perspective") == 0) {
-    detail::json perspective;
-    SerializeGltfPerspectiveCamera(camera.perspective, perspective);
-    detail::JsonAddMember(o, "perspective", std::move(perspective));
-  } else {
-    // ???
-  }
-
-  SerializeExtrasAndExtensions(camera, o);
+static int tg3__parse_bool(tg3__parse_ctx *ctx, const tg3__json &o,
+                            const char *key, int32_t *out,
+                            int required, const char *parent) {
+    auto it = o.find(key);
+    if (it == o.end()) {
+        if (required) {
+            tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                             TG3_ERR_JSON_MISSING_FIELD, parent,
+                             "Missing required field '%s'", key);
+            return 0;
+        }
+        return 1;
+    }
+    if (!it->is_boolean()) {
+        tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                         TG3_ERR_JSON_TYPE_MISMATCH, parent,
+                         "Field '%s' must be a boolean", key);
+        return 0;
+    }
+    *out = it->get<bool>() ? 1 : 0;
+    return 1;
 }
 
-static void SerializeGltfScene(const Scene &scene, detail::json &o) {
-  SerializeNumberArrayProperty<int>("nodes", scene.nodes, o);
+static int tg3__parse_number_array(tg3__parse_ctx *ctx, const tg3__json &o,
+                                    const char *key, const double **out,
+                                    uint32_t *out_count,
+                                    int required, const char *parent) {
+    auto it = o.find(key);
+    if (it == o.end()) {
+        if (required) {
+            tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                             TG3_ERR_JSON_MISSING_FIELD, parent,
+                             "Missing required field '%s'", key);
+            return 0;
+        }
+        *out = NULL; *out_count = 0;
+        return 1;
+    }
+    if (!it->is_array()) {
+        tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                         TG3_ERR_JSON_TYPE_MISMATCH, parent,
+                         "Field '%s' must be an array", key);
+        return 0;
+    }
+    uint32_t count = (uint32_t)it->size();
+    if (count == 0) { *out = NULL; *out_count = 0; return 1; }
 
-  if (scene.name.size()) {
-    SerializeStringProperty("name", scene.name, o);
-  }
-  SerializeExtrasAndExtensions(scene, o);
-
-  // KHR_audio
-  if (!scene.audioEmitters.empty()) {
-    detail::json_iterator it;
-    if (!detail::FindMember(o, "extensions", it)) {
-      detail::json extensions;
-      detail::JsonSetObject(extensions);
-      detail::JsonAddMember(o, "extensions", std::move(extensions));
-      detail::FindMember(o, "extensions", it);
+    double *arr = (double *)tg3__arena_alloc(ctx->arena, count * sizeof(double));
+    if (!arr) {
+        tg3__error_push(ctx->errors, TG3_SEVERITY_ERROR, TG3_ERR_OUT_OF_MEMORY,
+                        "OOM allocating number array", parent, -1);
+        return 0;
     }
-    auto &extensions = detail::GetValue(it);
-    if (!detail::FindMember(extensions, "KHR_audio", it)) {
-      detail::json audio;
-      detail::JsonSetObject(audio);
-      detail::JsonAddMember(extensions, "KHR_audio", std::move(audio));
-      detail::FindMember(o, "KHR_audio", it);
+    uint32_t i = 0;
+    for (auto eit = it->begin(); eit != it->end(); ++eit, ++i) {
+        arr[i] = eit->get<double>();
     }
-    SerializeNumberArrayProperty("emitters", scene.audioEmitters,
-                                 detail::GetValue(it));
-  } else {
-    detail::json_iterator ext_it;
-    if (detail::FindMember(o, "extensions", ext_it)) {
-      auto &extensions = detail::GetValue(ext_it);
-      detail::json_iterator lp_it;
-      if (detail::FindMember(extensions, "KHR_audio", lp_it)) {
-        detail::Erase(extensions, lp_it);
-      }
-      if (detail::IsEmpty(extensions)) {
-        detail::Erase(o, ext_it);
-      }
-    }
-  }
+    *out = arr;
+    *out_count = count;
+    return 1;
 }
 
-static void SerializeGltfSkin(const Skin &skin, detail::json &o) {
-  // required
-  SerializeNumberArrayProperty<int>("joints", skin.joints, o);
+static int tg3__parse_int_array(tg3__parse_ctx *ctx, const tg3__json &o,
+                                 const char *key, const int32_t **out,
+                                 uint32_t *out_count,
+                                 int required, const char *parent) {
+    auto it = o.find(key);
+    if (it == o.end()) {
+        if (required) {
+            tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                             TG3_ERR_JSON_MISSING_FIELD, parent,
+                             "Missing required field '%s'", key);
+            return 0;
+        }
+        *out = NULL; *out_count = 0;
+        return 1;
+    }
+    if (!it->is_array()) {
+        tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                         TG3_ERR_JSON_TYPE_MISMATCH, parent,
+                         "Field '%s' must be an array", key);
+        return 0;
+    }
+    uint32_t count = (uint32_t)it->size();
+    if (count == 0) { *out = NULL; *out_count = 0; return 1; }
 
-  if (skin.inverseBindMatrices >= 0) {
-    SerializeNumberProperty("inverseBindMatrices", skin.inverseBindMatrices, o);
-  }
-
-  if (skin.skeleton >= 0) {
-    SerializeNumberProperty("skeleton", skin.skeleton, o);
-  }
-
-  if (skin.name.size()) {
-    SerializeStringProperty("name", skin.name, o);
-  }
-
-  SerializeExtrasAndExtensions(skin, o);
+    int32_t *arr = (int32_t *)tg3__arena_alloc(ctx->arena, count * sizeof(int32_t));
+    if (!arr) {
+        tg3__error_push(ctx->errors, TG3_SEVERITY_ERROR, TG3_ERR_OUT_OF_MEMORY,
+                        "OOM allocating int array", parent, -1);
+        return 0;
+    }
+    uint32_t i = 0;
+    for (auto eit = it->begin(); eit != it->end(); ++eit, ++i) {
+        arr[i] = eit->get<int>();
+    }
+    *out = arr;
+    *out_count = count;
+    return 1;
 }
 
-static void SerializeGltfTexture(const Texture &texture, detail::json &o) {
-  if (texture.sampler > -1) {
-    SerializeNumberProperty("sampler", texture.sampler, o);
-  }
-  if (texture.source > -1) {
-    SerializeNumberProperty("source", texture.source, o);
-  }
-  if (texture.name.size()) {
-    SerializeStringProperty("name", texture.name, o);
-  }
-  SerializeExtrasAndExtensions(texture, o);
+static void tg3__parse_number_to_fixed(const tg3__json &o, const char *key,
+                                        double *out, uint32_t max_count) {
+    auto it = o.find(key);
+    if (it == o.end() || !it->is_array()) return;
+    uint32_t i = 0;
+    for (auto eit = it->begin(); eit != it->end() && i < max_count; ++eit, ++i) {
+        out[i] = eit->get<double>();
+    }
 }
 
-///
-/// Serialize all properties except buffers and images.
-///
-static void SerializeGltfModel(const Model *model, detail::json &o) {
-  // ACCESSORS
-  if (model->accessors.size()) {
-    detail::json accessors;
-    detail::JsonReserveArray(accessors, model->accessors.size());
-    for (unsigned int i = 0; i < model->accessors.size(); ++i) {
-      detail::json accessor;
-      SerializeGltfAccessor(model->accessors[i], accessor);
-      detail::JsonPushBack(accessors, std::move(accessor));
+/* Parse string array */
+static int tg3__parse_string_array(tg3__parse_ctx *ctx, const tg3__json &o,
+                                    const char *key, const tg3_str **out,
+                                    uint32_t *out_count,
+                                    int required, const char *parent) {
+    auto it = o.find(key);
+    if (it == o.end()) {
+        if (required) {
+            tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                             TG3_ERR_JSON_MISSING_FIELD, parent,
+                             "Missing required field '%s'", key);
+            return 0;
+        }
+        *out = NULL; *out_count = 0;
+        return 1;
     }
-    detail::JsonAddMember(o, "accessors", std::move(accessors));
-  }
+    if (!it->is_array()) return 0;
+    uint32_t count = (uint32_t)it->size();
+    if (count == 0) { *out = NULL; *out_count = 0; return 1; }
 
-  // ANIMATIONS
-  if (model->animations.size()) {
-    detail::json animations;
-    detail::JsonReserveArray(animations, model->animations.size());
-    for (unsigned int i = 0; i < model->animations.size(); ++i) {
-      if (model->animations[i].channels.size()) {
-        detail::json animation;
-        SerializeGltfAnimation(model->animations[i], animation);
-        detail::JsonPushBack(animations, std::move(animation));
-      }
+    tg3_str *arr = (tg3_str *)tg3__arena_alloc(ctx->arena, count * sizeof(tg3_str));
+    if (!arr) return 0;
+    uint32_t i = 0;
+    for (auto eit = it->begin(); eit != it->end(); ++eit, ++i) {
+        std::string s = eit->get<std::string>();
+        arr[i] = tg3__arena_str_from_std(ctx->arena, s);
     }
-
-    detail::JsonAddMember(o, "animations", std::move(animations));
-  }
-
-  // ASSET
-  detail::json asset;
-  SerializeGltfAsset(model->asset, asset);
-  detail::JsonAddMember(o, "asset", std::move(asset));
-
-  // BUFFERVIEWS
-  if (model->bufferViews.size()) {
-    detail::json bufferViews;
-    detail::JsonReserveArray(bufferViews, model->bufferViews.size());
-    for (unsigned int i = 0; i < model->bufferViews.size(); ++i) {
-      detail::json bufferView;
-      SerializeGltfBufferView(model->bufferViews[i], bufferView);
-      detail::JsonPushBack(bufferViews, std::move(bufferView));
-    }
-    detail::JsonAddMember(o, "bufferViews", std::move(bufferViews));
-  }
-
-  // Extensions required
-  if (model->extensionsRequired.size()) {
-    SerializeStringArrayProperty("extensionsRequired",
-                                 model->extensionsRequired, o);
-  }
-
-  // MATERIALS
-  if (model->materials.size()) {
-    detail::json materials;
-    detail::JsonReserveArray(materials, model->materials.size());
-    for (unsigned int i = 0; i < model->materials.size(); ++i) {
-      detail::json material;
-      SerializeGltfMaterial(model->materials[i], material);
-
-      if (detail::JsonIsNull(material)) {
-        // Issue 294.
-        // `material` does not have any required parameters
-        // so the result may be null(unmodified) when all material parameters
-        // have default value.
-        //
-        // null is not allowed thus we create an empty JSON object.
-        detail::JsonSetObject(material);
-      }
-      detail::JsonPushBack(materials, std::move(material));
-    }
-    detail::JsonAddMember(o, "materials", std::move(materials));
-  }
-
-  // MESHES
-  if (model->meshes.size()) {
-    detail::json meshes;
-    detail::JsonReserveArray(meshes, model->meshes.size());
-    for (unsigned int i = 0; i < model->meshes.size(); ++i) {
-      detail::json mesh;
-      SerializeGltfMesh(model->meshes[i], mesh);
-      detail::JsonPushBack(meshes, std::move(mesh));
-    }
-    detail::JsonAddMember(o, "meshes", std::move(meshes));
-  }
-
-  // NODES
-  if (model->nodes.size()) {
-    detail::json nodes;
-    detail::JsonReserveArray(nodes, model->nodes.size());
-    for (unsigned int i = 0; i < model->nodes.size(); ++i) {
-      detail::json node;
-      SerializeGltfNode(model->nodes[i], node);
-
-      if (detail::JsonIsNull(node)) {
-        // Issue 457.
-        // `node` does not have any required parameters,
-        // so the result may be null(unmodified) when all node parameters
-        // have default value.
-        //
-        // null is not allowed thus we create an empty JSON object.
-        detail::JsonSetObject(node);
-      }
-      detail::JsonPushBack(nodes, std::move(node));
-    }
-    detail::JsonAddMember(o, "nodes", std::move(nodes));
-  }
-
-  // SCENE
-  if (model->defaultScene > -1) {
-    SerializeNumberProperty<int>("scene", model->defaultScene, o);
-  }
-
-  // SCENES
-  if (model->scenes.size()) {
-    detail::json scenes;
-    detail::JsonReserveArray(scenes, model->scenes.size());
-    for (unsigned int i = 0; i < model->scenes.size(); ++i) {
-      detail::json currentScene;
-      SerializeGltfScene(model->scenes[i], currentScene);
-      if (detail::JsonIsNull(currentScene)) {
-        // Issue 464.
-        // `scene` does not have any required parameters,
-        // so the result may be null(unmodified) when all scene parameters
-        // have default value.
-        //
-        // null is not allowed thus we create an empty JSON object.
-        detail::JsonSetObject(currentScene);
-      }
-      detail::JsonPushBack(scenes, std::move(currentScene));
-    }
-    detail::JsonAddMember(o, "scenes", std::move(scenes));
-  }
-
-  // SKINS
-  if (model->skins.size()) {
-    detail::json skins;
-    detail::JsonReserveArray(skins, model->skins.size());
-    for (unsigned int i = 0; i < model->skins.size(); ++i) {
-      detail::json skin;
-      SerializeGltfSkin(model->skins[i], skin);
-      detail::JsonPushBack(skins, std::move(skin));
-    }
-    detail::JsonAddMember(o, "skins", std::move(skins));
-  }
-
-  // TEXTURES
-  if (model->textures.size()) {
-    detail::json textures;
-    detail::JsonReserveArray(textures, model->textures.size());
-    for (unsigned int i = 0; i < model->textures.size(); ++i) {
-      detail::json texture;
-      SerializeGltfTexture(model->textures[i], texture);
-      detail::JsonPushBack(textures, std::move(texture));
-    }
-    detail::JsonAddMember(o, "textures", std::move(textures));
-  }
-
-  // SAMPLERS
-  if (model->samplers.size()) {
-    detail::json samplers;
-    detail::JsonReserveArray(samplers, model->samplers.size());
-    for (unsigned int i = 0; i < model->samplers.size(); ++i) {
-      detail::json sampler;
-      SerializeGltfSampler(model->samplers[i], sampler);
-      detail::JsonPushBack(samplers, std::move(sampler));
-    }
-    detail::JsonAddMember(o, "samplers", std::move(samplers));
-  }
-
-  // CAMERAS
-  if (model->cameras.size()) {
-    detail::json cameras;
-    detail::JsonReserveArray(cameras, model->cameras.size());
-    for (unsigned int i = 0; i < model->cameras.size(); ++i) {
-      detail::json camera;
-      SerializeGltfCamera(model->cameras[i], camera);
-      detail::JsonPushBack(cameras, std::move(camera));
-    }
-    detail::JsonAddMember(o, "cameras", std::move(cameras));
-  }
-
-  // EXTRAS & EXTENSIONS
-  SerializeExtrasAndExtensions(*model, o);
-
-  auto extensionsUsed = model->extensionsUsed;
-
-  // LIGHTS as KHR_lights_punctual
-  if (model->lights.size()) {
-    detail::json lights;
-    detail::JsonReserveArray(lights, model->lights.size());
-    for (unsigned int i = 0; i < model->lights.size(); ++i) {
-      detail::json light;
-      SerializeGltfLight(model->lights[i], light);
-      detail::JsonPushBack(lights, std::move(light));
-    }
-    detail::json khr_lights_cmn;
-    detail::JsonAddMember(khr_lights_cmn, "lights", std::move(lights));
-    detail::json ext_j;
-
-    {
-      detail::json_const_iterator it;
-      if (detail::FindMember(o, "extensions", it)) {
-        detail::JsonAssign(ext_j, detail::GetValue(it));
-      }
-    }
-
-    detail::JsonAddMember(ext_j, "KHR_lights_punctual",
-                          std::move(khr_lights_cmn));
-
-    detail::JsonAddMember(o, "extensions", std::move(ext_j));
-
-    // Also add "KHR_lights_punctual" to `extensionsUsed`
-    {
-      auto has_khr_lights_punctual =
-          std::find_if(extensionsUsed.begin(), extensionsUsed.end(),
-                       [](const std::string &s) {
-                         return (s.compare("KHR_lights_punctual") == 0);
-                       });
-
-      if (has_khr_lights_punctual == extensionsUsed.end()) {
-        extensionsUsed.push_back("KHR_lights_punctual");
-      }
-    }
-  }
-
-  // KHR_audio
-  if (!model->audioEmitters.empty() || !model->audioSources.empty()) {
-    detail::json emitters;
-    detail::JsonReserveArray(emitters, model->audioEmitters.size());
-    for (unsigned int i = 0; i < model->audioEmitters.size(); ++i) {
-      detail::json emitter;
-      SerializeGltfAudioEmitter(model->audioEmitters[i], emitter);
-      detail::JsonPushBack(emitters, std::move(emitter));
-    }
-    detail::json khr_audio_cmn;
-    detail::JsonAddMember(khr_audio_cmn, "emitters", std::move(emitters));
-
-    detail::json sources;
-    detail::JsonReserveArray(sources, model->audioSources.size());
-    for (unsigned int i = 0; i < model->audioSources.size(); ++i) {
-      detail::json source;
-      SerializeGltfAudioSource(model->audioSources[i], source);
-      detail::JsonPushBack(sources, std::move(source));
-    }
-    detail::JsonAddMember(khr_audio_cmn, "sources", std::move(sources));
-
-    detail::json ext_j;
-    {
-      detail::json_const_iterator it;
-      if (detail::FindMember(o, "extensions", it)) {
-        detail::JsonAssign(ext_j, detail::GetValue(it));
-      }
-    }
-
-    detail::JsonAddMember(ext_j, "KHR_audio", std::move(khr_audio_cmn));
-
-    detail::JsonAddMember(o, "extensions", std::move(ext_j));
-
-    // Also add "KHR_audio" to `extensionsUsed`
-    {
-      auto has_khr_audio = std::find_if(
-          extensionsUsed.begin(), extensionsUsed.end(),
-          [](const std::string &s) { return (s.compare("KHR_audio") == 0); });
-
-      if (has_khr_audio == extensionsUsed.end()) {
-        extensionsUsed.push_back("KHR_audio");
-      }
-    }
-  }
-
-  // MSFT_lod
-
-  // Look if there is a node that employs MSFT_lod
-  auto msft_lod_nodes_it =
-      std::find_if(model->nodes.begin(), model->nodes.end(),
-                   [](const Node &node) { return !node.lods.empty(); });
-
-  // Look if there is a material that employs MSFT_lod
-  auto msft_lod_materials_it = std::find_if(
-      model->materials.begin(), model->materials.end(),
-      [](const Material &material) { return !material.lods.empty(); });
-
-  // If either a node or a material employ MSFT_lod, then we need
-  // to add MSFT_lod to the list of used extensions.
-  if (msft_lod_nodes_it != model->nodes.end() ||
-      msft_lod_materials_it != model->materials.end()) {
-    // First check if MSFT_lod is already registered as used extension
-    auto has_msft_lod = std::find_if(
-        extensionsUsed.begin(), extensionsUsed.end(),
-        [](const std::string &s) { return (s.compare("MSFT_lod") == 0); });
-
-    // If MSFT_lod is not registered yet, add it
-    if (has_msft_lod == extensionsUsed.end()) {
-      extensionsUsed.push_back("MSFT_lod");
-    }
-  }
-
-  // Extensions used
-  if (extensionsUsed.size()) {
-    SerializeStringArrayProperty("extensionsUsed", extensionsUsed, o);
-  }
+    *out = arr;
+    *out_count = count;
+    return 1;
 }
 
-static bool WriteGltfStream(std::ostream &stream, const std::string &content) {
-  stream << content << std::endl;
-  return stream.good();
-}
+/* ======================================================================
+ * Internal: Value Conversion (JSON -> tg3_value)
+ * ====================================================================== */
 
-static bool WriteGltfFile(const std::string &output,
-                          const std::string &content) {
-#ifndef TINYGLTF_NO_FS
-#ifdef _WIN32
-#if defined(_MSC_VER)
-  std::ofstream gltfFile(UTF8ToWchar(output).c_str());
-#elif defined(__GLIBCXX__)
-  int file_descriptor =
-      _wopen(UTF8ToWchar(output).c_str(),
-             _O_CREAT | _O_WRONLY | _O_TRUNC | _O_BINARY, _S_IWRITE);
-  __gnu_cxx::stdio_filebuf<char> wfile_buf(
-      file_descriptor, std::ios_base::out | std::ios_base::binary);
-  std::ostream gltfFile(&wfile_buf);
-  if (!wfile_buf.is_open())
-    return false;
-#else
-  std::ofstream gltfFile(output.c_str());
-  if (!gltfFile.is_open())
-    return false;
-#endif
-#else
-  std::ofstream gltfFile(output.c_str());
-  if (!gltfFile.is_open())
-    return false;
-#endif
-  return WriteGltfStream(gltfFile, content);
-#else
-  return false;
-#endif
-}
+static tg3_value tg3__json_to_value(tg3__parse_ctx *ctx, const tg3__json &j) {
+    tg3_value v;
+    memset(&v, 0, sizeof(v));
 
-static bool WriteBinaryGltfStream(std::ostream &stream,
-                                  const std::string &content,
-                                  const std::vector<unsigned char> &binBuffer) {
-  const std::string header = "glTF";
-  const int version = 2;
-
-  const uint32_t content_size = uint32_t(content.size());
-  const uint32_t binBuffer_size = uint32_t(binBuffer.size());
-  // determine number of padding bytes required to ensure 4 byte alignment
-  const uint32_t content_padding_size =
-      content_size % 4 == 0 ? 0 : 4 - content_size % 4;
-  const uint32_t bin_padding_size =
-      binBuffer_size % 4 == 0 ? 0 : 4 - binBuffer_size % 4;
-
-  // 12 bytes for header, JSON content length, 8 bytes for JSON chunk info.
-  // Chunk data must be located at 4-byte boundary, which may require padding
-  const uint32_t length =
-      12 + 8 + content_size + content_padding_size +
-      (binBuffer_size ? (8 + binBuffer_size + bin_padding_size) : 0);
-
-  stream.write(header.c_str(), std::streamsize(header.size()));
-  stream.write(reinterpret_cast<const char *>(&version), sizeof(version));
-  stream.write(reinterpret_cast<const char *>(&length), sizeof(length));
-
-  // JSON chunk info, then JSON data
-  const uint32_t model_length = uint32_t(content.size()) + content_padding_size;
-  const uint32_t model_format = 0x4E4F534A;
-  stream.write(reinterpret_cast<const char *>(&model_length),
-               sizeof(model_length));
-  stream.write(reinterpret_cast<const char *>(&model_format),
-               sizeof(model_format));
-  stream.write(content.c_str(), std::streamsize(content.size()));
-
-  // Chunk must be multiplies of 4, so pad with spaces
-  if (content_padding_size > 0) {
-    const std::string padding = std::string(size_t(content_padding_size), ' ');
-    stream.write(padding.c_str(), std::streamsize(padding.size()));
-  }
-  if (binBuffer.size() > 0) {
-    // BIN chunk info, then BIN data
-    const uint32_t bin_length = uint32_t(binBuffer.size()) + bin_padding_size;
-    const uint32_t bin_format = 0x004e4942;
-    stream.write(reinterpret_cast<const char *>(&bin_length),
-                 sizeof(bin_length));
-    stream.write(reinterpret_cast<const char *>(&bin_format),
-                 sizeof(bin_format));
-    stream.write(reinterpret_cast<const char *>(binBuffer.data()),
-                 std::streamsize(binBuffer.size()));
-    // Chunksize must be multiplies of 4, so pad with zeroes
-    if (bin_padding_size > 0) {
-      const std::vector<unsigned char> padding =
-          std::vector<unsigned char>(size_t(bin_padding_size), 0);
-      stream.write(reinterpret_cast<const char *>(padding.data()),
-                   std::streamsize(padding.size()));
+    if (j.is_null()) {
+        v.type = TG3_VALUE_NULL;
+    } else if (j.is_boolean()) {
+        v.type = TG3_VALUE_BOOL;
+        v.bool_val = j.get<bool>() ? 1 : 0;
+    } else if (j.is_number_integer()) {
+        v.type = TG3_VALUE_INT;
+        v.int_val = j.get<int64_t>();
+    } else if (j.is_number_float()) {
+        v.type = TG3_VALUE_REAL;
+        v.real_val = j.get<double>();
+    } else if (j.is_string()) {
+        v.type = TG3_VALUE_STRING;
+        std::string s = j.get<std::string>();
+        v.string_val = tg3__arena_str_from_std(ctx->arena, s);
+    } else if (j.is_array()) {
+        v.type = TG3_VALUE_ARRAY;
+        uint32_t count = (uint32_t)j.size();
+        if (count > 0) {
+            tg3_value *arr = (tg3_value *)tg3__arena_alloc(
+                ctx->arena, count * sizeof(tg3_value));
+            if (arr) {
+                uint32_t i = 0;
+                for (auto it = j.begin(); it != j.end(); ++it, ++i) {
+                    arr[i] = tg3__json_to_value(ctx, *it);
+                }
+                v.array_data = arr;
+                v.array_count = count;
+            }
+        }
+    } else if (j.is_object()) {
+        v.type = TG3_VALUE_OBJECT;
+        uint32_t count = (uint32_t)j.size();
+        if (count > 0) {
+            tg3_kv_pair *pairs = (tg3_kv_pair *)tg3__arena_alloc(
+                ctx->arena, count * sizeof(tg3_kv_pair));
+            if (pairs) {
+                uint32_t i = 0;
+                for (auto it = j.begin(); it != j.end(); ++it, ++i) {
+                    std::string k = it.key();
+                    pairs[i].key = tg3__arena_str_from_std(ctx->arena, k);
+                    pairs[i].value = tg3__json_to_value(ctx, *it);
+                }
+                v.object_data = pairs;
+                v.object_count = count;
+            }
+        }
     }
-  }
-
-  stream.flush();
-  return stream.good();
+    return v;
 }
 
-static bool WriteBinaryGltfFile(const std::string &output,
-                                const std::string &content,
-                                const std::vector<unsigned char> &binBuffer) {
-#ifndef TINYGLTF_NO_FS
-#ifdef _WIN32
-#if defined(_MSC_VER)
-  std::ofstream gltfFile(UTF8ToWchar(output).c_str(), std::ios::binary);
-#elif defined(__GLIBCXX__)
-  int file_descriptor =
-      _wopen(UTF8ToWchar(output).c_str(),
-             _O_CREAT | _O_WRONLY | _O_TRUNC | _O_BINARY, _S_IWRITE);
-  __gnu_cxx::stdio_filebuf<char> wfile_buf(
-      file_descriptor, std::ios_base::out | std::ios_base::binary);
-  std::ostream gltfFile(&wfile_buf);
-#else
-  std::ofstream gltfFile(output.c_str(), std::ios::binary);
-#endif
-#else
-  std::ofstream gltfFile(output.c_str(), std::ios::binary);
-#endif
-  return WriteBinaryGltfStream(gltfFile, content, binBuffer);
-#else
-  return false;
-#endif
+/* ======================================================================
+ * Internal: Parse Extras and Extensions
+ * ====================================================================== */
+
+static void tg3__init_extras_ext(tg3_extras_ext *ee) {
+    memset(ee, 0, sizeof(tg3_extras_ext));
 }
 
-bool TinyGLTF::WriteGltfSceneToStream(const Model *model, std::ostream &stream,
-                                      bool prettyPrint = true,
-                                      bool writeBinary = false) {
-  detail::JsonDocument output;
-
-  /// Serialize all properties except buffers and images.
-  SerializeGltfModel(model, output);
-
-  // BUFFERS
-  std::vector<unsigned char> binBuffer;
-  if (model->buffers.size()) {
-    detail::json buffers;
-    detail::JsonReserveArray(buffers, model->buffers.size());
-    for (unsigned int i = 0; i < model->buffers.size(); ++i) {
-      detail::json buffer;
-      if (writeBinary && i == 0 && model->buffers[i].uri.empty()) {
-        SerializeGltfBufferBin(model->buffers[i], buffer, binBuffer);
-      } else {
-        SerializeGltfBuffer(model->buffers[i], buffer);
-      }
-      detail::JsonPushBack(buffers, std::move(buffer));
+static void tg3__parse_extras_and_extensions(tg3__parse_ctx *ctx,
+                                              const tg3__json &o,
+                                              tg3_extras_ext *ee) {
+    /* Extras */
+    auto extras_it = o.find("extras");
+    if (extras_it != o.end()) {
+        tg3_value *ev = (tg3_value *)tg3__arena_alloc(ctx->arena, sizeof(tg3_value));
+        if (ev) {
+            *ev = tg3__json_to_value(ctx, *extras_it);
+            ee->extras = ev;
+        }
+        if (ctx->opts.store_original_json) {
+            std::string raw = extras_it->dump();
+            ee->extras_json = tg3__arena_str_from_std(ctx->arena, raw);
+        }
     }
-    detail::JsonAddMember(output, "buffers", std::move(buffers));
-  }
 
-  // IMAGES
-  if (model->images.size()) {
-    detail::json images;
-    detail::JsonReserveArray(images, model->images.size());
-    for (unsigned int i = 0; i < model->images.size(); ++i) {
-      detail::json image;
-
-      std::string dummystring;
-      // UpdateImageObject need baseDir but only uses it if embeddedImages is
-      // enabled, since we won't write separate images when writing to a stream
-      // we
-      std::string uri;
-      if (!UpdateImageObject(model->images[i], dummystring, int(i), true, &fs,
-                             &uri_cb, this->WriteImageData,
-                             this->write_image_user_data_, &uri)) {
-        return false;
-      }
-      SerializeGltfImage(model->images[i], uri, image);
-      detail::JsonPushBack(images, std::move(image));
+    /* Extensions */
+    auto ext_it = o.find("extensions");
+    if (ext_it != o.end() && ext_it->is_object()) {
+        uint32_t count = (uint32_t)ext_it->size();
+        if (count > 0) {
+            tg3_extension *exts = (tg3_extension *)tg3__arena_alloc(
+                ctx->arena, count * sizeof(tg3_extension));
+            if (exts) {
+                uint32_t i = 0;
+                for (auto it = ext_it->begin(); it != ext_it->end(); ++it, ++i) {
+                    std::string k = it.key();
+                    exts[i].name = tg3__arena_str_from_std(ctx->arena, k);
+                    exts[i].value = tg3__json_to_value(ctx, *it);
+                }
+                ee->extensions = exts;
+                ee->extensions_count = count;
+            }
+        }
+        if (ctx->opts.store_original_json) {
+            std::string raw = ext_it->dump();
+            ee->extensions_json = tg3__arena_str_from_std(ctx->arena, raw);
+        }
     }
-    detail::JsonAddMember(output, "images", std::move(images));
-  }
-
-  if (writeBinary) {
-    return WriteBinaryGltfStream(stream, detail::JsonToString(output),
-                                 binBuffer);
-  } else {
-    return WriteGltfStream(stream,
-                           detail::JsonToString(output, prettyPrint ? 2 : -1));
-  }
 }
 
-bool TinyGLTF::WriteGltfSceneToFile(const Model *model,
-                                    const std::string &filename,
-                                    bool embedImages = false,
-                                    bool embedBuffers = false,
-                                    bool prettyPrint = true,
-                                    bool writeBinary = false) {
-  detail::JsonDocument output;
-  std::string defaultBinFilename = GetBaseFilename(filename);
-  std::string defaultBinFileExt = ".bin";
-  std::string::size_type pos =
-      defaultBinFilename.rfind('.', defaultBinFilename.length());
+/* ======================================================================
+ * Internal: Init functions for default struct values
+ * ====================================================================== */
 
-  if (pos != std::string::npos) {
-    defaultBinFilename = defaultBinFilename.substr(0, pos);
-  }
-  std::string baseDir = GetBaseDir(filename);
-  if (baseDir.empty()) {
-    baseDir = "./";
-  }
-  /// Serialize all properties except buffers and images.
-  SerializeGltfModel(model, output);
+static void tg3__init_texture_info(tg3_texture_info *ti) {
+    memset(ti, 0, sizeof(tg3_texture_info));
+    ti->index = -1;
+    ti->tex_coord = 0;
+}
 
-  // BUFFERS
-  std::vector<std::string> usedFilenames;
-  std::vector<unsigned char> binBuffer;
-  if (model->buffers.size()) {
-    detail::json buffers;
-    detail::JsonReserveArray(buffers, model->buffers.size());
-    for (unsigned int i = 0; i < model->buffers.size(); ++i) {
-      detail::json buffer;
-      if (writeBinary && i == 0 && model->buffers[i].uri.empty()) {
-        SerializeGltfBufferBin(model->buffers[i], buffer, binBuffer);
-      } else if (embedBuffers) {
-        SerializeGltfBuffer(model->buffers[i], buffer);
-      } else {
-        std::string binSavePath;
-        std::string binFilename;
-        std::string binUri;
-        if (!model->buffers[i].uri.empty() &&
-            !IsDataURI(model->buffers[i].uri)) {
-          binUri = model->buffers[i].uri;
-          if (!uri_cb.decode(binUri, &binFilename, uri_cb.user_data)) {
-            return false;
-          }
+static void tg3__init_normal_texture_info(tg3_normal_texture_info *ti) {
+    memset(ti, 0, sizeof(tg3_normal_texture_info));
+    ti->index = -1;
+    ti->tex_coord = 0;
+    ti->scale = 1.0;
+}
+
+static void tg3__init_occlusion_texture_info(tg3_occlusion_texture_info *ti) {
+    memset(ti, 0, sizeof(tg3_occlusion_texture_info));
+    ti->index = -1;
+    ti->tex_coord = 0;
+    ti->strength = 1.0;
+}
+
+static void tg3__init_pbr(tg3_pbr_metallic_roughness *pbr) {
+    memset(pbr, 0, sizeof(tg3_pbr_metallic_roughness));
+    pbr->base_color_factor[0] = 1.0;
+    pbr->base_color_factor[1] = 1.0;
+    pbr->base_color_factor[2] = 1.0;
+    pbr->base_color_factor[3] = 1.0;
+    pbr->metallic_factor = 1.0;
+    pbr->roughness_factor = 1.0;
+    tg3__init_texture_info(&pbr->base_color_texture);
+    tg3__init_texture_info(&pbr->metallic_roughness_texture);
+}
+
+static void tg3__init_node(tg3_node *n) {
+    memset(n, 0, sizeof(tg3_node));
+    n->camera = -1;
+    n->skin = -1;
+    n->mesh = -1;
+    n->light = -1;
+    n->emitter = -1;
+    n->rotation[3] = 1.0; /* w=1 identity quaternion */
+    n->scale[0] = 1.0;
+    n->scale[1] = 1.0;
+    n->scale[2] = 1.0;
+    /* Identity matrix */
+    n->matrix[0]  = 1.0;
+    n->matrix[5]  = 1.0;
+    n->matrix[10] = 1.0;
+    n->matrix[15] = 1.0;
+}
+
+/* ======================================================================
+ * Internal: Entity Parse Functions
+ * ====================================================================== */
+
+static int tg3__parse_asset(tg3__parse_ctx *ctx, const tg3__json &o,
+                             tg3_asset *asset) {
+    memset(asset, 0, sizeof(tg3_asset));
+    tg3__parse_string(ctx, o, "version", &asset->version, 0, "/asset");
+    tg3__parse_string(ctx, o, "generator", &asset->generator, 0, "/asset");
+    tg3__parse_string(ctx, o, "minVersion", &asset->min_version, 0, "/asset");
+    tg3__parse_string(ctx, o, "copyright", &asset->copyright, 0, "/asset");
+    tg3__parse_extras_and_extensions(ctx, o, &asset->ext);
+    return 1;
+}
+
+static int tg3__parse_texture_info(tg3__parse_ctx *ctx, const tg3__json &o,
+                                    const char *key, tg3_texture_info *ti) {
+    tg3__init_texture_info(ti);
+    auto it = o.find(key);
+    if (it == o.end()) return 1; /* Optional */
+    if (!it->is_object()) return 0;
+    tg3__parse_int(ctx, *it, "index", &ti->index, 0, key);
+    tg3__parse_int(ctx, *it, "texCoord", &ti->tex_coord, 0, key);
+    tg3__parse_extras_and_extensions(ctx, *it, &ti->ext);
+    return 1;
+}
+
+static int tg3__parse_normal_texture_info(tg3__parse_ctx *ctx, const tg3__json &o,
+                                           const char *key,
+                                           tg3_normal_texture_info *ti) {
+    tg3__init_normal_texture_info(ti);
+    auto it = o.find(key);
+    if (it == o.end()) return 1;
+    if (!it->is_object()) return 0;
+    tg3__parse_int(ctx, *it, "index", &ti->index, 0, key);
+    tg3__parse_int(ctx, *it, "texCoord", &ti->tex_coord, 0, key);
+    tg3__parse_double(ctx, *it, "scale", &ti->scale, 0, key);
+    tg3__parse_extras_and_extensions(ctx, *it, &ti->ext);
+    return 1;
+}
+
+static int tg3__parse_occlusion_texture_info(tg3__parse_ctx *ctx,
+                                              const tg3__json &o,
+                                              const char *key,
+                                              tg3_occlusion_texture_info *ti) {
+    tg3__init_occlusion_texture_info(ti);
+    auto it = o.find(key);
+    if (it == o.end()) return 1;
+    if (!it->is_object()) return 0;
+    tg3__parse_int(ctx, *it, "index", &ti->index, 0, key);
+    tg3__parse_int(ctx, *it, "texCoord", &ti->tex_coord, 0, key);
+    tg3__parse_double(ctx, *it, "strength", &ti->strength, 0, key);
+    tg3__parse_extras_and_extensions(ctx, *it, &ti->ext);
+    return 1;
+}
+
+static int tg3__accessor_type_from_string(const char *s, size_t len) {
+    if (len == 6 && memcmp(s, "SCALAR", 6) == 0) return TG3_TYPE_SCALAR;
+    if (len == 4 && memcmp(s, "VEC2", 4) == 0) return TG3_TYPE_VEC2;
+    if (len == 4 && memcmp(s, "VEC3", 4) == 0) return TG3_TYPE_VEC3;
+    if (len == 4 && memcmp(s, "VEC4", 4) == 0) return TG3_TYPE_VEC4;
+    if (len == 4 && memcmp(s, "MAT2", 4) == 0) return TG3_TYPE_MAT2;
+    if (len == 4 && memcmp(s, "MAT3", 4) == 0) return TG3_TYPE_MAT3;
+    if (len == 4 && memcmp(s, "MAT4", 4) == 0) return TG3_TYPE_MAT4;
+    return -1;
+}
+
+static const char *tg3__accessor_type_to_string(int type) {
+    switch (type) {
+        case TG3_TYPE_SCALAR: return "SCALAR";
+        case TG3_TYPE_VEC2:   return "VEC2";
+        case TG3_TYPE_VEC3:   return "VEC3";
+        case TG3_TYPE_VEC4:   return "VEC4";
+        case TG3_TYPE_MAT2:   return "MAT2";
+        case TG3_TYPE_MAT3:   return "MAT3";
+        case TG3_TYPE_MAT4:   return "MAT4";
+        default: return "";
+    }
+}
+
+static int tg3__parse_accessor_sparse(tg3__parse_ctx *ctx, const tg3__json &o,
+                                       tg3_accessor_sparse *sparse) {
+    memset(sparse, 0, sizeof(tg3_accessor_sparse));
+    sparse->indices.buffer_view = -1;
+    sparse->values.buffer_view = -1;
+
+    auto it = o.find("sparse");
+    if (it == o.end()) return 1;
+    if (!it->is_object()) return 0;
+
+    sparse->is_sparse = 1;
+    tg3__parse_int(ctx, *it, "count", &sparse->count, 1, "/sparse");
+
+    auto idx_it = it->find("indices");
+    if (idx_it != it->end() && idx_it->is_object()) {
+        tg3__parse_int(ctx, *idx_it, "bufferView",
+                       &sparse->indices.buffer_view, 1, "/sparse/indices");
+        tg3__parse_int(ctx, *idx_it, "componentType",
+                       &sparse->indices.component_type, 1, "/sparse/indices");
+        uint64_t bo = 0;
+        tg3__parse_uint64(ctx, *idx_it, "byteOffset", &bo, 0, "/sparse/indices");
+        sparse->indices.byte_offset = bo;
+        tg3__parse_extras_and_extensions(ctx, *idx_it, &sparse->indices.ext);
+    }
+
+    auto val_it = it->find("values");
+    if (val_it != it->end() && val_it->is_object()) {
+        tg3__parse_int(ctx, *val_it, "bufferView",
+                       &sparse->values.buffer_view, 1, "/sparse/values");
+        uint64_t bo = 0;
+        tg3__parse_uint64(ctx, *val_it, "byteOffset", &bo, 0, "/sparse/values");
+        sparse->values.byte_offset = bo;
+        tg3__parse_extras_and_extensions(ctx, *val_it, &sparse->values.ext);
+    }
+
+    tg3__parse_extras_and_extensions(ctx, *it, &sparse->ext);
+    return 1;
+}
+
+static int tg3__parse_accessor(tg3__parse_ctx *ctx, const tg3__json &o,
+                                tg3_accessor *acc) {
+    memset(acc, 0, sizeof(tg3_accessor));
+    acc->buffer_view = -1;
+    acc->component_type = -1;
+    acc->type = -1;
+
+    tg3__parse_string(ctx, o, "name", &acc->name, 0, "/accessor");
+    tg3__parse_int(ctx, o, "bufferView", &acc->buffer_view, 0, "/accessor");
+
+    uint64_t bo = 0;
+    tg3__parse_uint64(ctx, o, "byteOffset", &bo, 0, "/accessor");
+    acc->byte_offset = bo;
+
+    tg3__parse_bool(ctx, o, "normalized", &acc->normalized, 0, "/accessor");
+    tg3__parse_int(ctx, o, "componentType", &acc->component_type, 1, "/accessor");
+
+    uint64_t cnt = 0;
+    tg3__parse_uint64(ctx, o, "count", &cnt, 1, "/accessor");
+    acc->count = cnt;
+
+    /* Parse type string */
+    tg3_str type_str = {0, 0};
+    tg3__parse_string(ctx, o, "type", &type_str, 1, "/accessor");
+    if (type_str.data) {
+        acc->type = tg3__accessor_type_from_string(type_str.data, type_str.len);
+    }
+
+    tg3__parse_number_array(ctx, o, "min", &acc->min_values, &acc->min_values_count,
+                             0, "/accessor");
+    tg3__parse_number_array(ctx, o, "max", &acc->max_values, &acc->max_values_count,
+                             0, "/accessor");
+
+    tg3__parse_accessor_sparse(ctx, o, &acc->sparse);
+    tg3__parse_extras_and_extensions(ctx, o, &acc->ext);
+    return 1;
+}
+
+static int tg3__load_external_file(tg3__parse_ctx *ctx, uint8_t **out_data,
+                                    uint64_t *out_size, const char *uri,
+                                    uint32_t uri_len) {
+    if (!ctx->opts.fs.read_file) {
+        tg3__error_push(ctx->errors, TG3_SEVERITY_ERROR, TG3_ERR_FS_NOT_AVAILABLE,
+                        "No filesystem callbacks available", NULL, -1);
+        return 0;
+    }
+
+    /* Build full path: base_dir + "/" + uri */
+    char path_buf[4096];
+    uint32_t path_len = 0;
+    if (ctx->base_dir_len > 0) {
+        if (ctx->base_dir_len + 1 + uri_len >= sizeof(path_buf)) return 0;
+        memcpy(path_buf, ctx->base_dir, ctx->base_dir_len);
+        path_len = ctx->base_dir_len;
+        if (path_buf[path_len - 1] != '/' && path_buf[path_len - 1] != '\\') {
+            path_buf[path_len++] = '/';
+        }
+    }
+    if (path_len + uri_len >= sizeof(path_buf)) return 0;
+    memcpy(path_buf + path_len, uri, uri_len);
+    path_len += uri_len;
+    path_buf[path_len] = '\0';
+
+    int32_t ok = ctx->opts.fs.read_file(out_data, out_size, path_buf, path_len,
+                                         ctx->opts.fs.user_data);
+    if (!ok) {
+        tg3__error_pushf(ctx->errors, ctx->arena, TG3_SEVERITY_ERROR,
+                         TG3_ERR_FILE_READ, NULL, "Failed to read file: %s", path_buf);
+        return 0;
+    }
+    return 1;
+}
+
+static int tg3__parse_buffer(tg3__parse_ctx *ctx, const tg3__json &o,
+                              tg3_buffer *buf, int32_t buf_idx) {
+    memset(buf, 0, sizeof(tg3_buffer));
+    tg3__parse_string(ctx, o, "name", &buf->name, 0, "/buffer");
+    tg3__parse_string(ctx, o, "uri", &buf->uri, 0, "/buffer");
+
+    uint64_t byte_length = 0;
+    tg3__parse_uint64(ctx, o, "byteLength", &byte_length, 1, "/buffer");
+
+    /* Load buffer data */
+    if (ctx->is_binary && buf_idx == 0 && buf->uri.len == 0) {
+        /* GLB: first buffer uses binary chunk */
+        if (!ctx->bin_data || ctx->bin_size < byte_length) {
+            tg3__error_push(ctx->errors, TG3_SEVERITY_ERROR,
+                            TG3_ERR_BUFFER_SIZE_MISMATCH,
+                            "GLB BIN chunk missing or smaller than buffer.byteLength",
+                            NULL, -1);
+            return 0;
+        }
+        uint8_t *data = (uint8_t *)tg3__arena_alloc(ctx->arena, (size_t)byte_length);
+        if (!data) {
+            tg3__error_push(ctx->errors, TG3_SEVERITY_ERROR,
+                            TG3_ERR_OUT_OF_MEMORY, "OOM for buffer data", NULL, -1);
+            return 0;
+        }
+        memcpy(data, ctx->bin_data, (size_t)byte_length);
+        buf->data.data = data;
+        buf->data.count = byte_length;
+    } else if (buf->uri.len > 0) {
+        if (tg3_is_data_uri(buf->uri.data, buf->uri.len)) {
+            /* Data URI */
+            size_t decoded_len = 0;
+            char mime[64] = {0};
+            uint8_t *decoded = tg3__decode_data_uri(ctx->arena, buf->uri.data,
+                                                     buf->uri.len, &decoded_len,
+                                                     mime, sizeof(mime));
+            if (!decoded && byte_length > 0) {
+                tg3__error_push(ctx->errors, TG3_SEVERITY_ERROR,
+                                TG3_ERR_DATA_URI_DECODE,
+                                "Failed to decode buffer data URI", NULL, -1);
+                return 0;
+            }
+            buf->data.data = decoded;
+            buf->data.count = decoded_len;
         } else {
-          binFilename = defaultBinFilename + defaultBinFileExt;
-          bool inUse = true;
-          int numUsed = 0;
-          while (inUse) {
-            inUse = false;
-            for (const std::string &usedName : usedFilenames) {
-              if (binFilename.compare(usedName) != 0)
-                continue;
-              inUse = true;
-              binFilename = defaultBinFilename + std::to_string(numUsed++) +
-                            defaultBinFileExt;
-              break;
+            /* External file */
+            uint8_t *file_data = NULL;
+            uint64_t file_size = 0;
+            if (tg3__load_external_file(ctx, &file_data, &file_size,
+                                         buf->uri.data, buf->uri.len)) {
+                /* Copy into arena */
+                uint8_t *data = (uint8_t *)tg3__arena_alloc(ctx->arena, (size_t)file_size);
+                if (data) {
+                    memcpy(data, file_data, (size_t)file_size);
+                    buf->data.data = data;
+                    buf->data.count = file_size;
+                }
+                /* Free file data via callback */
+                if (ctx->opts.fs.free_file) {
+                    ctx->opts.fs.free_file(file_data, file_size,
+                                           ctx->opts.fs.user_data);
+                }
             }
-          }
-
-          if (uri_cb.encode) {
-            if (!uri_cb.encode(binFilename, "buffer", &binUri,
-                               uri_cb.user_data)) {
-              return false;
-            }
-          } else {
-            binUri = binFilename;
-          }
         }
-        usedFilenames.push_back(binFilename);
-        binSavePath = JoinPath(baseDir, binFilename);
-        if (!SerializeGltfBuffer(model->buffers[i], buffer, binSavePath,
-                                 binUri)) {
-          return false;
-        }
-      }
-      detail::JsonPushBack(buffers, std::move(buffer));
     }
-    detail::JsonAddMember(output, "buffers", std::move(buffers));
-  }
 
-  // IMAGES
-  if (model->images.size()) {
-    detail::json images;
-    detail::JsonReserveArray(images, model->images.size());
-    for (unsigned int i = 0; i < model->images.size(); ++i) {
-      detail::json image;
-
-      std::string uri;
-      if (!UpdateImageObject(model->images[i], baseDir, int(i), embedImages,
-                             &fs, &uri_cb, this->WriteImageData,
-                             this->write_image_user_data_, &uri)) {
-        return false;
-      }
-      SerializeGltfImage(model->images[i], uri, image);
-      detail::JsonPushBack(images, std::move(image));
-    }
-    detail::JsonAddMember(output, "images", std::move(images));
-  }
-
-  if (writeBinary) {
-    return WriteBinaryGltfFile(filename, detail::JsonToString(output),
-                               binBuffer);
-  } else {
-    return WriteGltfFile(filename,
-                         detail::JsonToString(output, (prettyPrint ? 2 : -1)));
-  }
+    tg3__parse_extras_and_extensions(ctx, o, &buf->ext);
+    return 1;
 }
 
-} // namespace tinygltf
+static int tg3__parse_buffer_view(tg3__parse_ctx *ctx, const tg3__json &o,
+                                   tg3_buffer_view *bv) {
+    memset(bv, 0, sizeof(tg3_buffer_view));
+    bv->buffer = -1;
 
-#ifdef __clang__
-#pragma clang diagnostic pop
+    tg3__parse_string(ctx, o, "name", &bv->name, 0, "/bufferView");
+    tg3__parse_int(ctx, o, "buffer", &bv->buffer, 1, "/bufferView");
+
+    uint64_t val = 0;
+    tg3__parse_uint64(ctx, o, "byteOffset", &val, 0, "/bufferView");
+    bv->byte_offset = val;
+    val = 0;
+    tg3__parse_uint64(ctx, o, "byteLength", &val, 1, "/bufferView");
+    bv->byte_length = val;
+
+    int32_t stride = 0;
+    tg3__parse_int(ctx, o, "byteStride", &stride, 0, "/bufferView");
+    bv->byte_stride = (uint32_t)stride;
+
+    tg3__parse_int(ctx, o, "target", &bv->target, 0, "/bufferView");
+    tg3__parse_extras_and_extensions(ctx, o, &bv->ext);
+    return 1;
+}
+
+static int tg3__parse_image(tg3__parse_ctx *ctx, const tg3__json &o,
+                             tg3_image *img, int32_t /*img_idx*/) {
+    memset(img, 0, sizeof(tg3_image));
+    img->width = -1;
+    img->height = -1;
+    img->component = -1;
+    img->bits = -1;
+    img->pixel_type = -1;
+    img->buffer_view = -1;
+
+    tg3__parse_string(ctx, o, "name", &img->name, 0, "/image");
+    tg3__parse_string(ctx, o, "uri", &img->uri, 0, "/image");
+    tg3__parse_string(ctx, o, "mimeType", &img->mime_type, 0, "/image");
+    tg3__parse_int(ctx, o, "bufferView", &img->buffer_view, 0, "/image");
+
+    if (ctx->opts.images_as_is) {
+        img->as_is = 1;
+    }
+
+    tg3__parse_extras_and_extensions(ctx, o, &img->ext);
+    return 1;
+}
+
+static int tg3__parse_sampler(tg3__parse_ctx *ctx, const tg3__json &o,
+                               tg3_sampler *samp) {
+    memset(samp, 0, sizeof(tg3_sampler));
+    samp->min_filter = -1;
+    samp->mag_filter = -1;
+    samp->wrap_s = TG3_TEXTURE_WRAP_REPEAT;
+    samp->wrap_t = TG3_TEXTURE_WRAP_REPEAT;
+
+    tg3__parse_string(ctx, o, "name", &samp->name, 0, "/sampler");
+    tg3__parse_int(ctx, o, "minFilter", &samp->min_filter, 0, "/sampler");
+    tg3__parse_int(ctx, o, "magFilter", &samp->mag_filter, 0, "/sampler");
+    tg3__parse_int(ctx, o, "wrapS", &samp->wrap_s, 0, "/sampler");
+    tg3__parse_int(ctx, o, "wrapT", &samp->wrap_t, 0, "/sampler");
+    tg3__parse_extras_and_extensions(ctx, o, &samp->ext);
+    return 1;
+}
+
+static int tg3__parse_texture(tg3__parse_ctx *ctx, const tg3__json &o,
+                               tg3_texture *tex) {
+    memset(tex, 0, sizeof(tg3_texture));
+    tex->sampler = -1;
+    tex->source = -1;
+
+    tg3__parse_string(ctx, o, "name", &tex->name, 0, "/texture");
+    tg3__parse_int(ctx, o, "sampler", &tex->sampler, 0, "/texture");
+    tg3__parse_int(ctx, o, "source", &tex->source, 0, "/texture");
+    tg3__parse_extras_and_extensions(ctx, o, &tex->ext);
+    return 1;
+}
+
+static int tg3__parse_material(tg3__parse_ctx *ctx, const tg3__json &o,
+                                tg3_material *mat) {
+    memset(mat, 0, sizeof(tg3_material));
+    tg3__init_pbr(&mat->pbr_metallic_roughness);
+    tg3__init_normal_texture_info(&mat->normal_texture);
+    tg3__init_occlusion_texture_info(&mat->occlusion_texture);
+    tg3__init_texture_info(&mat->emissive_texture);
+    mat->alpha_cutoff = 0.5;
+
+    tg3__parse_string(ctx, o, "name", &mat->name, 0, "/material");
+
+    /* Emissive factor */
+    tg3__parse_number_to_fixed(o, "emissiveFactor", mat->emissive_factor, 3);
+
+    /* Alpha mode */
+    tg3_str alpha_mode = {0, 0};
+    tg3__parse_string(ctx, o, "alphaMode", &alpha_mode, 0, "/material");
+    if (alpha_mode.len > 0) {
+        mat->alpha_mode = alpha_mode;
+    } else {
+        mat->alpha_mode = tg3__arena_str(ctx->arena, "OPAQUE", 6);
+    }
+
+    tg3__parse_double(ctx, o, "alphaCutoff", &mat->alpha_cutoff, 0, "/material");
+    tg3__parse_bool(ctx, o, "doubleSided", &mat->double_sided, 0, "/material");
+
+    /* PBR */
+    auto pbr_it = o.find("pbrMetallicRoughness");
+    if (pbr_it != o.end() && pbr_it->is_object()) {
+        tg3__parse_number_to_fixed(*pbr_it, "baseColorFactor",
+                                    mat->pbr_metallic_roughness.base_color_factor, 4);
+        tg3__parse_double(ctx, *pbr_it, "metallicFactor",
+                          &mat->pbr_metallic_roughness.metallic_factor, 0,
+                          "/material/pbrMetallicRoughness");
+        tg3__parse_double(ctx, *pbr_it, "roughnessFactor",
+                          &mat->pbr_metallic_roughness.roughness_factor, 0,
+                          "/material/pbrMetallicRoughness");
+        tg3__parse_texture_info(ctx, *pbr_it, "baseColorTexture",
+                                &mat->pbr_metallic_roughness.base_color_texture);
+        tg3__parse_texture_info(ctx, *pbr_it, "metallicRoughnessTexture",
+                                &mat->pbr_metallic_roughness.metallic_roughness_texture);
+        tg3__parse_extras_and_extensions(ctx, *pbr_it,
+                                          &mat->pbr_metallic_roughness.ext);
+    }
+
+    tg3__parse_normal_texture_info(ctx, o, "normalTexture", &mat->normal_texture);
+    tg3__parse_occlusion_texture_info(ctx, o, "occlusionTexture",
+                                       &mat->occlusion_texture);
+    tg3__parse_texture_info(ctx, o, "emissiveTexture", &mat->emissive_texture);
+
+    /* MSFT_lod */
+    auto ext_it = o.find("extensions");
+    if (ext_it != o.end() && ext_it->is_object()) {
+        auto lod_it = ext_it->find("MSFT_lod");
+        if (lod_it != ext_it->end() && lod_it->is_object()) {
+            tg3__parse_int_array(ctx, *lod_it, "ids",
+                                 &mat->lods, &mat->lods_count, 0,
+                                 "/material/extensions/MSFT_lod");
+        }
+    }
+
+    tg3__parse_extras_and_extensions(ctx, o, &mat->ext);
+    return 1;
+}
+
+static int tg3__parse_primitive(tg3__parse_ctx *ctx, const tg3__json &o,
+                                 tg3_primitive *prim) {
+    memset(prim, 0, sizeof(tg3_primitive));
+    prim->material = -1;
+    prim->indices = -1;
+    prim->mode = TG3_MODE_TRIANGLES;
+
+    tg3__parse_int(ctx, o, "material", &prim->material, 0, "/primitive");
+    tg3__parse_int(ctx, o, "indices", &prim->indices, 0, "/primitive");
+    tg3__parse_int(ctx, o, "mode", &prim->mode, 0, "/primitive");
+
+    /* Attributes */
+    auto attr_it = o.find("attributes");
+    if (attr_it != o.end() && attr_it->is_object()) {
+        uint32_t count = (uint32_t)attr_it->size();
+        if (count > 0) {
+            tg3_str_int_pair *attrs = (tg3_str_int_pair *)tg3__arena_alloc(
+                ctx->arena, count * sizeof(tg3_str_int_pair));
+            if (attrs) {
+                uint32_t i = 0;
+                for (auto it = attr_it->begin(); it != attr_it->end(); ++it, ++i) {
+                    std::string k = it.key();
+                    attrs[i].key = tg3__arena_str_from_std(ctx->arena, k);
+                    attrs[i].value = it->get<int>();
+                }
+                prim->attributes = attrs;
+                prim->attributes_count = count;
+            }
+        }
+    }
+
+    /* Morph targets */
+    auto targets_it = o.find("targets");
+    if (targets_it != o.end() && targets_it->is_array()) {
+        uint32_t tcount = (uint32_t)targets_it->size();
+        if (tcount > 0) {
+            const tg3_str_int_pair **target_arrays =
+                (const tg3_str_int_pair **)tg3__arena_alloc(
+                    ctx->arena, tcount * sizeof(tg3_str_int_pair *));
+            uint32_t *target_counts = (uint32_t *)tg3__arena_alloc(
+                ctx->arena, tcount * sizeof(uint32_t));
+            if (target_arrays && target_counts) {
+                uint32_t ti = 0;
+                for (auto tit = targets_it->begin(); tit != targets_it->end(); ++tit, ++ti) {
+                    if (!tit->is_object()) {
+                        target_arrays[ti] = NULL;
+                        target_counts[ti] = 0;
+                        continue;
+                    }
+                    uint32_t acount = (uint32_t)tit->size();
+                    tg3_str_int_pair *tattrs = (tg3_str_int_pair *)tg3__arena_alloc(
+                        ctx->arena, acount * sizeof(tg3_str_int_pair));
+                    if (tattrs) {
+                        uint32_t ai = 0;
+                        for (auto ait = tit->begin(); ait != tit->end(); ++ait, ++ai) {
+                            std::string k = ait.key();
+                            tattrs[ai].key = tg3__arena_str_from_std(ctx->arena, k);
+                            tattrs[ai].value = ait->get<int>();
+                        }
+                    }
+                    target_arrays[ti] = tattrs;
+                    target_counts[ti] = acount;
+                }
+                prim->targets = target_arrays;
+                prim->target_attribute_counts = target_counts;
+                prim->targets_count = tcount;
+            }
+        }
+    }
+
+    tg3__parse_extras_and_extensions(ctx, o, &prim->ext);
+    return 1;
+}
+
+static int tg3__parse_mesh(tg3__parse_ctx *ctx, const tg3__json &o,
+                            tg3_mesh *mesh) {
+    memset(mesh, 0, sizeof(tg3_mesh));
+    tg3__parse_string(ctx, o, "name", &mesh->name, 0, "/mesh");
+
+    /* Primitives */
+    auto prim_it = o.find("primitives");
+    if (prim_it != o.end() && prim_it->is_array()) {
+        uint32_t count = (uint32_t)prim_it->size();
+        if (count > 0) {
+            tg3_primitive *prims = (tg3_primitive *)tg3__arena_alloc(
+                ctx->arena, count * sizeof(tg3_primitive));
+            if (prims) {
+                uint32_t i = 0;
+                for (auto it = prim_it->begin(); it != prim_it->end(); ++it, ++i) {
+                    tg3__parse_primitive(ctx, *it, &prims[i]);
+                }
+                mesh->primitives = prims;
+                mesh->primitives_count = count;
+            }
+        }
+    }
+
+    tg3__parse_number_array(ctx, o, "weights", &mesh->weights,
+                             &mesh->weights_count, 0, "/mesh");
+    tg3__parse_extras_and_extensions(ctx, o, &mesh->ext);
+    return 1;
+}
+
+static int tg3__parse_node(tg3__parse_ctx *ctx, const tg3__json &o,
+                            tg3_node *node) {
+    tg3__init_node(node);
+
+    tg3__parse_string(ctx, o, "name", &node->name, 0, "/node");
+    tg3__parse_int(ctx, o, "camera", &node->camera, 0, "/node");
+    tg3__parse_int(ctx, o, "skin", &node->skin, 0, "/node");
+    tg3__parse_int(ctx, o, "mesh", &node->mesh, 0, "/node");
+
+    tg3__parse_int_array(ctx, o, "children", &node->children,
+                          &node->children_count, 0, "/node");
+
+    /* TRS */
+    if (tg3__json_has(o, "matrix")) {
+        tg3__parse_number_to_fixed(o, "matrix", node->matrix, 16);
+        node->has_matrix = 1;
+    }
+    if (tg3__json_has(o, "translation")) {
+        tg3__parse_number_to_fixed(o, "translation", node->translation, 3);
+    }
+    if (tg3__json_has(o, "rotation")) {
+        tg3__parse_number_to_fixed(o, "rotation", node->rotation, 4);
+    }
+    if (tg3__json_has(o, "scale")) {
+        tg3__parse_number_to_fixed(o, "scale", node->scale, 3);
+    }
+
+    tg3__parse_number_array(ctx, o, "weights", &node->weights,
+                             &node->weights_count, 0, "/node");
+
+    /* Extensions: KHR_lights_punctual, KHR_audio, MSFT_lod */
+    auto ext_it = o.find("extensions");
+    if (ext_it != o.end() && ext_it->is_object()) {
+        auto khr_lights = ext_it->find("KHR_lights_punctual");
+        if (khr_lights != ext_it->end() && khr_lights->is_object()) {
+            tg3__parse_int(ctx, *khr_lights, "light", &node->light, 0,
+                          "/node/extensions/KHR_lights_punctual");
+        }
+        auto khr_audio = ext_it->find("KHR_audio");
+        if (khr_audio != ext_it->end() && khr_audio->is_object()) {
+            tg3__parse_int(ctx, *khr_audio, "emitter", &node->emitter, 0,
+                          "/node/extensions/KHR_audio");
+        }
+        auto msft_lod = ext_it->find("MSFT_lod");
+        if (msft_lod != ext_it->end() && msft_lod->is_object()) {
+            tg3__parse_int_array(ctx, *msft_lod, "ids",
+                                 &node->lods, &node->lods_count, 0,
+                                 "/node/extensions/MSFT_lod");
+        }
+    }
+
+    tg3__parse_extras_and_extensions(ctx, o, &node->ext);
+    return 1;
+}
+
+static int tg3__parse_skin(tg3__parse_ctx *ctx, const tg3__json &o,
+                            tg3_skin *skin) {
+    memset(skin, 0, sizeof(tg3_skin));
+    skin->inverse_bind_matrices = -1;
+    skin->skeleton = -1;
+
+    tg3__parse_string(ctx, o, "name", &skin->name, 0, "/skin");
+    tg3__parse_int(ctx, o, "inverseBindMatrices", &skin->inverse_bind_matrices,
+                   0, "/skin");
+    tg3__parse_int(ctx, o, "skeleton", &skin->skeleton, 0, "/skin");
+    tg3__parse_int_array(ctx, o, "joints", &skin->joints,
+                          &skin->joints_count, 1, "/skin");
+    tg3__parse_extras_and_extensions(ctx, o, &skin->ext);
+    return 1;
+}
+
+static int tg3__parse_animation(tg3__parse_ctx *ctx, const tg3__json &o,
+                                 tg3_animation *anim) {
+    memset(anim, 0, sizeof(tg3_animation));
+    tg3__parse_string(ctx, o, "name", &anim->name, 0, "/animation");
+
+    /* Channels */
+    auto ch_it = o.find("channels");
+    if (ch_it != o.end() && ch_it->is_array()) {
+        uint32_t count = (uint32_t)ch_it->size();
+        if (count > 0) {
+            tg3_animation_channel *channels = (tg3_animation_channel *)tg3__arena_alloc(
+                ctx->arena, count * sizeof(tg3_animation_channel));
+            if (channels) {
+                uint32_t i = 0;
+                for (auto it = ch_it->begin(); it != ch_it->end(); ++it, ++i) {
+                    memset(&channels[i], 0, sizeof(tg3_animation_channel));
+                    channels[i].sampler = -1;
+                    channels[i].target.node = -1;
+
+                    tg3__parse_int(ctx, *it, "sampler", &channels[i].sampler,
+                                   1, "/animation/channel");
+
+                    auto tgt_it = it->find("target");
+                    if (tgt_it != it->end() && tgt_it->is_object()) {
+                        tg3__parse_int(ctx, *tgt_it, "node",
+                                       &channels[i].target.node, 0,
+                                       "/animation/channel/target");
+                        tg3__parse_string(ctx, *tgt_it, "path",
+                                          &channels[i].target.path, 1,
+                                          "/animation/channel/target");
+                        tg3__parse_extras_and_extensions(ctx, *tgt_it,
+                                                          &channels[i].target.ext);
+                    }
+                    tg3__parse_extras_and_extensions(ctx, *it, &channels[i].ext);
+                }
+                anim->channels = channels;
+                anim->channels_count = count;
+            }
+        }
+    }
+
+    /* Samplers */
+    auto samp_it = o.find("samplers");
+    if (samp_it != o.end() && samp_it->is_array()) {
+        uint32_t count = (uint32_t)samp_it->size();
+        if (count > 0) {
+            tg3_animation_sampler *samplers = (tg3_animation_sampler *)tg3__arena_alloc(
+                ctx->arena, count * sizeof(tg3_animation_sampler));
+            if (samplers) {
+                uint32_t i = 0;
+                for (auto it = samp_it->begin(); it != samp_it->end(); ++it, ++i) {
+                    memset(&samplers[i], 0, sizeof(tg3_animation_sampler));
+                    samplers[i].input = -1;
+                    samplers[i].output = -1;
+
+                    tg3__parse_int(ctx, *it, "input", &samplers[i].input,
+                                   1, "/animation/sampler");
+                    tg3__parse_int(ctx, *it, "output", &samplers[i].output,
+                                   1, "/animation/sampler");
+
+                    tg3_str interp = {0, 0};
+                    tg3__parse_string(ctx, *it, "interpolation", &interp,
+                                      0, "/animation/sampler");
+                    if (interp.len > 0) {
+                        samplers[i].interpolation = interp;
+                    } else {
+                        samplers[i].interpolation = tg3__arena_str(ctx->arena,
+                                                                     "LINEAR", 6);
+                    }
+                    tg3__parse_extras_and_extensions(ctx, *it, &samplers[i].ext);
+                }
+                anim->samplers = samplers;
+                anim->samplers_count = count;
+            }
+        }
+    }
+
+    tg3__parse_extras_and_extensions(ctx, o, &anim->ext);
+    return 1;
+}
+
+static int tg3__parse_camera(tg3__parse_ctx *ctx, const tg3__json &o,
+                              tg3_camera *cam) {
+    memset(cam, 0, sizeof(tg3_camera));
+    tg3__parse_string(ctx, o, "name", &cam->name, 0, "/camera");
+    tg3__parse_string(ctx, o, "type", &cam->type, 1, "/camera");
+
+    if (cam->type.data && tg3_str_equals_cstr(cam->type, "perspective")) {
+        auto p_it = o.find("perspective");
+        if (p_it != o.end() && p_it->is_object()) {
+            tg3__parse_double(ctx, *p_it, "aspectRatio",
+                              &cam->perspective.aspect_ratio, 0, "/camera/perspective");
+            tg3__parse_double(ctx, *p_it, "yfov",
+                              &cam->perspective.yfov, 1, "/camera/perspective");
+            tg3__parse_double(ctx, *p_it, "zfar",
+                              &cam->perspective.zfar, 0, "/camera/perspective");
+            tg3__parse_double(ctx, *p_it, "znear",
+                              &cam->perspective.znear, 1, "/camera/perspective");
+            tg3__parse_extras_and_extensions(ctx, *p_it, &cam->perspective.ext);
+        }
+    } else if (cam->type.data && tg3_str_equals_cstr(cam->type, "orthographic")) {
+        auto o_it = o.find("orthographic");
+        if (o_it != o.end() && o_it->is_object()) {
+            tg3__parse_double(ctx, *o_it, "xmag",
+                              &cam->orthographic.xmag, 1, "/camera/orthographic");
+            tg3__parse_double(ctx, *o_it, "ymag",
+                              &cam->orthographic.ymag, 1, "/camera/orthographic");
+            tg3__parse_double(ctx, *o_it, "zfar",
+                              &cam->orthographic.zfar, 1, "/camera/orthographic");
+            tg3__parse_double(ctx, *o_it, "znear",
+                              &cam->orthographic.znear, 1, "/camera/orthographic");
+            tg3__parse_extras_and_extensions(ctx, *o_it, &cam->orthographic.ext);
+        }
+    }
+
+    tg3__parse_extras_and_extensions(ctx, o, &cam->ext);
+    return 1;
+}
+
+static int tg3__parse_scene(tg3__parse_ctx *ctx, const tg3__json &o,
+                             tg3_scene *scene) {
+    memset(scene, 0, sizeof(tg3_scene));
+    tg3__parse_string(ctx, o, "name", &scene->name, 0, "/scene");
+    tg3__parse_int_array(ctx, o, "nodes", &scene->nodes,
+                          &scene->nodes_count, 0, "/scene");
+
+    /* KHR_audio emitters */
+    auto ext_it = o.find("extensions");
+    if (ext_it != o.end() && ext_it->is_object()) {
+        auto audio_it = ext_it->find("KHR_audio");
+        if (audio_it != ext_it->end() && audio_it->is_object()) {
+            tg3__parse_int_array(ctx, *audio_it, "emitters",
+                                 &scene->audio_emitters,
+                                 &scene->audio_emitters_count, 0,
+                                 "/scene/extensions/KHR_audio");
+        }
+    }
+
+    tg3__parse_extras_and_extensions(ctx, o, &scene->ext);
+    return 1;
+}
+
+static int tg3__parse_light(tg3__parse_ctx *ctx, const tg3__json &o,
+                             tg3_light *light) {
+    memset(light, 0, sizeof(tg3_light));
+    light->color[0] = 1.0;
+    light->color[1] = 1.0;
+    light->color[2] = 1.0;
+    light->intensity = 1.0;
+    light->spot.outer_cone_angle = 0.7853981634;
+
+    tg3__parse_string(ctx, o, "name", &light->name, 0, "/light");
+    tg3__parse_string(ctx, o, "type", &light->type, 1, "/light");
+    tg3__parse_double(ctx, o, "intensity", &light->intensity, 0, "/light");
+    tg3__parse_double(ctx, o, "range", &light->range, 0, "/light");
+    tg3__parse_number_to_fixed(o, "color", light->color, 3);
+
+    auto spot_it = o.find("spot");
+    if (spot_it != o.end() && spot_it->is_object()) {
+        tg3__parse_double(ctx, *spot_it, "innerConeAngle",
+                          &light->spot.inner_cone_angle, 0, "/light/spot");
+        tg3__parse_double(ctx, *spot_it, "outerConeAngle",
+                          &light->spot.outer_cone_angle, 0, "/light/spot");
+        tg3__parse_extras_and_extensions(ctx, *spot_it, &light->spot.ext);
+    }
+
+    tg3__parse_extras_and_extensions(ctx, o, &light->ext);
+    return 1;
+}
+
+static int tg3__parse_audio_source(tg3__parse_ctx *ctx, const tg3__json &o,
+                                    tg3_audio_source *src) {
+    memset(src, 0, sizeof(tg3_audio_source));
+    src->buffer_view = -1;
+
+    tg3__parse_string(ctx, o, "name", &src->name, 0, "/audioSource");
+    tg3__parse_string(ctx, o, "uri", &src->uri, 0, "/audioSource");
+    tg3__parse_int(ctx, o, "bufferView", &src->buffer_view, 0, "/audioSource");
+    tg3__parse_string(ctx, o, "mimeType", &src->mime_type, 0, "/audioSource");
+    tg3__parse_extras_and_extensions(ctx, o, &src->ext);
+    return 1;
+}
+
+static int tg3__parse_audio_emitter(tg3__parse_ctx *ctx, const tg3__json &o,
+                                     tg3_audio_emitter *emitter) {
+    memset(emitter, 0, sizeof(tg3_audio_emitter));
+    emitter->gain = 1.0;
+    emitter->source = -1;
+    emitter->positional.cone_inner_angle = 6.283185307179586;
+    emitter->positional.cone_outer_angle = 6.283185307179586;
+    emitter->positional.max_distance = 100.0;
+    emitter->positional.ref_distance = 1.0;
+    emitter->positional.rolloff_factor = 1.0;
+
+    tg3__parse_string(ctx, o, "name", &emitter->name, 0, "/audioEmitter");
+    tg3__parse_double(ctx, o, "gain", &emitter->gain, 0, "/audioEmitter");
+    tg3__parse_bool(ctx, o, "loop", &emitter->loop, 0, "/audioEmitter");
+    tg3__parse_bool(ctx, o, "playing", &emitter->playing, 0, "/audioEmitter");
+    tg3__parse_string(ctx, o, "type", &emitter->type, 0, "/audioEmitter");
+    tg3__parse_string(ctx, o, "distanceModel", &emitter->distance_model,
+                       0, "/audioEmitter");
+    tg3__parse_int(ctx, o, "source", &emitter->source, 0, "/audioEmitter");
+
+    auto pos_it = o.find("positional");
+    if (pos_it != o.end() && pos_it->is_object()) {
+        tg3__parse_double(ctx, *pos_it, "coneInnerAngle",
+                          &emitter->positional.cone_inner_angle, 0, "/positional");
+        tg3__parse_double(ctx, *pos_it, "coneOuterAngle",
+                          &emitter->positional.cone_outer_angle, 0, "/positional");
+        tg3__parse_double(ctx, *pos_it, "coneOuterGain",
+                          &emitter->positional.cone_outer_gain, 0, "/positional");
+        tg3__parse_double(ctx, *pos_it, "maxDistance",
+                          &emitter->positional.max_distance, 0, "/positional");
+        tg3__parse_double(ctx, *pos_it, "refDistance",
+                          &emitter->positional.ref_distance, 0, "/positional");
+        tg3__parse_double(ctx, *pos_it, "rolloffFactor",
+                          &emitter->positional.rolloff_factor, 0, "/positional");
+        tg3__parse_extras_and_extensions(ctx, *pos_it, &emitter->positional.ext);
+    }
+
+    tg3__parse_extras_and_extensions(ctx, o, &emitter->ext);
+    return 1;
+}
+
+/* ======================================================================
+ * Internal: Portable variadic-comma helper
+ *
+ * TG3__COMMA_VA_ARGS(__VA_ARGS__) expands to  , __VA_ARGS__  when the
+ * argument list is non-empty, and to nothing when it is empty.
+ *
+ * - C++20 and later: uses the standard __VA_OPT__(,) token.
+ * - C++17 and earlier: falls back to the widely-supported GNU/MSVC
+ *   ##__VA_ARGS__ extension.
+ * ====================================================================== */
+#if __cplusplus >= 202002L
+#  define TG3__COMMA_VA_ARGS(...) __VA_OPT__(,) __VA_ARGS__
+#else
+#  define TG3__COMMA_VA_ARGS(...) , ##__VA_ARGS__
 #endif
 
-#endif // TINYGLTF_IMPLEMENTATION
+/* ======================================================================
+ * Internal: Array Parse Macro
+ * ====================================================================== */
+
+#define TG3__PARSE_ARRAY(ctx, json_doc, json_key, Type, model_field, count_field, parse_fn, ...) \
+    do { \
+        auto _arr_it = (json_doc).find(json_key); \
+        if (_arr_it != (json_doc).end() && _arr_it->is_array()) { \
+            uint32_t _count = (uint32_t)_arr_it->size(); \
+            if (_count > 0) { \
+                Type *_items = (Type *)tg3__arena_alloc((ctx)->arena, \
+                    _count * sizeof(Type)); \
+                if (_items) { \
+                    uint32_t _i = 0; \
+                    for (auto _it = _arr_it->begin(); _it != _arr_it->end(); ++_it, ++_i) { \
+                        parse_fn((ctx), *_it, &_items[_i] TG3__COMMA_VA_ARGS(__VA_ARGS__)); \
+                    } \
+                    (model_field) = _items; \
+                    (count_field) = _count; \
+                } \
+            } \
+        } \
+    } while (0)
+
+/* Variant without extra args and with index param */
+#define TG3__PARSE_ARRAY_IDX(ctx, json_doc, json_key, Type, model_field, count_field, parse_fn) \
+    do { \
+        auto _arr_it = (json_doc).find(json_key); \
+        if (_arr_it != (json_doc).end() && _arr_it->is_array()) { \
+            uint32_t _count = (uint32_t)_arr_it->size(); \
+            if (_count > 0) { \
+                Type *_items = (Type *)tg3__arena_alloc((ctx)->arena, \
+                    _count * sizeof(Type)); \
+                if (_items) { \
+                    uint32_t _i = 0; \
+                    for (auto _it = _arr_it->begin(); _it != _arr_it->end(); ++_it, ++_i) { \
+                        if (!_it->is_object()) { \
+                            tg3__error_pushf((ctx)->errors, (ctx)->arena, \
+                                TG3_SEVERITY_ERROR, TG3_ERR_JSON_TYPE_MISMATCH, \
+                                json_key, "Element %u must be an object", _i); \
+                            continue; \
+                        } \
+                        parse_fn((ctx), *_it, &_items[_i], (int32_t)_i); \
+                    } \
+                    (model_field) = _items; \
+                    (count_field) = _count; \
+                } \
+            } \
+        } \
+    } while (0)
+
+/* Simpler variant for entities without index */
+#define TG3__PARSE_ARRAY_SIMPLE(ctx, json_doc, json_key, Type, model_field, count_field, parse_fn) \
+    do { \
+        auto _arr_it = (json_doc).find(json_key); \
+        if (_arr_it != (json_doc).end() && _arr_it->is_array()) { \
+            uint32_t _count = (uint32_t)_arr_it->size(); \
+            if (_count > 0) { \
+                Type *_items = (Type *)tg3__arena_alloc((ctx)->arena, \
+                    _count * sizeof(Type)); \
+                if (_items) { \
+                    uint32_t _i = 0; \
+                    for (auto _it = _arr_it->begin(); _it != _arr_it->end(); ++_it, ++_i) { \
+                        if (!_it->is_object()) { \
+                            tg3__error_pushf((ctx)->errors, (ctx)->arena, \
+                                TG3_SEVERITY_ERROR, TG3_ERR_JSON_TYPE_MISMATCH, \
+                                json_key, "Element %u must be an object", _i); \
+                            continue; \
+                        } \
+                        parse_fn((ctx), *_it, &_items[_i]); \
+                    } \
+                    (model_field) = _items; \
+                    (count_field) = _count; \
+                } \
+            } \
+        } \
+    } while (0)
+
+/* ======================================================================
+ * Internal: Main Parse Orchestrator
+ * ====================================================================== */
+
+static tg3_error_code tg3__parse_from_json(tg3__parse_ctx *ctx,
+                                            const tg3__json &json_doc,
+                                            tg3_model *model) {
+    /* Asset */
+    auto asset_it = json_doc.find("asset");
+    if (asset_it != json_doc.end() && asset_it->is_object()) {
+        tg3__parse_asset(ctx, *asset_it, &model->asset);
+    } else if (ctx->opts.required_sections & TG3_REQUIRE_VERSION) {
+        tg3__error_push(ctx->errors, TG3_SEVERITY_ERROR, TG3_ERR_MISSING_REQUIRED,
+                        "Missing required 'asset' property", "/", -1);
+        return TG3_ERR_MISSING_REQUIRED;
+    }
+
+    /* Extensions used/required */
+    tg3__parse_string_array(ctx, json_doc, "extensionsUsed",
+                             &model->extensions_used,
+                             &model->extensions_used_count, 0, "/");
+    tg3__parse_string_array(ctx, json_doc, "extensionsRequired",
+                             &model->extensions_required,
+                             &model->extensions_required_count, 0, "/");
+
+    /* Default scene */
+    model->default_scene = -1;
+    tg3__parse_int(ctx, json_doc, "scene", &model->default_scene, 0, "/");
+
+    /* Streaming callback helper macro */
+    #define TG3__STREAM_CB(type_name, cb_name, model_arr, model_cnt) \
+        if (ctx->opts.stream && ctx->opts.stream->cb_name) { \
+            for (uint32_t _si = 0; _si < model_cnt; ++_si) { \
+                tg3_stream_action _sa = ctx->opts.stream->cb_name( \
+                    &model_arr[_si], (int32_t)_si, ctx->opts.stream->user_data); \
+                if (_sa == TG3_STREAM_ABORT) return TG3_ERR_STREAM_ABORTED; \
+            } \
+        }
+
+    /* Parse all entity arrays */
+    TG3__PARSE_ARRAY_IDX(ctx, json_doc, "buffers", tg3_buffer,
+                         model->buffers, model->buffers_count, tg3__parse_buffer);
+    TG3__STREAM_CB(buffer, on_buffer, model->buffers, model->buffers_count);
+
+    TG3__PARSE_ARRAY_SIMPLE(ctx, json_doc, "bufferViews", tg3_buffer_view,
+                            model->buffer_views, model->buffer_views_count,
+                            tg3__parse_buffer_view);
+    TG3__STREAM_CB(buffer_view, on_buffer_view, model->buffer_views,
+                   model->buffer_views_count);
+
+    TG3__PARSE_ARRAY_SIMPLE(ctx, json_doc, "accessors", tg3_accessor,
+                            model->accessors, model->accessors_count,
+                            tg3__parse_accessor);
+    TG3__STREAM_CB(accessor, on_accessor, model->accessors, model->accessors_count);
+
+    TG3__PARSE_ARRAY_SIMPLE(ctx, json_doc, "meshes", tg3_mesh,
+                            model->meshes, model->meshes_count, tg3__parse_mesh);
+    TG3__STREAM_CB(mesh, on_mesh, model->meshes, model->meshes_count);
+
+    TG3__PARSE_ARRAY_SIMPLE(ctx, json_doc, "nodes", tg3_node,
+                            model->nodes, model->nodes_count, tg3__parse_node);
+    TG3__STREAM_CB(node, on_node, model->nodes, model->nodes_count);
+
+    TG3__PARSE_ARRAY_SIMPLE(ctx, json_doc, "materials", tg3_material,
+                            model->materials, model->materials_count,
+                            tg3__parse_material);
+    TG3__STREAM_CB(material, on_material, model->materials, model->materials_count);
+
+    TG3__PARSE_ARRAY_SIMPLE(ctx, json_doc, "textures", tg3_texture,
+                            model->textures, model->textures_count,
+                            tg3__parse_texture);
+    TG3__STREAM_CB(texture, on_texture, model->textures, model->textures_count);
+
+    TG3__PARSE_ARRAY_SIMPLE(ctx, json_doc, "samplers", tg3_sampler,
+                            model->samplers, model->samplers_count,
+                            tg3__parse_sampler);
+    TG3__STREAM_CB(sampler, on_sampler, model->samplers, model->samplers_count);
+
+    TG3__PARSE_ARRAY_IDX(ctx, json_doc, "images", tg3_image,
+                         model->images, model->images_count, tg3__parse_image);
+    TG3__STREAM_CB(image, on_image, model->images, model->images_count);
+
+    TG3__PARSE_ARRAY_SIMPLE(ctx, json_doc, "skins", tg3_skin,
+                            model->skins, model->skins_count, tg3__parse_skin);
+    TG3__STREAM_CB(skin, on_skin, model->skins, model->skins_count);
+
+    TG3__PARSE_ARRAY_SIMPLE(ctx, json_doc, "animations", tg3_animation,
+                            model->animations, model->animations_count,
+                            tg3__parse_animation);
+    TG3__STREAM_CB(animation, on_animation, model->animations,
+                   model->animations_count);
+
+    TG3__PARSE_ARRAY_SIMPLE(ctx, json_doc, "cameras", tg3_camera,
+                            model->cameras, model->cameras_count,
+                            tg3__parse_camera);
+    TG3__STREAM_CB(camera, on_camera, model->cameras, model->cameras_count);
+
+    TG3__PARSE_ARRAY_SIMPLE(ctx, json_doc, "scenes", tg3_scene,
+                            model->scenes, model->scenes_count,
+                            tg3__parse_scene);
+    TG3__STREAM_CB(scene, on_scene, model->scenes, model->scenes_count);
+
+    /* KHR_lights_punctual */
+    auto ext_it = json_doc.find("extensions");
+    if (ext_it != json_doc.end() && ext_it->is_object()) {
+        auto lights_ext = ext_it->find("KHR_lights_punctual");
+        if (lights_ext != ext_it->end() && lights_ext->is_object()) {
+            TG3__PARSE_ARRAY_SIMPLE(ctx, *lights_ext, "lights", tg3_light,
+                                    model->lights, model->lights_count,
+                                    tg3__parse_light);
+            TG3__STREAM_CB(light, on_light, model->lights, model->lights_count);
+        }
+
+        /* KHR_audio */
+        auto audio_ext = ext_it->find("KHR_audio");
+        if (audio_ext != ext_it->end() && audio_ext->is_object()) {
+            TG3__PARSE_ARRAY_SIMPLE(ctx, *audio_ext, "sources", tg3_audio_source,
+                                    model->audio_sources, model->audio_sources_count,
+                                    tg3__parse_audio_source);
+            TG3__PARSE_ARRAY_SIMPLE(ctx, *audio_ext, "emitters", tg3_audio_emitter,
+                                    model->audio_emitters, model->audio_emitters_count,
+                                    tg3__parse_audio_emitter);
+        }
+    }
+
+    /* Root extras/extensions */
+    tg3__parse_extras_and_extensions(ctx, json_doc, &model->ext);
+
+    #undef TG3__STREAM_CB
+
+    return ctx->errors->has_error ? TG3_ERR_JSON_PARSE : TG3_OK;
+}
+
+/* ======================================================================
+ * Internal: GLB Parsing
+ * ====================================================================== */
+
+static tg3_error_code tg3__parse_glb_header(const uint8_t *data, uint64_t size,
+                                             const uint8_t **json_out,
+                                             uint64_t *json_size_out,
+                                             const uint8_t **bin_out,
+                                             uint64_t *bin_size_out,
+                                             tg3_error_stack *errors) {
+    *json_out = NULL; *json_size_out = 0;
+    *bin_out = NULL; *bin_size_out = 0;
+
+    if (size < 12) {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_GLB_INVALID_HEADER,
+                        "GLB data too small for header", NULL, -1);
+        return TG3_ERR_GLB_INVALID_HEADER;
+    }
+
+    /* Check magic: 'glTF' */
+    if (data[0] != 'g' || data[1] != 'l' || data[2] != 'T' || data[3] != 'F') {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_GLB_INVALID_MAGIC,
+                        "Invalid GLB magic bytes", NULL, -1);
+        return TG3_ERR_GLB_INVALID_MAGIC;
+    }
+
+    /* Version */
+    uint32_t version;
+    memcpy(&version, data + 4, 4);
+    if (version != 2) {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_GLB_INVALID_VERSION,
+                        "Unsupported GLB version (expected 2)", NULL, -1);
+        return TG3_ERR_GLB_INVALID_VERSION;
+    }
+
+    /* Total length */
+    uint32_t total_length;
+    memcpy(&total_length, data + 8, 4);
+    if ((uint64_t)total_length > size) {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_GLB_SIZE_MISMATCH,
+                        "GLB total length exceeds data size", NULL, -1);
+        return TG3_ERR_GLB_SIZE_MISMATCH;
+    }
+
+    if (total_length < 20) {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_GLB_INVALID_HEADER,
+                        "GLB too small for JSON chunk header", NULL, -1);
+        return TG3_ERR_GLB_INVALID_HEADER;
+    }
+
+    /* Chunk 0: JSON */
+    uint32_t chunk0_length, chunk0_type;
+    memcpy(&chunk0_length, data + 12, 4);
+    memcpy(&chunk0_type, data + 16, 4);
+
+    if (chunk0_type != 0x4E4F534A) { /* 'JSON' in LE */
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_GLB_CHUNK_ERROR,
+                        "First GLB chunk is not JSON", NULL, -1);
+        return TG3_ERR_GLB_CHUNK_ERROR;
+    }
+
+    if (20 + (uint64_t)chunk0_length > total_length) {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_GLB_CHUNK_ERROR,
+                        "JSON chunk length exceeds GLB size", NULL, -1);
+        return TG3_ERR_GLB_CHUNK_ERROR;
+    }
+
+    *json_out = data + 20;
+    *json_size_out = chunk0_length;
+
+    /* Chunk 1: BIN (optional) */
+    uint64_t bin_offset = 20 + (uint64_t)chunk0_length;
+    /* Align to 4 bytes */
+    bin_offset = (bin_offset + 3) & ~(uint64_t)3;
+
+    if (bin_offset + 8 <= total_length) {
+        uint32_t chunk1_length, chunk1_type;
+        memcpy(&chunk1_length, data + bin_offset, 4);
+        memcpy(&chunk1_type, data + bin_offset + 4, 4);
+
+        if (chunk1_type == 0x004E4942) { /* 'BIN\0' in LE */
+            if (bin_offset + 8 + chunk1_length <= total_length) {
+                *bin_out = data + bin_offset + 8;
+                *bin_size_out = chunk1_length;
+            }
+        }
+    }
+
+    return TG3_OK;
+}
+
+/* ======================================================================
+ * Optional: Default FS Callbacks
+ * ====================================================================== */
+
+#ifdef TINYGLTF3_ENABLE_FS
+
+static int32_t tg3__fs_file_exists(const char *path, uint32_t path_len,
+                                    void *ud) {
+    (void)ud; (void)path_len;
+    FILE *f = fopen(path, "rb");
+    if (f) { fclose(f); return 1; }
+    return 0;
+}
+
+static int32_t tg3__fs_read_file(uint8_t **out_data, uint64_t *out_size,
+                                  const char *path, uint32_t path_len,
+                                  void *ud) {
+    (void)ud; (void)path_len;
+    FILE *f = fopen(path, "rb");
+    if (!f) return 0;
+
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (sz < 0) { fclose(f); return 0; }
+
+    uint8_t *data = (uint8_t *)malloc((size_t)sz);
+    if (!data) { fclose(f); return 0; }
+
+    size_t read = fread(data, 1, (size_t)sz, f);
+    fclose(f);
+
+    if ((long)read != sz) { free(data); return 0; }
+
+    *out_data = data;
+    *out_size = (uint64_t)sz;
+    return 1;
+}
+
+static void tg3__fs_free_file(uint8_t *data, uint64_t size, void *ud) {
+    (void)size; (void)ud;
+    free(data);
+}
+
+static int32_t tg3__fs_write_file(const char *path, uint32_t path_len,
+                                   const uint8_t *data, uint64_t size,
+                                   void *ud) {
+    (void)ud; (void)path_len;
+    FILE *f = fopen(path, "wb");
+    if (!f) return 0;
+    size_t written = fwrite(data, 1, (size_t)size, f);
+    fclose(f);
+    return (written == (size_t)size) ? 1 : 0;
+}
+
+static void tg3__set_default_fs(tg3_fs_callbacks *fs) {
+    if (!fs->read_file) fs->read_file = tg3__fs_read_file;
+    if (!fs->free_file) fs->free_file = tg3__fs_free_file;
+    if (!fs->file_exists) fs->file_exists = tg3__fs_file_exists;
+    if (!fs->write_file) fs->write_file = tg3__fs_write_file;
+}
+
+#endif /* TINYGLTF3_ENABLE_FS */
+
+/* ======================================================================
+ * Internal: Model Init Helper
+ * ====================================================================== */
+
+static void tg3__model_init(tg3_model *model) {
+    memset(model, 0, sizeof(tg3_model));
+    model->default_scene = -1;
+}
+
+/* ======================================================================
+ * Public: Parser API Implementation
+ * ====================================================================== */
+
+TINYGLTF3_API tg3_error_code tg3_parse(
+    tg3_model *model, tg3_error_stack *errors,
+    const uint8_t *json_data, uint64_t json_size,
+    const char *base_dir, uint32_t base_dir_len,
+    const tg3_parse_options *options) {
+
+    tg3_parse_options default_opts;
+    if (!options) {
+        tg3_parse_options_init(&default_opts);
+        options = &default_opts;
+    }
+
+    tg3__model_init(model);
+
+    tg3_arena *arena = tg3__arena_create(&options->memory);
+    if (!arena) {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_OUT_OF_MEMORY,
+                        "Failed to create arena", NULL, -1);
+        return TG3_ERR_OUT_OF_MEMORY;
+    }
+    model->arena_ = arena;
+
+    /* Parse JSON */
+    tg3__json json_doc = options->parse_float32
+        ? tg3__json::parse_float32(
+              (const char *)json_data, (const char *)json_data + json_size)
+        : tg3__json::parse(
+              (const char *)json_data, (const char *)json_data + json_size,
+              nullptr, false);
+
+    if (json_doc.is_null()) {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_JSON_PARSE,
+                        "Failed to parse JSON", NULL, -1);
+        return TG3_ERR_JSON_PARSE;
+    }
+
+    if (!json_doc.is_object()) {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_JSON_PARSE,
+                        "JSON root must be an object", NULL, -1);
+        return TG3_ERR_JSON_PARSE;
+    }
+
+    tg3__parse_ctx ctx;
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.arena = arena;
+    ctx.errors = errors;
+    ctx.opts = *options;
+    ctx.base_dir = base_dir;
+    ctx.base_dir_len = base_dir_len;
+    ctx.is_binary = 0;
+
+#ifdef TINYGLTF3_ENABLE_FS
+    tg3__set_default_fs(&ctx.opts.fs);
+#endif
+
+    return tg3__parse_from_json(&ctx, json_doc, model);
+}
+
+TINYGLTF3_API tg3_error_code tg3_parse_glb(
+    tg3_model *model, tg3_error_stack *errors,
+    const uint8_t *glb_data, uint64_t glb_size,
+    const char *base_dir, uint32_t base_dir_len,
+    const tg3_parse_options *options) {
+
+    const uint8_t *json_chunk = NULL;
+    uint64_t json_chunk_size = 0;
+    const uint8_t *bin_chunk = NULL;
+    uint64_t bin_chunk_size = 0;
+
+    tg3_error_code err = tg3__parse_glb_header(glb_data, glb_size,
+                                                &json_chunk, &json_chunk_size,
+                                                &bin_chunk, &bin_chunk_size,
+                                                errors);
+    if (err != TG3_OK) return err;
+
+    tg3_parse_options default_opts;
+    if (!options) {
+        tg3_parse_options_init(&default_opts);
+        options = &default_opts;
+    }
+
+    tg3__model_init(model);
+
+    tg3_arena *arena = tg3__arena_create(&options->memory);
+    if (!arena) {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_OUT_OF_MEMORY,
+                        "Failed to create arena", NULL, -1);
+        return TG3_ERR_OUT_OF_MEMORY;
+    }
+    model->arena_ = arena;
+
+    /* Parse JSON chunk */
+    tg3__json json_doc = options->parse_float32
+        ? tg3__json::parse_float32(
+              (const char *)json_chunk, (const char *)json_chunk + json_chunk_size)
+        : tg3__json::parse(
+              (const char *)json_chunk, (const char *)json_chunk + json_chunk_size,
+              nullptr, false);
+
+    if (json_doc.is_null() || !json_doc.is_object()) {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_JSON_PARSE,
+                        "Failed to parse GLB JSON chunk", NULL, -1);
+        return TG3_ERR_JSON_PARSE;
+    }
+
+    tg3__parse_ctx ctx;
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.arena = arena;
+    ctx.errors = errors;
+    ctx.opts = *options;
+    ctx.base_dir = base_dir;
+    ctx.base_dir_len = base_dir_len;
+    ctx.is_binary = 1;
+    ctx.bin_data = bin_chunk;
+    ctx.bin_size = bin_chunk_size;
+
+#ifdef TINYGLTF3_ENABLE_FS
+    tg3__set_default_fs(&ctx.opts.fs);
+#endif
+
+    return tg3__parse_from_json(&ctx, json_doc, model);
+}
+
+TINYGLTF3_API tg3_error_code tg3_parse_auto(
+    tg3_model *model, tg3_error_stack *errors,
+    const uint8_t *data, uint64_t size,
+    const char *base_dir, uint32_t base_dir_len,
+    const tg3_parse_options *options) {
+
+    /* Check for GLB magic */
+    if (size >= 4 && data[0] == 'g' && data[1] == 'l' &&
+        data[2] == 'T' && data[3] == 'F') {
+        return tg3_parse_glb(model, errors, data, size,
+                              base_dir, base_dir_len, options);
+    }
+    return tg3_parse(model, errors, data, size,
+                      base_dir, base_dir_len, options);
+}
+
+TINYGLTF3_API tg3_error_code tg3_parse_file(
+    tg3_model *model, tg3_error_stack *errors,
+    const char *filename, uint32_t filename_len,
+    const tg3_parse_options *options) {
+
+    tg3_parse_options opts;
+    if (options) {
+        opts = *options;
+    } else {
+        tg3_parse_options_init(&opts);
+    }
+
+#ifdef TINYGLTF3_ENABLE_FS
+    tg3__set_default_fs(&opts.fs);
+#endif
+
+    if (!opts.fs.read_file) {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_FS_NOT_AVAILABLE,
+                        "No filesystem callbacks. Define TINYGLTF3_ENABLE_FS "
+                        "or provide fs callbacks.", NULL, -1);
+        return TG3_ERR_FS_NOT_AVAILABLE;
+    }
+
+    /* Read file */
+    uint8_t *file_data = NULL;
+    uint64_t file_size = 0;
+    int32_t ok = opts.fs.read_file(&file_data, &file_size, filename,
+                                    filename_len, opts.fs.user_data);
+    if (!ok || !file_data) {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_FILE_NOT_FOUND,
+                        "Failed to read file", NULL, -1);
+        return TG3_ERR_FILE_NOT_FOUND;
+    }
+
+    /* Extract base directory */
+    char base_dir_buf[4096] = {0};
+    uint32_t base_dir_len = 0;
+    if (filename && filename_len > 0) {
+        /* Find last separator */
+        const char *last_sep = NULL;
+        for (uint32_t i = 0; i < filename_len; ++i) {
+            if (filename[i] == '/' || filename[i] == '\\') {
+                last_sep = filename + i;
+            }
+        }
+        if (last_sep) {
+            base_dir_len = (uint32_t)(last_sep - filename);
+            if (base_dir_len >= sizeof(base_dir_buf))
+                base_dir_len = (uint32_t)(sizeof(base_dir_buf) - 1);
+            memcpy(base_dir_buf, filename, base_dir_len);
+            base_dir_buf[base_dir_len] = '\0';
+        }
+    }
+
+    tg3_error_code result = tg3_parse_auto(model, errors, file_data, file_size,
+                                            base_dir_buf, base_dir_len, &opts);
+
+    /* Free file data */
+    if (opts.fs.free_file) {
+        opts.fs.free_file(file_data, file_size, opts.fs.user_data);
+    }
+
+    return result;
+}
+
+TINYGLTF3_API void tg3_model_free(tg3_model *model) {
+    if (!model) return;
+    if (model->arena_) {
+        tg3__arena_destroy(model->arena_);
+    }
+    memset(model, 0, sizeof(tg3_model));
+    model->default_scene = -1;
+}
+
+/* ======================================================================
+ * Internal: JSON Serialization Helpers
+ * ====================================================================== */
+
+static void tg3__serialize_str(tg3__json &o, const char *key, tg3_str s) {
+    if (s.data && s.len > 0) {
+        o[key] = std::string(s.data, s.len);
+    }
+}
+
+static void tg3__serialize_int(tg3__json &o, const char *key, int32_t val,
+                                int32_t default_val, int write_defaults) {
+    if (val != default_val || write_defaults) {
+        o[key] = val;
+    }
+}
+
+static void tg3__serialize_uint64(tg3__json &o, const char *key, uint64_t val,
+                                   uint64_t default_val, int write_defaults) {
+    if (val != default_val || write_defaults) {
+        o[key] = (int64_t)val;
+    }
+}
+
+static void tg3__serialize_double(tg3__json &o, const char *key, double val,
+                                   double default_val, int write_defaults) {
+    if (fabs(val - default_val) > 1e-12 || write_defaults) {
+        o[key] = val;
+    }
+}
+
+static void tg3__serialize_bool(tg3__json &o, const char *key, int32_t val,
+                                 int32_t default_val, int write_defaults) {
+    if (val != default_val || write_defaults) {
+        o[key] = (val != 0);
+    }
+}
+
+static void tg3__serialize_double_array(tg3__json &o, const char *key,
+                                         const double *arr, uint32_t count) {
+    if (!arr || count == 0) return;
+    tg3__json jarr;
+    jarr.set_array();
+    for (uint32_t i = 0; i < count; ++i) {
+        jarr.push_back(tg3__json(arr[i]));
+    }
+    o[key] = static_cast<tg3__json&&>(jarr);
+}
+
+static void tg3__serialize_int_array(tg3__json &o, const char *key,
+                                      const int32_t *arr, uint32_t count) {
+    if (!arr || count == 0) return;
+    tg3__json jarr;
+    jarr.set_array();
+    for (uint32_t i = 0; i < count; ++i) {
+        jarr.push_back(tg3__json(arr[i]));
+    }
+    o[key] = static_cast<tg3__json&&>(jarr);
+}
+
+static void tg3__serialize_string_array(tg3__json &o, const char *key,
+                                         const tg3_str *arr, uint32_t count) {
+    if (!arr || count == 0) return;
+    tg3__json jarr;
+    jarr.set_array();
+    for (uint32_t i = 0; i < count; ++i) {
+        if (arr[i].data) {
+            jarr.push_back(tg3__json(std::string(arr[i].data, arr[i].len)));
+        }
+    }
+    o[key] = static_cast<tg3__json&&>(jarr);
+}
+
+static tg3__json tg3__value_to_json(const tg3_value *v) {
+    if (!v) return tg3__json();
+    switch (v->type) {
+        case TG3_VALUE_NULL:   return tg3__json();
+        case TG3_VALUE_BOOL:   return tg3__json(v->bool_val != 0);
+        case TG3_VALUE_INT:    return tg3__json(v->int_val);
+        case TG3_VALUE_REAL:   return tg3__json(v->real_val);
+        case TG3_VALUE_STRING:
+            return tg3__json(std::string(v->string_val.data ? v->string_val.data : "",
+                                          v->string_val.len));
+        case TG3_VALUE_ARRAY: {
+            tg3__json arr;
+            arr.set_array();
+            for (uint32_t i = 0; i < v->array_count; ++i) {
+                arr.push_back(tg3__value_to_json(&v->array_data[i]));
+            }
+            return arr;
+        }
+        case TG3_VALUE_OBJECT: {
+            tg3__json obj = tg3__json::object();
+            for (uint32_t i = 0; i < v->object_count; ++i) {
+                std::string k(v->object_data[i].key.data ? v->object_data[i].key.data : "",
+                              v->object_data[i].key.len);
+                obj[k.c_str()] = tg3__value_to_json(&v->object_data[i].value);
+            }
+            return obj;
+        }
+        default: return tg3__json();
+    }
+}
+
+static void tg3__serialize_extras_ext(tg3__json &o, const tg3_extras_ext *ee) {
+    if (!ee) return;
+    if (ee->extras) {
+        o["extras"] = tg3__value_to_json(ee->extras);
+    }
+    if (ee->extensions && ee->extensions_count > 0) {
+        tg3__json exts = tg3__json::object();
+        for (uint32_t i = 0; i < ee->extensions_count; ++i) {
+            std::string name(ee->extensions[i].name.data ? ee->extensions[i].name.data : "",
+                             ee->extensions[i].name.len);
+            exts[name.c_str()] = tg3__value_to_json(&ee->extensions[i].value);
+        }
+        o["extensions"] = static_cast<tg3__json&&>(exts);
+    }
+}
+
+/* ======================================================================
+ * Internal: Entity Serialize Functions
+ * ====================================================================== */
+
+static void tg3__serialize_texture_info(tg3__json &parent, const char *key,
+                                         const tg3_texture_info *ti, int wd) {
+    if (ti->index < 0) return;
+    tg3__json o = tg3__json::object();
+    o["index"] = ti->index;
+    tg3__serialize_int(o, "texCoord", ti->tex_coord, 0, wd);
+    tg3__serialize_extras_ext(o, &ti->ext);
+    parent[key] = static_cast<tg3__json&&>(o);
+}
+
+static void tg3__serialize_normal_texture_info(tg3__json &parent, const char *key,
+                                                const tg3_normal_texture_info *ti,
+                                                int wd) {
+    if (ti->index < 0) return;
+    tg3__json o = tg3__json::object();
+    o["index"] = ti->index;
+    tg3__serialize_int(o, "texCoord", ti->tex_coord, 0, wd);
+    tg3__serialize_double(o, "scale", ti->scale, 1.0, wd);
+    tg3__serialize_extras_ext(o, &ti->ext);
+    parent[key] = static_cast<tg3__json&&>(o);
+}
+
+static void tg3__serialize_occlusion_texture_info(tg3__json &parent, const char *key,
+                                                   const tg3_occlusion_texture_info *ti,
+                                                   int wd) {
+    if (ti->index < 0) return;
+    tg3__json o = tg3__json::object();
+    o["index"] = ti->index;
+    tg3__serialize_int(o, "texCoord", ti->tex_coord, 0, wd);
+    tg3__serialize_double(o, "strength", ti->strength, 1.0, wd);
+    tg3__serialize_extras_ext(o, &ti->ext);
+    parent[key] = static_cast<tg3__json&&>(o);
+}
+
+static tg3__json tg3__serialize_asset(const tg3_asset *a, int wd) {
+    (void)wd;
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "version", a->version);
+    tg3__serialize_str(o, "generator", a->generator);
+    tg3__serialize_str(o, "minVersion", a->min_version);
+    tg3__serialize_str(o, "copyright", a->copyright);
+    tg3__serialize_extras_ext(o, &a->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_buffer(const tg3_buffer *b, int wd,
+                                        int embed) {
+    (void)wd;
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "name", b->name);
+    o["byteLength"] = (int64_t)b->data.count;
+
+    if (b->uri.data && b->uri.len > 0) {
+        tg3__serialize_str(o, "uri", b->uri);
+    } else if (embed && b->data.data && b->data.count > 0) {
+        /* Encode as data URI */
+        size_t enc_len = 0;
+        char *encoded = tg3__b64_encode(b->data.data, (size_t)b->data.count,
+                                         &enc_len);
+        if (encoded) {
+            std::string uri = "data:application/octet-stream;base64,";
+            uri.append(encoded, enc_len);
+            o["uri"] = uri;
+            free(encoded);
+        }
+    }
+
+    tg3__serialize_extras_ext(o, &b->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_buffer_view(const tg3_buffer_view *bv, int wd) {
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "name", bv->name);
+    o["buffer"] = bv->buffer;
+    o["byteLength"] = (int64_t)bv->byte_length;
+    tg3__serialize_uint64(o, "byteOffset", bv->byte_offset, 0, wd);
+    if (bv->byte_stride > 0) o["byteStride"] = (int)bv->byte_stride;
+    tg3__serialize_int(o, "target", bv->target, 0, wd);
+    tg3__serialize_extras_ext(o, &bv->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_accessor(const tg3_accessor *acc, int wd) {
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "name", acc->name);
+    if (acc->buffer_view >= 0) o["bufferView"] = acc->buffer_view;
+    tg3__serialize_uint64(o, "byteOffset", acc->byte_offset, 0, wd);
+    o["componentType"] = acc->component_type;
+    o["count"] = (int64_t)acc->count;
+    o["type"] = tg3__accessor_type_to_string(acc->type);
+    tg3__serialize_bool(o, "normalized", acc->normalized, 0, wd);
+
+    tg3__serialize_double_array(o, "min", acc->min_values, acc->min_values_count);
+    tg3__serialize_double_array(o, "max", acc->max_values, acc->max_values_count);
+
+    if (acc->sparse.is_sparse) {
+        tg3__json sparse = tg3__json::object();
+        sparse["count"] = acc->sparse.count;
+
+        tg3__json indices = tg3__json::object();
+        indices["bufferView"] = acc->sparse.indices.buffer_view;
+        indices["componentType"] = acc->sparse.indices.component_type;
+        tg3__serialize_uint64(indices, "byteOffset",
+                              acc->sparse.indices.byte_offset, 0, wd);
+        tg3__serialize_extras_ext(indices, &acc->sparse.indices.ext);
+        sparse["indices"] = static_cast<tg3__json&&>(indices);
+
+        tg3__json values = tg3__json::object();
+        values["bufferView"] = acc->sparse.values.buffer_view;
+        tg3__serialize_uint64(values, "byteOffset",
+                              acc->sparse.values.byte_offset, 0, wd);
+        tg3__serialize_extras_ext(values, &acc->sparse.values.ext);
+        sparse["values"] = static_cast<tg3__json&&>(values);
+
+        tg3__serialize_extras_ext(sparse, &acc->sparse.ext);
+        o["sparse"] = static_cast<tg3__json&&>(sparse);
+    }
+
+    tg3__serialize_extras_ext(o, &acc->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_image(const tg3_image *img, int wd, int embed) {
+    (void)wd; (void)embed;
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "name", img->name);
+    tg3__serialize_str(o, "uri", img->uri);
+    tg3__serialize_str(o, "mimeType", img->mime_type);
+    if (img->buffer_view >= 0) o["bufferView"] = img->buffer_view;
+    tg3__serialize_extras_ext(o, &img->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_sampler(const tg3_sampler *s, int wd) {
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "name", s->name);
+    if (s->min_filter >= 0) o["minFilter"] = s->min_filter;
+    if (s->mag_filter >= 0) o["magFilter"] = s->mag_filter;
+    tg3__serialize_int(o, "wrapS", s->wrap_s, TG3_TEXTURE_WRAP_REPEAT, wd);
+    tg3__serialize_int(o, "wrapT", s->wrap_t, TG3_TEXTURE_WRAP_REPEAT, wd);
+    tg3__serialize_extras_ext(o, &s->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_texture(const tg3_texture *t, int wd) {
+    (void)wd;
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "name", t->name);
+    if (t->sampler >= 0) o["sampler"] = t->sampler;
+    if (t->source >= 0) o["source"] = t->source;
+    tg3__serialize_extras_ext(o, &t->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_material(const tg3_material *m, int wd) {
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "name", m->name);
+
+    /* PBR */
+    tg3__json pbr = tg3__json::object();
+    int has_pbr = 0;
+
+    const tg3_pbr_metallic_roughness *p = &m->pbr_metallic_roughness;
+    if (p->base_color_factor[0] != 1.0 || p->base_color_factor[1] != 1.0 ||
+        p->base_color_factor[2] != 1.0 || p->base_color_factor[3] != 1.0 || wd) {
+        tg3__serialize_double_array(pbr, "baseColorFactor",
+                                    p->base_color_factor, 4);
+        has_pbr = 1;
+    }
+    tg3__serialize_double(pbr, "metallicFactor", p->metallic_factor, 1.0, wd);
+    if (fabs(p->metallic_factor - 1.0) > 1e-12 || wd) has_pbr = 1;
+    tg3__serialize_double(pbr, "roughnessFactor", p->roughness_factor, 1.0, wd);
+    if (fabs(p->roughness_factor - 1.0) > 1e-12 || wd) has_pbr = 1;
+
+    if (p->base_color_texture.index >= 0) {
+        tg3__serialize_texture_info(pbr, "baseColorTexture",
+                                    &p->base_color_texture, wd);
+        has_pbr = 1;
+    }
+    if (p->metallic_roughness_texture.index >= 0) {
+        tg3__serialize_texture_info(pbr, "metallicRoughnessTexture",
+                                    &p->metallic_roughness_texture, wd);
+        has_pbr = 1;
+    }
+    tg3__serialize_extras_ext(pbr, &p->ext);
+    if (has_pbr || wd) {
+        o["pbrMetallicRoughness"] = static_cast<tg3__json&&>(pbr);
+    }
+
+    tg3__serialize_normal_texture_info(o, "normalTexture", &m->normal_texture, wd);
+    tg3__serialize_occlusion_texture_info(o, "occlusionTexture",
+                                           &m->occlusion_texture, wd);
+    tg3__serialize_texture_info(o, "emissiveTexture", &m->emissive_texture, wd);
+
+    if (m->emissive_factor[0] != 0.0 || m->emissive_factor[1] != 0.0 ||
+        m->emissive_factor[2] != 0.0 || wd) {
+        tg3__serialize_double_array(o, "emissiveFactor", m->emissive_factor, 3);
+    }
+
+    if (m->alpha_mode.data && !tg3_str_equals_cstr(m->alpha_mode, "OPAQUE")) {
+        tg3__serialize_str(o, "alphaMode", m->alpha_mode);
+    }
+    tg3__serialize_double(o, "alphaCutoff", m->alpha_cutoff, 0.5, wd);
+    tg3__serialize_bool(o, "doubleSided", m->double_sided, 0, wd);
+
+    tg3__serialize_extras_ext(o, &m->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_primitive(const tg3_primitive *p, int wd) {
+    tg3__json o = tg3__json::object();
+
+    /* Attributes */
+    if (p->attributes && p->attributes_count > 0) {
+        tg3__json attrs = tg3__json::object();
+        for (uint32_t i = 0; i < p->attributes_count; ++i) {
+            std::string k(p->attributes[i].key.data ? p->attributes[i].key.data : "",
+                          p->attributes[i].key.len);
+            attrs[k.c_str()] = p->attributes[i].value;
+        }
+        o["attributes"] = static_cast<tg3__json&&>(attrs);
+    }
+
+    if (p->indices >= 0) o["indices"] = p->indices;
+    if (p->material >= 0) o["material"] = p->material;
+    tg3__serialize_int(o, "mode", p->mode, TG3_MODE_TRIANGLES, wd);
+
+    /* Morph targets */
+    if (p->targets && p->targets_count > 0) {
+        tg3__json targets;
+        targets.set_array();
+        for (uint32_t t = 0; t < p->targets_count; ++t) {
+            tg3__json tgt = tg3__json::object();
+            uint32_t acount = p->target_attribute_counts ?
+                              p->target_attribute_counts[t] : 0;
+            const tg3_str_int_pair *tattrs = p->targets[t];
+            for (uint32_t a = 0; a < acount; ++a) {
+                std::string k(tattrs[a].key.data ? tattrs[a].key.data : "",
+                              tattrs[a].key.len);
+                tgt[k.c_str()] = tattrs[a].value;
+            }
+            targets.push_back(static_cast<tg3__json&&>(tgt));
+        }
+        o["targets"] = static_cast<tg3__json&&>(targets);
+    }
+
+    tg3__serialize_extras_ext(o, &p->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_mesh(const tg3_mesh *m, int wd) {
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "name", m->name);
+
+    if (m->primitives && m->primitives_count > 0) {
+        tg3__json prims;
+        prims.set_array();
+        for (uint32_t i = 0; i < m->primitives_count; ++i) {
+            prims.push_back(tg3__serialize_primitive(&m->primitives[i], wd));
+        }
+        o["primitives"] = static_cast<tg3__json&&>(prims);
+    }
+
+    tg3__serialize_double_array(o, "weights", m->weights, m->weights_count);
+    tg3__serialize_extras_ext(o, &m->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_node(const tg3_node *n, int wd) {
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "name", n->name);
+
+    if (n->camera >= 0) o["camera"] = n->camera;
+    if (n->skin >= 0) o["skin"] = n->skin;
+    if (n->mesh >= 0) o["mesh"] = n->mesh;
+
+    tg3__serialize_int_array(o, "children", n->children, n->children_count);
+
+    if (n->has_matrix) {
+        tg3__serialize_double_array(o, "matrix", n->matrix, 16);
+    } else {
+        int has_t = (n->translation[0] != 0.0 || n->translation[1] != 0.0 ||
+                     n->translation[2] != 0.0);
+        int has_r = (n->rotation[0] != 0.0 || n->rotation[1] != 0.0 ||
+                     n->rotation[2] != 0.0 || n->rotation[3] != 1.0);
+        int has_s = (n->scale[0] != 1.0 || n->scale[1] != 1.0 ||
+                     n->scale[2] != 1.0);
+
+        if (has_t || wd) tg3__serialize_double_array(o, "translation", n->translation, 3);
+        if (has_r || wd) tg3__serialize_double_array(o, "rotation", n->rotation, 4);
+        if (has_s || wd) tg3__serialize_double_array(o, "scale", n->scale, 3);
+    }
+
+    tg3__serialize_double_array(o, "weights", n->weights, n->weights_count);
+
+    /* Extensions for lights / audio / lod */
+    int has_ext = (n->light >= 0 || n->emitter >= 0 ||
+                   (n->lods && n->lods_count > 0));
+    if (has_ext) {
+        /* Check if extensions already set by extras_ext */
+        auto existing = o.find("extensions");
+        tg3__json exts = (existing != o.end()) ?
+                         tg3__json(*existing) : tg3__json::object();
+
+        if (n->light >= 0) {
+            tg3__json lp = tg3__json::object();
+            lp["light"] = n->light;
+            exts["KHR_lights_punctual"] = static_cast<tg3__json&&>(lp);
+        }
+        if (n->emitter >= 0) {
+            tg3__json ae = tg3__json::object();
+            ae["emitter"] = n->emitter;
+            exts["KHR_audio"] = static_cast<tg3__json&&>(ae);
+        }
+        if (n->lods && n->lods_count > 0) {
+            tg3__json lod = tg3__json::object();
+            tg3__serialize_int_array(lod, "ids", n->lods, n->lods_count);
+            exts["MSFT_lod"] = static_cast<tg3__json&&>(lod);
+        }
+        o["extensions"] = static_cast<tg3__json&&>(exts);
+    }
+
+    tg3__serialize_extras_ext(o, &n->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_skin(const tg3_skin *s, int wd) {
+    (void)wd;
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "name", s->name);
+    if (s->inverse_bind_matrices >= 0) o["inverseBindMatrices"] = s->inverse_bind_matrices;
+    if (s->skeleton >= 0) o["skeleton"] = s->skeleton;
+    tg3__serialize_int_array(o, "joints", s->joints, s->joints_count);
+    tg3__serialize_extras_ext(o, &s->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_animation(const tg3_animation *a, int wd) {
+    (void)wd;
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "name", a->name);
+
+    if (a->channels && a->channels_count > 0) {
+        tg3__json channels;
+        channels.set_array();
+        for (uint32_t i = 0; i < a->channels_count; ++i) {
+            tg3__json ch = tg3__json::object();
+            ch["sampler"] = a->channels[i].sampler;
+            tg3__json tgt = tg3__json::object();
+            if (a->channels[i].target.node >= 0)
+                tgt["node"] = a->channels[i].target.node;
+            tg3__serialize_str(tgt, "path", a->channels[i].target.path);
+            tg3__serialize_extras_ext(tgt, &a->channels[i].target.ext);
+            ch["target"] = static_cast<tg3__json&&>(tgt);
+            tg3__serialize_extras_ext(ch, &a->channels[i].ext);
+            channels.push_back(static_cast<tg3__json&&>(ch));
+        }
+        o["channels"] = static_cast<tg3__json&&>(channels);
+    }
+
+    if (a->samplers && a->samplers_count > 0) {
+        tg3__json samplers;
+        samplers.set_array();
+        for (uint32_t i = 0; i < a->samplers_count; ++i) {
+            tg3__json s = tg3__json::object();
+            s["input"] = a->samplers[i].input;
+            s["output"] = a->samplers[i].output;
+            tg3__serialize_str(s, "interpolation", a->samplers[i].interpolation);
+            tg3__serialize_extras_ext(s, &a->samplers[i].ext);
+            samplers.push_back(static_cast<tg3__json&&>(s));
+        }
+        o["samplers"] = static_cast<tg3__json&&>(samplers);
+    }
+
+    tg3__serialize_extras_ext(o, &a->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_camera(const tg3_camera *c, int wd) {
+    (void)wd;
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "name", c->name);
+    tg3__serialize_str(o, "type", c->type);
+
+    if (c->type.data && tg3_str_equals_cstr(c->type, "perspective")) {
+        tg3__json p = tg3__json::object();
+        if (c->perspective.aspect_ratio > 0)
+            p["aspectRatio"] = c->perspective.aspect_ratio;
+        p["yfov"] = c->perspective.yfov;
+        if (c->perspective.zfar > 0) p["zfar"] = c->perspective.zfar;
+        p["znear"] = c->perspective.znear;
+        tg3__serialize_extras_ext(p, &c->perspective.ext);
+        o["perspective"] = static_cast<tg3__json&&>(p);
+    } else if (c->type.data && tg3_str_equals_cstr(c->type, "orthographic")) {
+        tg3__json orth = tg3__json::object();
+        orth["xmag"] = c->orthographic.xmag;
+        orth["ymag"] = c->orthographic.ymag;
+        orth["zfar"] = c->orthographic.zfar;
+        orth["znear"] = c->orthographic.znear;
+        tg3__serialize_extras_ext(orth, &c->orthographic.ext);
+        o["orthographic"] = static_cast<tg3__json&&>(orth);
+    }
+
+    tg3__serialize_extras_ext(o, &c->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_scene(const tg3_scene *s, int wd) {
+    (void)wd;
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "name", s->name);
+    tg3__serialize_int_array(o, "nodes", s->nodes, s->nodes_count);
+    tg3__serialize_extras_ext(o, &s->ext);
+    return o;
+}
+
+static tg3__json tg3__serialize_light(const tg3_light *l, int wd) {
+    tg3__json o = tg3__json::object();
+    tg3__serialize_str(o, "name", l->name);
+    tg3__serialize_str(o, "type", l->type);
+    tg3__serialize_double(o, "intensity", l->intensity, 1.0, wd);
+    tg3__serialize_double(o, "range", l->range, 0.0, wd);
+
+    if (l->color[0] != 1.0 || l->color[1] != 1.0 || l->color[2] != 1.0 || wd) {
+        tg3__serialize_double_array(o, "color", l->color, 3);
+    }
+
+    if (l->type.data && tg3_str_equals_cstr(l->type, "spot")) {
+        tg3__json spot = tg3__json::object();
+        tg3__serialize_double(spot, "innerConeAngle", l->spot.inner_cone_angle, 0.0, wd);
+        tg3__serialize_double(spot, "outerConeAngle", l->spot.outer_cone_angle,
+                              0.7853981634, wd);
+        tg3__serialize_extras_ext(spot, &l->spot.ext);
+        o["spot"] = static_cast<tg3__json&&>(spot);
+    }
+
+    tg3__serialize_extras_ext(o, &l->ext);
+    return o;
+}
+
+/* ======================================================================
+ * Internal: Main Model Serializer
+ * ====================================================================== */
+
+static tg3__json tg3__serialize_model(const tg3_model *model, int wd,
+                                       int embed_images, int embed_buffers) {
+    tg3__json root = tg3__json::object();
+
+    /* Asset */
+    root["asset"] = tg3__serialize_asset(&model->asset, wd);
+
+    /* Default scene */
+    if (model->default_scene >= 0) {
+        root["scene"] = model->default_scene;
+    }
+
+    /* Extensions used/required */
+    tg3__serialize_string_array(root, "extensionsUsed",
+                                 model->extensions_used,
+                                 model->extensions_used_count);
+    tg3__serialize_string_array(root, "extensionsRequired",
+                                 model->extensions_required,
+                                 model->extensions_required_count);
+
+    /* Entity arrays */
+    #define TG3__SERIALIZE_ARRAY(key, arr, cnt, fn, ...) \
+        if ((arr) && (cnt) > 0) { \
+            tg3__json jarr; jarr.set_array(); \
+            for (uint32_t _i = 0; _i < (cnt); ++_i) { \
+                jarr.push_back(fn(&(arr)[_i] TG3__COMMA_VA_ARGS(__VA_ARGS__))); \
+            } \
+            root[key] = static_cast<tg3__json&&>(jarr); \
+        }
+
+    TG3__SERIALIZE_ARRAY("buffers", model->buffers, model->buffers_count,
+                         tg3__serialize_buffer, wd, embed_buffers);
+    TG3__SERIALIZE_ARRAY("bufferViews", model->buffer_views,
+                         model->buffer_views_count, tg3__serialize_buffer_view, wd);
+    TG3__SERIALIZE_ARRAY("accessors", model->accessors, model->accessors_count,
+                         tg3__serialize_accessor, wd);
+    TG3__SERIALIZE_ARRAY("meshes", model->meshes, model->meshes_count,
+                         tg3__serialize_mesh, wd);
+    TG3__SERIALIZE_ARRAY("nodes", model->nodes, model->nodes_count,
+                         tg3__serialize_node, wd);
+    TG3__SERIALIZE_ARRAY("materials", model->materials, model->materials_count,
+                         tg3__serialize_material, wd);
+    TG3__SERIALIZE_ARRAY("textures", model->textures, model->textures_count,
+                         tg3__serialize_texture, wd);
+    TG3__SERIALIZE_ARRAY("samplers", model->samplers, model->samplers_count,
+                         tg3__serialize_sampler, wd);
+    TG3__SERIALIZE_ARRAY("images", model->images, model->images_count,
+                         tg3__serialize_image, wd, embed_images);
+    TG3__SERIALIZE_ARRAY("skins", model->skins, model->skins_count,
+                         tg3__serialize_skin, wd);
+    TG3__SERIALIZE_ARRAY("animations", model->animations, model->animations_count,
+                         tg3__serialize_animation, wd);
+    TG3__SERIALIZE_ARRAY("cameras", model->cameras, model->cameras_count,
+                         tg3__serialize_camera, wd);
+    TG3__SERIALIZE_ARRAY("scenes", model->scenes, model->scenes_count,
+                         tg3__serialize_scene, wd);
+
+    /* KHR_lights_punctual */
+    if (model->lights && model->lights_count > 0) {
+        tg3__json lights_ext = tg3__json::object();
+        tg3__json lights;
+        lights.set_array();
+        for (uint32_t i = 0; i < model->lights_count; ++i) {
+            lights.push_back(tg3__serialize_light(&model->lights[i], wd));
+        }
+        lights_ext["lights"] = static_cast<tg3__json&&>(lights);
+
+        auto ext_it = root.find("extensions");
+        tg3__json exts = (ext_it != root.end()) ?
+                         tg3__json(*ext_it) : tg3__json::object();
+        exts["KHR_lights_punctual"] = static_cast<tg3__json&&>(lights_ext);
+        root["extensions"] = static_cast<tg3__json&&>(exts);
+    }
+
+    /* Root extras/extensions */
+    tg3__serialize_extras_ext(root, &model->ext);
+
+    #undef TG3__SERIALIZE_ARRAY
+    return root;
+}
+
+/* ======================================================================
+ * Public: Writer API Implementation
+ * ====================================================================== */
+
+TINYGLTF3_API tg3_error_code tg3_write_to_memory(
+    const tg3_model *model, tg3_error_stack *errors,
+    uint8_t **out_data, uint64_t *out_size,
+    const tg3_write_options *options) {
+
+    tg3_write_options default_opts;
+    if (!options) {
+        tg3_write_options_init(&default_opts);
+        options = &default_opts;
+    }
+
+    int wd = options->serialize_defaults;
+    tg3__json root = tg3__serialize_model(model, wd,
+                                           options->embed_images,
+                                           options->embed_buffers);
+
+    int indent = options->pretty_print ? 2 : -1;
+    std::string json_str = root.dump(indent);
+
+    if (options->write_binary) {
+        /* GLB format */
+        uint32_t json_len = (uint32_t)json_str.size();
+        /* Pad JSON to 4-byte alignment with spaces */
+        uint32_t json_padded = (json_len + 3) & ~3u;
+
+        /* Collect binary buffer data */
+        const uint8_t *bin_data = NULL;
+        uint64_t bin_len = 0;
+        if (model->buffers_count > 0 && model->buffers[0].data.data) {
+            bin_data = model->buffers[0].data.data;
+            bin_len = model->buffers[0].data.count;
+        }
+        uint32_t bin_padded = ((uint32_t)bin_len + 3) & ~3u;
+
+        uint32_t total = 12; /* Header */
+        total += 8 + json_padded; /* JSON chunk */
+        if (bin_data && bin_len > 0) {
+            total += 8 + bin_padded; /* BIN chunk */
+        }
+
+        uint8_t *glb = (uint8_t *)malloc(total);
+        if (!glb) {
+            tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_OUT_OF_MEMORY,
+                            "OOM allocating GLB output", NULL, -1);
+            return TG3_ERR_OUT_OF_MEMORY;
+        }
+
+        /* Header */
+        memcpy(glb, "glTF", 4);
+        uint32_t version = 2;
+        memcpy(glb + 4, &version, 4);
+        memcpy(glb + 8, &total, 4);
+
+        /* JSON chunk */
+        memcpy(glb + 12, &json_padded, 4);
+        uint32_t json_type = 0x4E4F534A;
+        memcpy(glb + 16, &json_type, 4);
+        memcpy(glb + 20, json_str.c_str(), json_len);
+        /* Pad with spaces */
+        for (uint32_t i = json_len; i < json_padded; ++i) {
+            glb[20 + i] = ' ';
+        }
+
+        /* BIN chunk */
+        if (bin_data && bin_len > 0) {
+            uint32_t bin_off = 20 + json_padded;
+            memcpy(glb + bin_off, &bin_padded, 4);
+            uint32_t bin_type = 0x004E4942;
+            memcpy(glb + bin_off + 4, &bin_type, 4);
+            memcpy(glb + bin_off + 8, bin_data, (size_t)bin_len);
+            /* Pad with zeros */
+            for (uint32_t i = (uint32_t)bin_len; i < bin_padded; ++i) {
+                glb[bin_off + 8 + i] = 0;
+            }
+        }
+
+        *out_data = glb;
+        *out_size = total;
+    } else {
+        /* JSON format */
+        uint64_t sz = json_str.size();
+        uint8_t *data = (uint8_t *)malloc((size_t)sz);
+        if (!data) {
+            tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_OUT_OF_MEMORY,
+                            "OOM allocating JSON output", NULL, -1);
+            return TG3_ERR_OUT_OF_MEMORY;
+        }
+        memcpy(data, json_str.c_str(), (size_t)sz);
+        *out_data = data;
+        *out_size = sz;
+    }
+
+    return TG3_OK;
+}
+
+TINYGLTF3_API tg3_error_code tg3_write_to_file(
+    const tg3_model *model, tg3_error_stack *errors,
+    const char *filename, uint32_t filename_len,
+    const tg3_write_options *options) {
+
+    tg3_write_options opts;
+    if (options) {
+        opts = *options;
+    } else {
+        tg3_write_options_init(&opts);
+    }
+
+#ifdef TINYGLTF3_ENABLE_FS
+    tg3__set_default_fs(&opts.fs);
+#endif
+
+    if (!opts.fs.write_file) {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_FS_NOT_AVAILABLE,
+                        "No filesystem write callback", NULL, -1);
+        return TG3_ERR_FS_NOT_AVAILABLE;
+    }
+
+    uint8_t *data = NULL;
+    uint64_t size = 0;
+    tg3_error_code err = tg3_write_to_memory(model, errors, &data, &size, &opts);
+    if (err != TG3_OK) return err;
+
+    int32_t ok = opts.fs.write_file(filename, filename_len, data, size,
+                                     opts.fs.user_data);
+    free(data);
+
+    if (!ok) {
+        tg3__error_push(errors, TG3_SEVERITY_ERROR, TG3_ERR_FILE_WRITE,
+                        "Failed to write file", NULL, -1);
+        return TG3_ERR_FILE_WRITE;
+    }
+
+    return TG3_OK;
+}
+
+TINYGLTF3_API void tg3_write_free(uint8_t *data, const tg3_write_options *options) {
+    (void)options;
+    free(data);
+}
+
+/* ======================================================================
+ * Streaming Writer (stub implementation)
+ * ====================================================================== */
+
+struct tg3_writer {
+    tg3_write_chunk_fn chunk_fn;
+    void              *user_data;
+    tg3_write_options  options;
+    tg3__json          root;
+    int                begun;
+};
+
+TINYGLTF3_API tg3_writer *tg3_writer_create(
+    tg3_write_chunk_fn chunk_fn, void *user_data,
+    const tg3_write_options *options) {
+    tg3_writer *w = new (std::nothrow) tg3_writer();
+    if (!w) return NULL;
+    w->chunk_fn = chunk_fn;
+    w->user_data = user_data;
+    if (options) w->options = *options;
+    else tg3_write_options_init(&w->options);
+    w->root = tg3__json::object();
+    return w;
+}
+
+TINYGLTF3_API tg3_error_code tg3_writer_begin(tg3_writer *w, const tg3_asset *asset) {
+    if (!w) return TG3_ERR_WRITE_FAILED;
+    w->root["asset"] = tg3__serialize_asset(asset, w->options.serialize_defaults);
+    w->begun = 1;
+    return TG3_OK;
+}
+
+#define TG3__WRITER_ADD_IMPL(name, Type, json_key, serialize_fn, ...) \
+    TINYGLTF3_API tg3_error_code tg3_writer_add_##name(tg3_writer *w, const Type *item) { \
+        if (!w || !w->begun) return TG3_ERR_WRITE_FAILED; \
+        auto it = w->root.find(json_key); \
+        if (it == w->root.end()) { \
+            tg3__json arr; arr.set_array(); \
+            w->root[json_key] = static_cast<tg3__json&&>(arr); \
+        } \
+        w->root[json_key].push_back( \
+            serialize_fn(item, w->options.serialize_defaults TG3__COMMA_VA_ARGS(__VA_ARGS__))); \
+        return TG3_OK; \
+    }
+
+#define TG3__WRITER_ADD_SIMPLE(name, Type, json_key, serialize_fn) \
+    TINYGLTF3_API tg3_error_code tg3_writer_add_##name(tg3_writer *w, const Type *item) { \
+        if (!w || !w->begun) return TG3_ERR_WRITE_FAILED; \
+        auto it = w->root.find(json_key); \
+        if (it == w->root.end()) { \
+            tg3__json arr; arr.set_array(); \
+            w->root[json_key] = static_cast<tg3__json&&>(arr); \
+        } \
+        w->root[json_key].push_back( \
+            serialize_fn(item, w->options.serialize_defaults)); \
+        return TG3_OK; \
+    }
+
+TG3__WRITER_ADD_IMPL(buffer, tg3_buffer, "buffers", tg3__serialize_buffer,
+                     w->options.embed_buffers)
+TG3__WRITER_ADD_SIMPLE(buffer_view, tg3_buffer_view, "bufferViews",
+                       tg3__serialize_buffer_view)
+TG3__WRITER_ADD_SIMPLE(accessor, tg3_accessor, "accessors", tg3__serialize_accessor)
+TG3__WRITER_ADD_SIMPLE(mesh, tg3_mesh, "meshes", tg3__serialize_mesh)
+TG3__WRITER_ADD_SIMPLE(node, tg3_node, "nodes", tg3__serialize_node)
+TG3__WRITER_ADD_SIMPLE(material, tg3_material, "materials", tg3__serialize_material)
+TG3__WRITER_ADD_SIMPLE(texture, tg3_texture, "textures", tg3__serialize_texture)
+TG3__WRITER_ADD_IMPL(image, tg3_image, "images", tg3__serialize_image,
+                     w->options.embed_images)
+TG3__WRITER_ADD_SIMPLE(sampler, tg3_sampler, "samplers", tg3__serialize_sampler)
+TG3__WRITER_ADD_SIMPLE(animation, tg3_animation, "animations", tg3__serialize_animation)
+TG3__WRITER_ADD_SIMPLE(skin, tg3_skin, "skins", tg3__serialize_skin)
+TG3__WRITER_ADD_SIMPLE(camera, tg3_camera, "cameras", tg3__serialize_camera)
+TG3__WRITER_ADD_SIMPLE(scene, tg3_scene, "scenes", tg3__serialize_scene)
+TG3__WRITER_ADD_SIMPLE(light, tg3_light, "lights", tg3__serialize_light)
+
+#undef TG3__WRITER_ADD_IMPL
+#undef TG3__WRITER_ADD_SIMPLE
+
+TINYGLTF3_API tg3_error_code tg3_writer_end(tg3_writer *w) {
+    if (!w || !w->begun || !w->chunk_fn) return TG3_ERR_WRITE_FAILED;
+
+    int indent = w->options.pretty_print ? 2 : -1;
+    std::string json_str = w->root.dump(indent);
+
+    int32_t ok = w->chunk_fn((const uint8_t *)json_str.c_str(),
+                              json_str.size(), w->user_data);
+    return ok ? TG3_OK : TG3_ERR_WRITE_FAILED;
+}
+
+TINYGLTF3_API void tg3_writer_destroy(tg3_writer *w) {
+    delete w;
+}
+
+#endif /* TINYGLTF3_IMPLEMENTATION */
+
+#endif /* TINY_GLTF_V3_H_ */
