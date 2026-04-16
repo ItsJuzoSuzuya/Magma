@@ -115,6 +115,8 @@ void ImGuiRenderer::newFrame() {
 void ImGuiRenderer::preFrame() {
   UIContext::ensureInit();
 
+  if (onPreFrame) { onPreFrame(); return; }
+
   ImGuiViewport *viewport = ImGui::GetMainViewport();
   ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
   ImGui::DockSpaceOverViewport(dockspace_id, viewport);
@@ -229,6 +231,8 @@ void ImGuiRenderer::begin() {
 
 void ImGuiRenderer::record() {
   pipeline->bind(FrameInfo::commandBuffer);
+
+  if (onDraw) onDraw();
 
   for (auto &widget : widgets)
     widget->draw();

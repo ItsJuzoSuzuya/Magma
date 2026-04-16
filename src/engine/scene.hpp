@@ -1,72 +1,43 @@
 #pragma once
-#include "components/camera.hpp"
-#include "engine/render/scene_renderer.hpp"
 #include "gameobject.hpp"
 #include <functional>
 #include <memory>
-#include <unordered_map>
 #include <vector>
 
 namespace Magma {
 
-class Renderer;
-
-/**
- * Represents a scene containing multiple
- * root GameObjects and manages their lifecycle and rendering.
- * @note Only one scene can be active at a time.
- */
 class Scene {
 public:
-  Scene();
-  ~Scene();
+  Scene(std::string name): name{name}{}
+  ~Scene() {}
 
   Scene(const Scene &) = delete;
   Scene &operator=(const Scene &) = delete;
   Scene(Scene &&) = default;
   Scene &operator=(Scene &&) = default;
 
-  static Scene *current() { return activeScene; }
-  void setActive() { activeScene = this; }
+  std::vector<std::unique_ptr<GameObject>> &getGameObjects() { return gameObjects; }
+  std::string getName(){
+    return name;
+  }
 
-  static void setActiveCamera(GameObject *camera) {  
-    activeCamera = camera; }
-  static GameObject *getActiveCamera() { 
-    return activeCamera; }
+  GameObject *createGameObject();
+  GameObject *createGameObject(std::string name);
+  GameObject *createGameObject(GameObject* parent);
+  GameObject *createGameObject(GameObject* parent, std::string name);
+  GameObject *createPointLight(GameObject* parent, std::string name);
 
-  std::vector<std::unique_ptr<GameObject>> &getGameObjects();
-  GameObject *findGameObjectById(GameObject::id_t id);
-  GameObject &addGameObject(std::unique_ptr<GameObject> gameObject, bool hidden = false);
+  GameObject *addGameObject(std::unique_ptr<GameObject> gameObject);
   void removeGameObject(GameObject *gameObject);
 
-  #if defined(MAGMA_WITH_EDITOR)
-    static void drawSceneTree();
-  #endif
-
-  /**
-   * Render GameObjects recursively
-   * @param renderer Renderer to use for rendering
-   */
-  static void onRender(SceneRenderer &renderer);
-
-  /**
-   * Defers an action to be executed after the current frame
-   * @param func The function to be executed
-   * @note This is useful for actions that modify the scene
-   */
   void defer(std::function<void()> func) { deferredActions.push_back(func); }
-  /**
-   * Process deferred actions queued during the frame
-   * @note This should be called at the end of each frame
-   */
   void processDeferredActions();
 
+  inline static GameObject *activeCamera = nullptr;
+
 private:
-  inline static Scene *activeScene = nullptr;
-  inline static GameObject* activeCamera;
-
+  std::string name;
   std::vector<std::unique_ptr<GameObject>> gameObjects;
-
   std::vector<std::function<void()>> deferredActions;
 };
 

@@ -3,6 +3,9 @@
 #include "../components/point_light.hpp"
 #include "../components/transform.hpp"
 #include "../gameobject.hpp"
+#include "../scene.hpp"
+#include "../scene_action.hpp"
+#include "engine/scene_manager.hpp"
 #include "imgui.h"
 
 using namespace std;
@@ -22,10 +25,14 @@ void InspectorMenu::draw() {
       ImGui::Separator();
       drawAddComponentMenu();
     } else {
-      ImGui::TextUnformatted("Scene");
+      ImGui::TextUnformatted(SceneManager::activeScene->getName().c_str());
       ImGui::Separator();
-      if (ImGui::MenuItem("Add Entity"))
-        GameObject::create();
+      if (ImGui::MenuItem("Add Entity")) {
+        auto *scene = SceneManager::activeScene;
+        if (scene) {
+          scene->createGameObject();
+        }
+      }
       if (ImGui::MenuItem("Delete"))
         ; // No scene deletion for now
     }

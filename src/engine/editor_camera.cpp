@@ -1,45 +1,57 @@
 #include "editor_camera.hpp"
-#include "engine/scene.hpp"
-#include "gameobject.hpp"
-#include <print>
+#include <memory>
+#include <stdexcept>
 
-using namespace std;
 namespace Magma {
 
-EditorCamera::EditorCamera(){
-  cameraObject = new GameObject(UINT32_MAX, "Editor Camera");
-  transform = cameraObject->addComponent<Transform>();
-  camera = cameraObject->addComponent<Camera>();
-  camera->setPerspectiveProjection(glm::radians(90.f), 16.f / 9.f, 0.1f, 100.f);
+EditorCamera::EditorCamera(std::unique_ptr<GameObject> obj) : cameraObject(std::move(obj)) {
+  if (cameraObject) {
+    transform = cameraObject->getComponent<Transform>();
+    camera = cameraObject->getComponent<Camera>();
+    if (camera && transform) 
+      camera->setOwnerTransform(transform);
+    else throw std::runtime_error("EditorCamera constructed without Camera or Transform!");
+  }
 }
 
 void EditorCamera::onUpdate() {
-  camera->onUpdate();
+  if (camera) camera->onUpdate();
 }
 
-void EditorCamera::onRender(SceneRenderer &renderer) {
-  camera->onRender(renderer);
+RenderProxy EditorCamera::collectProxy() const {
+  RenderProxy proxy = {};
+  if (camera) camera->collectProxy(proxy);
+  return proxy;
 }
 
-void EditorCamera::moveRight(float speed) {
-  transform->position += transform->right() * speed;
-}
-
-void EditorCamera::moveForward(float speed) {
-  transform->position += transform->forward() * speed;
-}
-
-void EditorCamera::moveUp(float speed) {
-  transform->position += transform->up() * speed;
-}
-
-void EditorCamera::setPerspectiveProjection(float fov, float aspect, float near,
-                                            float far) {
-  camera->setPerspectiveProjection(fov, aspect, near, far);
+void EditorCamera::setPerspectiveProjection(float fov, float aspect, float near, float far) {
+  if (camera) camera->setPerspectiveProjection(fov, aspect, near, far);
 }
 
 void EditorCamera::setAspectRatio(float aspect) {
-  camera->setAspectRatio(aspect);
+  if (camera) camera->setAspectRatio(aspect);
 }
 
-} // namespace Magma
+void EditorCamera::moveRight(float speed) {
+  if (cameraObject) cameraObject->moveRight(speed);
+}
+
+void EditorCamera::moveForward(float speed) {
+  if (cameraObject) cameraObject->moveForward(speed);
+}
+
+void EditorCamera::moveUp(float speed) {
+  if (cameraObject) cameraObject->moveUp(speed);
+}
+
+const glm::mat4 &EditorCamera::getProjection() const {
+  static glm::mat4 identity{1.f};
+  return camera ? camera->getProjection() : identity;
+}
+
+const glm::mat4 &EditorCamera::getView() const {
+  static glm::mat4 identity{1.f};
+  return camera ? camera->getView() : identity;
+}
+
+}

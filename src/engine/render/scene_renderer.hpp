@@ -1,16 +1,25 @@
 #pragma once
+#include "core/buffer.hpp"
+#include "core/descriptors.hpp"
 #include "core/pipeline.hpp"
+#include "core/render_proxy.hpp"
 #include "core/render_target.hpp"
 #include "core/renderer.hpp"
+#include "core/swapchain.hpp"
 #include "engine/components/camera.hpp"
-#include "engine/editor_camera.hpp"
-#include "engine/render/features/object_picker.hpp"
-#include "imgui.h"
-#include "render_context.hpp"
+#include "engine/components/point_light.hpp"
+#include "engine/render/features/render_feature.hpp"
+#include "engine/render/render_context.hpp"
+#include <array>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
 #include <vulkan/vulkan_core.h>
+
+#if defined(MAGMA_WITH_EDITOR)
+  #include "imgui.h"
+#endif
 
 namespace Magma {
 
@@ -23,11 +32,21 @@ class SceneRenderer : public IRenderer {
 public:
   SceneRenderer(std::unique_ptr<IRenderTarget> target, PipelineShaderInfo &shaderInfo);
   ~SceneRenderer();
+
   void destroy() override;
 
-  uint32_t rendererId = 0;
+  void initPipeline(RenderContext *rc){
+    renderContext = rc;
 
-  template<typename T>
+    std::vector<VkDescriptorSetLayout> layouts = {
+        cameraLayout->getDescriptorSetLayout(),
+        renderContext->getLayout(LayoutKey::PointLight)};
+
+    createPipelineLayout(layouts);
+    createPipeline();
+  }
+
+  template<typename T> 
   T &getFeature() {
     for (auto &feature : renderFeatures) {
       if (auto casted = dynamic_cast<T*>(feature.get()))
@@ -38,12 +57,15 @@ public:
   void addRenderFeature(std::unique_ptr<RenderFeature> feature);
 
   CameraSource cameraSource = CameraSource::Editor;
-  static EditorCamera* getEditorCamera() {
-    return editorCamera.get(); }
+  static void setEditorCameraProxy(const RenderProxy &proxy) {
+    editorCameraProxy = proxy;
+  }
 
-  void createSceneTextures();
-  ImVec2 getSceneSize() const;
-  ImTextureID getSceneTexture(size_t index) const;
+  #if defined(MAGMA_WITH_EDITOR)
+    void createSceneTextures();
+    ImVec2 getSceneSize() const;
+    ImTextureID getSceneTexture(size_t index) const;
+  #endif
 
   VkPipelineLayout getPipelineLayout() const override {
     return pipelineLayout; }
@@ -55,8 +77,6 @@ public:
   SwapChain* getSwapChain() const override;
 
   void uploadCameraUBO(const CameraUBO &ubo);
-  void submitPointLight(const PointLightData &lightData);
-
 
 private:
   std::unique_ptr<Pipeline> pipeline = nullptr;
@@ -67,18 +87,28 @@ private:
   void createPipelineLayout(
       const std::vector<VkDescriptorSetLayout> &layouts) override;
 
+  std::unique_ptr<DescriptorSetLayout> cameraLayout;
+  std::unique_ptr<DescriptorPool> cameraPool;
+  std::array<std::unique_ptr<Buffer>, SwapChain::MAX_FRAMES_IN_FLIGHT> cameraUBOs;
+  std::array<VkDescriptorSet, SwapChain::MAX_FRAMES_IN_FLIGHT> cameraDescriptorSets{};
+
   void begin() override;
   void record() override;
   void end() override;
 
-  std::vector<std::unique_ptr<RenderFeature>> renderFeatures = {};
+  std::vector<RenderProxy> getSceneProxies();
+  void submitProxy(const RenderProxy &proxy);
+
+  RenderContext *renderContext;
   std::unique_ptr<IRenderTarget> renderTarget = nullptr;
-  std::unique_ptr<RenderContext> renderContext = nullptr;
+  std::vector<std::unique_ptr<RenderFeature>> renderFeatures = {};
   bool isSwapChainDependentFlag = false;
 
+#if defined(MAGMA_WITH_EDITOR)
   std::vector<ImTextureID> sceneTextures = {};
+#endif
 
-  inline static std::unique_ptr<EditorCamera> editorCamera = std::make_unique<EditorCamera>();
+  inline static RenderProxy editorCameraProxy = {};
 };
 
 } // namespace Magma

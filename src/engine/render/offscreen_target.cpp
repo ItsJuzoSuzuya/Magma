@@ -3,6 +3,7 @@
 #include "core/frame_info.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <print>
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -147,8 +148,8 @@ void OffscreenTarget::onResize(VkExtent2D newExtent) {
   createDepthResources();
   createColorSampler();
 
-  imageLayouts.resize(images.size(), VK_IMAGE_LAYOUT_UNDEFINED);
-  depthImageLayouts.resize(depthImages.size(), VK_IMAGE_LAYOUT_UNDEFINED);
+  imageLayouts.assign(images.size(), VK_IMAGE_LAYOUT_UNDEFINED);
+  depthImageLayouts.assign(depthImages.size(), VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
 void OffscreenTarget::transitionColorImage(size_t index,

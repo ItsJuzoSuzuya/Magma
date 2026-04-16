@@ -1,7 +1,9 @@
 #pragma once
 #include "engine/editor_camera.hpp"
+#include "engine/render/viewport.hpp"
 #include "imgui.h"
 #include "widget.hpp"
+#include <functional>
 #include <glm/vec3.hpp>
 #include <memory>
 
@@ -13,7 +15,9 @@ class EditorCamera;
 
 class GameEditor : public Widget {
 public:
-  GameEditor(SceneRenderer &renderer);
+  GameEditor(Viewport viewport);
+
+  void initEditorCamera();
 
   const char *name() const override { return "Editor"; }
 
@@ -21,13 +25,15 @@ public:
   void preFrame() override;
   void draw() override;
 
-  // Docking prefrence (Center)
+  // Docking preference (Center)
   std::optional<DockHint> dockHint() const override {
     return DockHint{DockSide::Center, 0.f};
   }
 
 private:
-  SceneRenderer &renderer;
+  Viewport viewport;
+
+  EditorCamera editorCamera;
 
   // Drag state
   GameObject *draggedObject = nullptr;
@@ -38,7 +44,7 @@ private:
   // World position at start of drag
   glm::vec3 dragStartWorldPos{0.f,0.f,0.f};
 
-  // Pixel offset between mouse and object projected pixe (mouse - objectPixel)
+  // Pixel offset between mouse and object projected pixel (mouse - objectPixel)
   ImVec2 dragPixelOffset{0,0};
 
   // Depth in NDC (clip.z / clip.w) at start of drag

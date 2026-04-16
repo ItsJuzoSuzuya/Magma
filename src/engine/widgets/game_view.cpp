@@ -1,6 +1,5 @@
 #include "game_view.hpp"
 #include "core/frame_info.hpp"
-#include "engine/render/scene_renderer.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "ui_context.hpp"
@@ -37,13 +36,13 @@ void GameView::preFrame() {
     ImVec2 avail = ImGui::GetContentRegionAvail();
     ImVec2 desired = fit16x9(avail);
 
-    ImVec2 current = renderer.getSceneSize();
+    ImVec2 current = viewport.getSize();
     bool needsResize = ((int)desired.x != (int)current.x) ||
                        ((int)desired.y != (int)current.y);
 
     if (needsResize) {
       VkExtent2D newExtent{(uint32_t)desired.x, (uint32_t)desired.y};
-      renderer.onResize(newExtent);
+      viewport.onResize(newExtent);
     }
   }
   ImGui::End();
@@ -55,8 +54,8 @@ void GameView::draw() {
   ImGui::SetNextWindowClass(&UIContext::GameViewDockClass);
   ImGui::Begin(name());
 
-  ImVec2 imgSize = renderer.getSceneSize();
-  ImGui::Image(renderer.getSceneTexture(FrameInfo::frameIndex), imgSize);
+  ImVec2 imgSize = viewport.getSize();
+  ImGui::Image(viewport.getTexture(FrameInfo::frameIndex), imgSize);
 
   ImVec2 imageMin = ImGui::GetItemRectMin();
   ImVec2 imageMax = ImGui::GetItemRectMax();

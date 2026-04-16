@@ -10,8 +10,8 @@ struct FrameInfo {
   inline static VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
   inline static VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 
-  static void advanceFrame() {
-    frameIndex = (frameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
+  static void advanceFrame(int maxFramesInFlight) {
+    frameIndex = (frameIndex + 1) % maxFramesInFlight;
   }
 };
 

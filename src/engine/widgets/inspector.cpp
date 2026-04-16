@@ -5,6 +5,7 @@
 #include "inspector_menu.hpp"
 #include "ui_context.hpp"
 #include <cfloat>
+#include <print>
 #include <string>
 
 using namespace std;

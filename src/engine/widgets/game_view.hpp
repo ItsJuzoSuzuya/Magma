@@ -1,4 +1,5 @@
 #pragma once
+#include "engine/render/viewport.hpp"
 #include "widget.hpp"
 
 namespace Magma {
@@ -8,8 +9,8 @@ class GameObject;
 
 class GameView : public Widget {
 public:
-  explicit GameView(SceneRenderer &renderer)
-      : renderer{renderer} {}
+  explicit GameView(Viewport viewport)
+      : viewport{viewport} {}
 
   const char *name() const override { return "Game"; }
 
@@ -23,7 +24,7 @@ public:
   }
 
 private:
-  SceneRenderer &renderer;
+  Viewport viewport;
 };
 
 } // namespace Magma

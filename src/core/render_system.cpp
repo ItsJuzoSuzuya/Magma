@@ -1,14 +1,14 @@
 #include "render_system.hpp"
 #include "core/device.hpp"
+#include "core/frame_info.hpp"
 #include "core/window.hpp"
 #include "deletion_queue.hpp"
 #include "engine/render/imgui_renderer.hpp"
 #include "engine/render/scene_renderer.hpp"
 #include "engine/scene.hpp"
+#include "engine/scene_manager.hpp"
 #include "engine/time.hpp"
-#include "renderer.hpp"
 #include "swapchain.hpp"
-#include <print>
 #include <vulkan/vulkan_core.h>
 #include <GLFW/glfw3.h>
 #include <cassert>
@@ -23,11 +23,16 @@ namespace Magma {
 
 RenderSystem::RenderSystem(Window &window) : window{window} {
   device = std::make_unique<Device>(window);
+  renderContext = std::make_unique<RenderContext>();
   createCommandBuffers();
 }
 
 RenderSystem::~RenderSystem() {
   Device::waitIdle();
+
+  // Destroy scenes before the device so mesh vertex/index buffers are
+  // pushed to the DeletionQueue while it can still be flushed.
+  SceneManager::scenes.clear();
 
   renderContext.reset();
   destroyAllRenderers();
@@ -39,8 +44,13 @@ RenderSystem::~RenderSystem() {
 // Public Methods
 // ----------------------------------------------------------------------------
 
-void RenderSystem::addRenderer(std::unique_ptr<IRenderer> renderer) { 
-  renderers.push_back(std::move(renderer));
+void RenderSystem::setImGuiRenderer(std::unique_ptr<ImGuiRenderer> renderer) { 
+  imguiRenderer = std::move(renderer);
+}
+
+void RenderSystem::addSceneRenderer(std::unique_ptr<SceneRenderer> renderer) { 
+  renderer->initPipeline(renderContext.get());
+  sceneRenderers.push_back(std::move(renderer));
 }
 
 void RenderSystem::onRender() {
@@ -48,11 +58,8 @@ void RenderSystem::onRender() {
 
   #if defined(MAGMA_WITH_EDITOR)
     if (firstFrame) {
-      for (auto &renderer : renderers) {
-        if (auto *sceneRenderer = dynamic_cast<SceneRenderer*>(renderer.get())) {
-          sceneRenderer->createSceneTextures();
-        };
-      }
+      for (auto &renderer : sceneRenderers) 
+        renderer->createSceneTextures();
     }
   #endif
 
@@ -70,7 +77,9 @@ void RenderSystem::onRender() {
 // ----------------------------------------------------------------------------
 
 void RenderSystem::destroyAllRenderers() {
-  for (auto &renderer : renderers)
+  imguiRenderer->destroy();
+
+  for (auto &renderer : sceneRenderers)
     renderer->destroy();
 }
 
@@ -92,20 +101,17 @@ void RenderSystem::createCommandBuffers() {
 
 // Rendering
 bool RenderSystem::beginFrame() {
+  VkResult result;
   #if defined(MAGMA_WITH_EDITOR)
-    for (auto &renderer : renderers) {
-      if (auto imguiRenderer = dynamic_cast<ImGuiRenderer*>(renderer.get())) {
-        imguiRenderer->newFrame();
-        imguiRenderer->preFrame();
-      }
+    imguiRenderer->newFrame();
+    imguiRenderer->preFrame();
+    result = imguiRenderer->getSwapChain()->acquireNextImage();
+  #else 
+    for (auto &renderer : sceneRenderers) {
+      if (renderer->isSwapChainDependent())
+        result = renderer->getSwapChain()->acquireNextImage();
     }
   #endif
-
-  VkResult result;
-  for (auto &renderer : renderers) {
-    if (renderer->isSwapChainDependent())
-      result = renderer->getSwapChain()->acquireNextImage();
-  }
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
     onWindowResize();
@@ -127,13 +133,12 @@ bool RenderSystem::beginFrame() {
 }
 
 void RenderSystem::renderFrame() {
-  for (auto &renderer : renderers) 
-    if (!renderer->isSwapChainDependent())
-      renderer->onRender();
+  for (auto &renderer : sceneRenderers) 
+    renderer->onRender();
 
-  for (auto &renderer : renderers)
-    if (renderer->isSwapChainDependent())
-      renderer->onRender();
+  #if defined (MAGMA_WITH_EDITOR)
+    imguiRenderer->onRender();
+  #endif
 }
 
 void RenderSystem::endFrame() {
@@ -141,9 +146,11 @@ void RenderSystem::endFrame() {
     throw std::runtime_error("Failed to record command buffer!");
 
   VkResult result;
-  for (auto &renderer : renderers) 
-    if (renderer->isSwapChainDependent())
-      result = renderer->getSwapChain()->submitCommandBuffer(&FrameInfo::commandBuffer);
+  #if defined (MAGMA_WITH_EDITOR)
+    result = imguiRenderer->getSwapChain()->submitCommandBuffer(&FrameInfo::commandBuffer);
+  #else 
+    result = renderers[0]->getSwapChain()->submitCommandBuffer(&FrameInfo::commandBuffer);
+  #endif
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
       window.wasWindowResized()) {
@@ -152,8 +159,8 @@ void RenderSystem::endFrame() {
   } else if (result != VK_SUCCESS)
     throw std::runtime_error("Failed to present swap chain image!");
 
-  FrameInfo::advanceFrame();
-  Scene::current()->processDeferredActions();
+  FrameInfo::advanceFrame(SwapChain::MAX_FRAMES_IN_FLIGHT);
+  if (SceneManager::activeScene) SceneManager::activeScene->processDeferredActions();
   DeletionQueue::flushForFrame(FrameInfo::frameIndex);
 }
 
@@ -171,10 +178,11 @@ void RenderSystem::onWindowResize() {
 }
 
 void RenderSystem::resizeSwapChainRenderer(const VkExtent2D extent) {
-  for (auto &renderer : renderers){
-    if (renderer->isSwapChainDependent())
-      renderer->onResize(extent);
-  }
+  #if defined (MAGMA_WITH_EDITOR)
+    imguiRenderer->onResize(extent);
+  #else 
+    renderers[0]->onResize(extent);
+  #endif
 }
 
 

@@ -1,6 +1,6 @@
 #version 460
 
-layout(location = 0) in vec3 fragColor;
+layout(location = 0) in vec4 fragColor;
 layout(location = 1) in vec3 fragPositionWorld;
 layout(location = 2) in vec3 fragNormalWorld;
 
@@ -17,7 +17,8 @@ layout(set = 1, binding = 0, std430) readonly buffer PointLights {
 };
 
 void main() {
-  vec3 diffuseLight = vec3(0.0);
+  vec3 ambientLight = vec3(0.1);
+  vec3 diffuseLight = ambientLight;
 
   for (uint i = 0; i < lightCount; ++i) {
     PointLightData light = lights[i];
@@ -34,5 +35,5 @@ void main() {
     diffuseLight += light.color.rgb * light.color.a * NdotL * attenuation;
   }
 
-  outColor = vec4(diffuseLight, 1.0f);
+  outColor = fragColor * vec4(diffuseLight, 1.0f);
 }

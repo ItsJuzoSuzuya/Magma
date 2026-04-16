@@ -1,23 +1,22 @@
 #pragma once
-#include "components/mesh.hpp"
-#include "gameobject.hpp"
-#include "scene.hpp"
+#include "engine/components/mesh.hpp"
+#include "engine/gameobject.hpp"
+#include "engine/scene_manager.hpp"
 #include <algorithm>
 #include <functional>
-#include <vulkan/vulkan_core.h>
+
 namespace Magma {
 
 class SceneAction {
 public:
   inline static std::function<void()> remove(GameObject *obj) {
     return [obj]() {
-      if (!obj)
-        return;
+      if (!obj) return;
 
-      if (auto parent = obj->parent) {
-        parent->removeChild(obj);
-      } else if (auto scene = Scene::current()) {
-        auto &gameObjects = scene->getGameObjects();
+      if (obj->parent) {
+        obj->parent->removeChild(obj);
+      } else if (SceneManager::activeScene) {
+        auto &gameObjects = SceneManager::activeScene->getGameObjects();
         gameObjects.erase(
             std::remove_if(gameObjects.begin(), gameObjects.end(),
                            [&](const auto &go) { return go.get() == obj; }),
@@ -26,12 +25,9 @@ public:
     };
   }
 
-  inline static std::function<void()> loadMesh(GameObject *obj) {
-    return [obj]() {
-      if (!obj)
-        return;
-
-      obj->getComponent<Mesh>()->load();
+  inline static std::function<void()> loadMesh(Mesh *mesh) {
+    return [mesh]() {
+      if (mesh) mesh->load();
     };
   }
 };

@@ -1,44 +1,27 @@
-module;
-
-module engine:scene_manager;
-import :scene;
-import :gameobject;
+#include "scene_manager.hpp"
 
 namespace Magma {
 
-export class SceneManager {
-public:
-  inline static Scene *activeScene = nullptr;
-  inline static GameObject* activeCamera;
+GameObject *SceneManager::findGameObjectById(uint64_t id) {
+  if (!activeScene) return nullptr;
 
-  GameObject &createGameObject() {
-    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId()));
-    GameObject &ref = *obj;
-    activeScene->addGameObject(std::move(obj));
-    return ref;
+  std::function<GameObject *(GameObject *)> findInChildren =
+      [&](GameObject *node) -> GameObject * {
+    if (!node) return nullptr;
+    if (node->id == id) return node;
+    for (auto *child : node->getChildren()) {
+      if (auto *found = findInChildren(child))
+        return found;
+    }
+    return nullptr;
+  };
+
+  for (const auto &go : activeScene->getGameObjects()) {
+    if (!go) continue;
+    if (go->id == id) return go.get();
+    if (auto *found = findInChildren(go.get())) return found;
   }
-
-  GameObject &createGameObjec(std::string name) {
-    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId(), name));
-    GameObject &ref = *obj;
-    activeScene->addGameObject(std::move(obj));
-    return ref;
-  }
-
-  GameObject &createGameObject(GameObject &parent) {
-    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId(), &parent));
-    GameObject &ref = *obj;
-    parent.addChild(std::move(obj));
-    return ref;
-  }
-
-  GameObject &createGameObject(GameObject &parent, std::string name) {
-    auto obj = std::unique_ptr<GameObject>(new GameObject(getNextId(), &parent, name));
-    GameObject &ref = *obj;
-    parent.addChild(std::move(obj));
-    return ref;
-  }
-
-};
+  return nullptr;
+}
 
 }

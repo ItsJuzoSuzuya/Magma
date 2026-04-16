@@ -1,44 +1,40 @@
 #pragma once
-#include "components/camera.hpp"
-#include "components/transform.hpp"
+#include "engine/components/camera.hpp"
+#include "engine/components/transform.hpp"
 #include "engine/gameobject.hpp"
+#include <memory>
 
 namespace Magma {
 
-class SceneRenderer;
-class GameObject;
-
 /**
- * EditorCamera aggregates a Transform and a Camera for editor usage.
- * It owns the transform and camera instances and exposes simple movement
- * APIs for the editor (e.g., when user presses WASD in the offscreen view).
+ * Wraps a GameObject with Camera and Transform for editor viewport use.
  */
 class EditorCamera {
 public:
-  EditorCamera();
-  ~EditorCamera() = default;
+  EditorCamera() = default;
+  EditorCamera(std::unique_ptr<GameObject> obj);
+  EditorCamera(EditorCamera&&) = default;
+  EditorCamera& operator=(EditorCamera&&) = default;
 
   void onUpdate();
-  void onRender(SceneRenderer &renderer);
 
-  // Movement helpers used by editor input
+  RenderProxy collectProxy() const;
+
+  void setPerspectiveProjection(float fov, float aspect, float near, float far);
+  void setAspectRatio(float aspect);
+
   void moveRight(float speed);
   void moveForward(float speed);
   void moveUp(float speed);
 
-  // Perspective config
-  void setPerspectiveProjection(float fov, float aspect, float near, float far);
-  void setAspectRatio(float aspect);
+  const glm::mat4 &getProjection() const;
+  const glm::mat4 &getView() const ;
 
-  // Accessors
   Transform *getTransform() { return transform; }
   Camera *getCamera() { return camera; }
-  const glm::mat4 &getProjection() const { return camera->getProjection(); }
-  const glm::mat4 &getView() const { 
-    return camera->getView(); }
 
 private:
-  GameObject *cameraObject = nullptr;
+  std::unique_ptr<GameObject> cameraObject = nullptr;
   Transform *transform = nullptr;
   Camera *camera = nullptr;
 };

@@ -1,13 +1,12 @@
 #pragma once
 #include "core/render_system.hpp"
 #include "core/window.hpp"
-#include "scene.hpp"
-#include <GLFW/glfw3.h>
-#include <X11/X.h>
+#include "engine/project.hpp"
+#include "engine/render/imgui_renderer.hpp"
+#include "engine/render/scene_renderer.hpp"
 #include <memory>
-namespace Magma {
 
-class EngineSpecifications;
+namespace Magma {
 
 /**
  * The main engine class that initializes and runs the application.
@@ -17,6 +16,10 @@ class Engine {
 public:
   Engine(Window &window);
 
+  void setImguiRenderer(std::unique_ptr<ImGuiRenderer> renderer);
+  SceneRenderer *createEditorRenderer();
+  SceneRenderer *createGameRenderer();
+
   /**
    * Runs the main loop
    * @note This function will block until window is closed
@@ -25,12 +28,11 @@ public:
   void run();
 
 private:
+  Window *window = nullptr;
   std::unique_ptr<RenderSystem> renderSystem = nullptr;
-  std::unique_ptr<Scene> scene = nullptr;
+  Project project;
 
-  #if defined(MAGMA_WITH_EDITOR)
-    void initImGui();
-  #endif
+  void addSceneRenderer(std::unique_ptr<SceneRenderer> renderer);
 };
 
 } // namespace Magma

@@ -2,8 +2,8 @@
 #include "core/frame_info.hpp"
 #include "engine/components/transform.hpp"
 #include "engine/editor_camera.hpp"
-#include "engine/render/features/object_picker.hpp"
 #include "engine/render/scene_renderer.hpp"
+#include "engine/render/viewport.hpp"
 #include "engine/time.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <cmath>
 #include <glm/fwd.hpp>
-#include <print>
 
 
 static ImVec2 fit16x9(const ImVec2 &avail) {
@@ -36,8 +35,19 @@ static ImVec2 fit16x9(const ImVec2 &avail) {
 
 namespace Magma {
 
-GameEditor::GameEditor(SceneRenderer &renderer)
-    : renderer(renderer){}
+GameEditor::GameEditor(Viewport viewport)
+    : viewport{viewport}{
+  initEditorCamera();
+}
+
+void GameEditor::initEditorCamera() {
+  // Editor camera
+  auto editorCameraObject = std::make_unique<GameObject>("Editor Camera");
+  editorCameraObject->addComponent<Transform>();
+  auto *cam = editorCameraObject->addComponent<Camera>();
+  cam->setPerspectiveProjection(glm::radians(90.f), 16.f / 9.f, 0.1f, 100.f);
+  editorCamera = EditorCamera{std::move(editorCameraObject)};
+}
 
 // ----------------------------------------------------------------------------
 // Public Methods
@@ -51,13 +61,14 @@ void GameEditor::preFrame() {
     ImVec2 avail = ImGui::GetContentRegionAvail();
     ImVec2 desired = fit16x9(avail);
 
-    ImVec2 current = renderer.getSceneSize();
+    ImVec2 current = viewport.getSize();
     bool needsResize = ((int)desired.x != (int)current.x) ||
                        ((int)desired.y != (int)current.y);
 
     if (needsResize) {
       VkExtent2D newExtent{(uint32_t)desired.x, (uint32_t)desired.y};
-      renderer.onResize(newExtent);
+      if (viewport.onResize)
+        viewport.onResize(newExtent);
     }
   }
 
@@ -76,26 +87,30 @@ void GameEditor::draw() {
 
   if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
     const float cameraSpeed = 1.5f * Time::getDeltaTime();
-    EditorCamera *editorCamera = SceneRenderer::getEditorCamera();
 
     if (ImGui::IsKeyDown(ImGuiKey_D))
-      editorCamera->moveRight(cameraSpeed);
+      editorCamera.moveRight(cameraSpeed);
     if (ImGui::IsKeyDown(ImGuiKey_A))
-      editorCamera->moveRight(-cameraSpeed);
+      editorCamera.moveRight(-cameraSpeed);
     if (ImGui::IsKeyDown(ImGuiKey_W))
-      editorCamera->moveForward(cameraSpeed);
+      editorCamera.moveForward(cameraSpeed);
     if (ImGui::IsKeyDown(ImGuiKey_S))
-      editorCamera->moveForward(-cameraSpeed);
+      editorCamera.moveForward(-cameraSpeed);
     if (ImGui::IsKeyDown(ImGuiKey_Space))
-      editorCamera->moveUp(cameraSpeed);
+      editorCamera.moveUp(cameraSpeed);
     if (ImGui::IsKeyDown(ImGuiKey_LeftShift))
-      editorCamera->moveUp(-cameraSpeed);
+      editorCamera.moveUp(-cameraSpeed);
   }
+
+  // Update editor camera and push proxy to scene renderer
+  editorCamera.onUpdate();
+  RenderProxy proxy = editorCamera.collectProxy();
+  SceneRenderer::setEditorCameraProxy(proxy);
 
   ImVec2 avail = ImGui::GetContentRegionAvail();
   ImVec2 imgSize = fit16x9(avail);
 
-  ImGui::Image(renderer.getSceneTexture(FrameInfo::frameIndex), imgSize);
+  ImGui::Image(viewport.getTexture(FrameInfo::frameIndex), imgSize);
 
   ImVec2 imageMin = ImGui::GetItemRectMin();
   ImVec2 imageMax = ImGui::GetItemRectMax();
@@ -111,11 +126,11 @@ void GameEditor::draw() {
     uint32_t pixelX = static_cast<uint32_t>(localX);
     uint32_t pixelY = static_cast<uint32_t>(localY);
 
-    if (imgSize.x > 0 && imgSize.y > 0)
-      renderer.getFeature<ObjectPicker>().requestPick(pixelX, pixelY);
+    if (imgSize.x > 0 && imgSize.y > 0 && viewport.picker)
+      viewport.picker->request(pixelX, pixelY);
   }
 
-  if (auto picked = renderer.getFeature<ObjectPicker>().pollPickResult()) {
+  if (GameObject *picked = viewport.picker->poll()) {
     Inspector::setContext(picked);
     beginDrag(picked, ImGui::GetIO().MousePos, imageMin, imgSize);
   }
@@ -150,8 +165,8 @@ void GameEditor::beginDrag(GameObject *picked, const ImVec2 &mousePos,
 
   dragStartWorldPos = t->position;
 
-  glm::mat4 proj = SceneRenderer::getEditorCamera()->getProjection();
-  glm::mat4 view = SceneRenderer::getEditorCamera()->getView();
+  glm::mat4 proj = editorCamera.getProjection();
+  glm::mat4 view = editorCamera.getView();
   glm::mat4 projView = proj * view;
 
   // Project object to clip space
@@ -161,17 +176,12 @@ void GameEditor::beginDrag(GameObject *picked, const ImVec2 &mousePos,
     dragStartNDCDepth = 0.f;
     return;
   }
-  glm::vec3 ndc =
-      glm::vec3(clip) /
-      clip.w; // [-1,1] for x,y ; [0,1] or [-1,1] for z depending on projection
+  glm::vec3 ndc = glm::vec3(clip) / clip.w;
 
   dragStartNDCDepth = ndc.z;
 
   // Convert NDC to pixel (local inside image)
-  // NDC x: -1 -> 0px, +1 -> width
   float objPixelX = (ndc.x * 0.5f + 0.5f) * imageSize.x;
-  // NDC y: +1 (top) -> 0px, -1 (bottom) -> height (because of inverted
-  // viewport)
   float objPixelY = (1.f - (ndc.y * 0.5f + 0.5f)) * imageSize.y;
 
   // Mouse local pixel
@@ -200,7 +210,7 @@ void GameEditor::handleMouseDrag() {
   float desiredObjPixelX = localX - dragPixelOffset.x;
   float desiredObjPixelY = localY - dragPixelOffset.y;
 
-  // Clamp desired object pixel (optional)
+  // Clamp desired object pixel
   desiredObjPixelX = std::clamp(desiredObjPixelX, 0.f, dragStartImageSize.x);
   desiredObjPixelY = std::clamp(desiredObjPixelY, 0.f, dragStartImageSize.y);
 
@@ -209,8 +219,8 @@ void GameEditor::handleMouseDrag() {
   float ndcY = 1.f - (desiredObjPixelY / dragStartImageSize.y) * 2.f;
   float ndcZ = dragStartNDCDepth;
 
-  glm::mat4 proj = SceneRenderer::getEditorCamera()->getProjection();
-  glm::mat4 view = SceneRenderer::getEditorCamera()->getView();
+  glm::mat4 proj = editorCamera.getProjection();
+  glm::mat4 view = editorCamera.getView();
   glm::mat4 invProjView = glm::inverse(proj * view);
 
   glm::vec4 ndcPos(ndcX, ndcY, ndcZ, 1.f);

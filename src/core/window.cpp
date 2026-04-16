@@ -1,5 +1,4 @@
 #include "window.hpp"
-#include "../engine/specifications.hpp"
 #include <GLFW/glfw3.h>
 #include <cstring>
 #include <stdexcept>
@@ -7,7 +6,7 @@
 using namespace std;
 namespace Magma {
 
-Window::Window(EngineSpecifications &spec)
+Window::Window(WindowSpecification &spec)
     : width(spec.windowWidth), height(spec.windowHeight), name(spec.name) {
   initGLFWWindow();
 }

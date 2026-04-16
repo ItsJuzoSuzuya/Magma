@@ -3,17 +3,20 @@
 #include "core/frame_info.hpp"
 #include "core/image_transitions.hpp"
 #include "core/push_constant_data.hpp"
+#include "core/render_proxy.hpp"
 #include "core/render_target.hpp"
 #include "core/renderer.hpp"
 #include "engine/components/camera.hpp"
-#include "engine/editor_camera.hpp"
+#include "engine/components/point_light.hpp"
 #include "engine/render/features/object_picker.hpp"
+#include "engine/render/render_callback.hpp"
 #include "engine/render/swapchain_target.hpp"
-#include "engine/scene.hpp"
+#include "engine/scene_manager.hpp"
 #include "render_context.hpp"
 #include <cassert>
 #include <cstdint>
 #include <memory>
+#include <print>
 #include <utility>
 #include <vector>
 #include <vulkan/vk_enum_string_helper.h>
@@ -29,24 +32,37 @@ namespace Magma {
 SceneRenderer::SceneRenderer(std::unique_ptr<IRenderTarget> target,
                              PipelineShaderInfo &shaderInfo)
     : IRenderer(), shaderInfo{shaderInfo} {
-  renderContext = std::make_unique<RenderContext>();
   renderTarget = std::move(target);
 
-  if (auto *swapchainTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get())) 
+  if (auto *swapchainTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get()))
     isSwapChainDependentFlag = true;
 
-  // Self-register with the context to get our slice index
-  rendererId = renderContext->registerRenderer();
+  // Per-renderer camera UBO — one buffer + descriptor set per frame in flight
+  cameraLayout = DescriptorSetLayout::Builder()
+      .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+      .build();
 
-  std::vector<VkDescriptorSetLayout> layouts = {
-      renderContext->getLayout(LayoutKey::Camera),
-      renderContext->getLayout(LayoutKey::PointLight)};
+  cameraPool = DescriptorPool::Builder()
+      .setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT)
+      .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT)
+      .build();
 
-  createPipelineLayout(layouts);
-  renderContext->createDescriptorSets(LayoutKey::Camera);
-  renderContext->createDescriptorSets(LayoutKey::PointLight);
+  for (uint32_t i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
+    cameraUBOs[i] = std::make_unique<Buffer>(
+        sizeof(CameraUBO), 1,
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    cameraUBOs[i]->map();
 
-  createPipeline();
+    VkDescriptorBufferInfo info{};
+    info.buffer = cameraUBOs[i]->getBuffer();
+    info.offset = 0;
+    info.range  = sizeof(CameraUBO);
+
+    DescriptorWriter(*cameraLayout, *cameraPool)
+        .writeBuffer(0, &info)
+        .build(cameraDescriptorSets[i]);
+  }
 }
 
 SceneRenderer::~SceneRenderer() {
@@ -60,7 +76,10 @@ SceneRenderer::~SceneRenderer() {
 void SceneRenderer::destroy() {
   Device::waitIdle();
 
-  renderContext.reset();
+  for (auto &buf : cameraUBOs) buf.reset();
+  cameraLayout.reset();
+  cameraPool.reset();   // frees pool and all sets allocated from it
+
   pipeline.reset();
 
   if (pipelineLayout != VK_NULL_HANDLE) {
@@ -76,8 +95,10 @@ void SceneRenderer::addRenderFeature(std::unique_ptr<RenderFeature> feature){
 void SceneRenderer::onResize(const VkExtent2D newExtent) {
   Device::waitIdle();
 
-  for (auto &tex : sceneTextures) 
-    ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)tex);
+  #if defined(MAGMA_WITH_EDITOR)
+    for (auto &tex : sceneTextures)
+      ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)tex);
+  #endif
 
   renderTarget->onResize(newExtent);
   for (auto &feature : renderFeatures)
@@ -85,28 +106,43 @@ void SceneRenderer::onResize(const VkExtent2D newExtent) {
 
   createPipeline();
 
-  sceneTextures.clear();
-  createSceneTextures();
+  #if defined(MAGMA_WITH_EDITOR)
+    sceneTextures.clear();
+    createSceneTextures();
+  #endif
 }
 
 void SceneRenderer::onRender() {
   begin();
   record();
 
-  if (cameraSource == CameraSource::Editor && editorCamera) {
-    Camera *cam = editorCamera->getCamera();
-    cam->onUpdate();
-    cam->onRender(*this);
+  PointLightSSBO ssbo{};
+  auto &gos = SceneManager::activeScene->getGameObjects();
+  for (auto &go : gos) {
+    if (cameraSource == CameraSource::Scene && go.get() == SceneManager::activeScene->activeCamera) 
+      go->getComponent<Camera>()->onUpdate();
 
-    Transform *t = editorCamera->getTransform();
-    t->onUpdate();
-    t->onRender(*this);
+    auto proxy = go->collectProxies();
+    if (proxy.pointLight && ssbo.lightCount < 128) {
+      ssbo.lights[ssbo.lightCount++] = {
+          proxy.pointLight->position,
+          proxy.pointLight->color
+      };
+    }
+    if (cameraSource == CameraSource::Scene && proxy.camera && go.get() == SceneManager::activeScene->activeCamera) {
+      uploadCameraUBO({proxy.camera->projView});
+    }
   }
+  renderContext->updatePointLights(FrameInfo::frameIndex, &ssbo, sizeof(ssbo));
 
-  Scene::onRender(*this);
+  if (cameraSource == CameraSource::Editor && editorCameraProxy.camera) 
+    uploadCameraUBO({editorCameraProxy.camera->projView});
+
+  for (auto &proxy : getSceneProxies())
+    submitProxy(proxy);
+
   end();
 }
-
 
 SwapChain* SceneRenderer::getSwapChain() const {
   #if defined(MAGMA_WITH_EDITOR)
@@ -119,6 +155,15 @@ SwapChain* SceneRenderer::getSwapChain() const {
   #endif
 }
 
+std::vector<RenderProxy> SceneRenderer::getSceneProxies(){
+  std::vector<RenderProxy> proxies;
+  if (!SceneManager::activeScene) return proxies;
+  for (auto &go : SceneManager::activeScene->getGameObjects())
+    proxies.push_back(go->collectProxies());
+  return proxies;
+}
+
+#if defined(MAGMA_WITH_EDITOR)
 ImVec2 SceneRenderer::getSceneSize() const {
   return ImVec2(static_cast<float>(renderTarget->extent().width),
                 static_cast<float>(renderTarget->extent().height));
@@ -131,8 +176,9 @@ ImTextureID SceneRenderer::getSceneTexture(size_t index) const {
 
   return sceneTextures.at(index);
 }
+#endif
 
-// Rendering 
+// Rendering
 void SceneRenderer::begin() {
   if (FrameInfo::commandBuffer == VK_NULL_HANDLE)
     throw std::runtime_error("No command buffer found in FrameInfo!");
@@ -140,14 +186,14 @@ void SceneRenderer::begin() {
       FrameInfo::frameIndex >= SwapChain::MAX_FRAMES_IN_FLIGHT)
     throw std::runtime_error("Invalid frame index in FrameInfo!");
 
-  const uint32_t idx = FrameInfo::imageIndex;
+  const uint32_t idx = FrameInfo::frameIndex;
 
   // Transition scene color image to COLOR_ATTACHMENT_OPTIMAL
   VkImageLayout colorLayout = renderTarget->getColorImageLayout(idx);
-  if (colorLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) 
+  if (colorLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
     renderTarget->transitionColorImage(
         idx, ImageTransition::ShaderReadToColorOptimal);
-  else if (colorLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) 
+  else if (colorLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
     renderTarget->transitionColorImage(
         idx, ImageTransition::UndefinedToColorOptimal);
 
@@ -158,7 +204,6 @@ void SceneRenderer::begin() {
 
   for (auto &feature : renderFeatures)
     feature->prepare(idx);
-
 
   std::vector<VkRenderingAttachmentInfo> colors{};
   colors.emplace_back(renderTarget->getColorAttachment(idx));
@@ -195,25 +240,14 @@ void SceneRenderer::begin() {
 
 void SceneRenderer::record() {
   pipeline->bind(FrameInfo::commandBuffer);
-  auto camSet =
-      renderContext->getDescriptorSet(LayoutKey::Camera, FrameInfo::frameIndex);
-  if (!camSet.has_value())
-    throw std::runtime_error(
-        "No Camera descriptor set found for OffscreenRenderer!");
-  uint32_t camOffset = rendererId * renderContext->cameraSliceSize();
 
-  auto lightSet = renderContext->getDescriptorSet(LayoutKey::PointLight,
-                                                  FrameInfo::frameIndex);
-  if (!lightSet.has_value())
-    throw std::runtime_error(
-        "No Point light descriptor set found for OffscreenRenderer!");
-
-  VkDescriptorSet sets[] = {camSet.value(), lightSet.value()};
-  uint32_t dynamicOffsets[] = {camOffset};
+  VkDescriptorSet sets[] = {
+      cameraDescriptorSets[FrameInfo::frameIndex],
+      renderContext->getDescriptorSet(LayoutKey::PointLight, FrameInfo::frameIndex)};
 
   vkCmdBindDescriptorSets(FrameInfo::commandBuffer,
                           VK_PIPELINE_BIND_POINT_GRAPHICS, getPipelineLayout(),
-                          0, 2, sets, 1, dynamicOffsets);
+                          0, 2, sets, 0, nullptr);
 }
 
 void SceneRenderer::end() {
@@ -225,7 +259,7 @@ void SceneRenderer::end() {
 
   vkCmdEndRendering(FrameInfo::commandBuffer);
 
-  const uint32_t idx = FrameInfo::imageIndex;
+  const uint32_t idx = FrameInfo::frameIndex;
   #if defined(MAGMA_WITH_EDITOR)
     // Transition scene color to SHADER_READ_ONLY for ImGui sampling
     renderTarget->transitionColorImage(
@@ -237,33 +271,21 @@ void SceneRenderer::end() {
 
   for (auto &feature : renderFeatures)
     feature->finish(idx);
-
 }
 
-// Render Context Updates
+void SceneRenderer::submitProxy(const RenderProxy &proxy) {
+  if (proxy.transform) RenderCallback::renderTransform(*this, *proxy.transform);
+  if (proxy.mesh) RenderCallback::renderMesh(*proxy.mesh);
+}
+
 void SceneRenderer::uploadCameraUBO(const CameraUBO &ubo) {
-  if (!renderContext)
-    return;
-  renderContext->updateCameraSlice(FrameInfo::frameIndex, rendererId,
-                                   (void *)&ubo, sizeof(ubo));
-}
-
-void SceneRenderer::submitPointLight(const PointLightData &lightData) {
-  if (!renderContext)
-    return;
-
-  PointLightSSBO ssbo{};
-  ssbo.lightCount = 1;
-  ssbo.lights[0] = lightData;
-
-  renderContext->updatePointLightSlice(FrameInfo::frameIndex, rendererId,
-                                       (void *)&ssbo, sizeof(ssbo));
+  cameraUBOs[FrameInfo::frameIndex]->writeToBuffer((void *)&ubo, sizeof(ubo));
 }
 
 // Textures
 #if defined(MAGMA_WITH_EDITOR)
   void SceneRenderer::createSceneTextures() {
-    assert(renderTarget != nullptr && 
+    assert(renderTarget != nullptr &&
            "Cannot create scene textures for null render target!");
 
     sceneTextures.resize(renderTarget->imageCount());

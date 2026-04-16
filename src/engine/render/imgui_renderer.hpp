@@ -6,6 +6,7 @@
 #include "engine/widgets/widget.hpp"
 #include "imgui_impl_vulkan.h"
 #include "swapchain_target.hpp"
+#include <functional>
 #include <memory>
 
 namespace Magma {
@@ -24,6 +25,9 @@ public:
     return pipelineLayout; }
 
   void addWidget(std::unique_ptr<Widget> widget);
+
+  std::function<void()> onDraw;
+  std::function<void()> onPreFrame;
 
   void newFrame();
   // Pre-frame: set up dockspace and let widgets run their pre-frame hooks

@@ -1,45 +1,41 @@
 #include "core/window.hpp"
+#include "core/specifications.hpp"
 #include "engine/engine.hpp"
+#include "engine/render/scene_renderer.hpp"
+#include "engine/render/viewport.hpp"
+#include "engine/ui.hpp"
+#include "engine/widgets/game_editor.hpp"
+#include "engine/widgets/game_view.hpp"
 #include "engine/widgets/wiget_manger.hpp"
-#include "engine/specifications.hpp"
-#include <X11/X.h>
 #include <print>
+#include <utility>
 
 // Main code
 int main(int, char **) {
-  Magma::EngineSpecifications spec{};
+  Magma::WindowSpecification spec{};
   spec.name = "Magma";
   spec.windowWidth = 1280;
   spec.windowHeight = 700;
 
-  Magma::Window window = {spec};
-
   try {
+    Magma::Window window = {spec};
     Magma::Engine engine = {window};
 
     #if defined(MAGMA_WITH_EDITOR)
+      Magma::SceneRenderer *gameRenderer = engine.createGameRenderer();
+      Magma::SceneRenderer *editorRenderer = engine.createEditorRenderer();
+      Magma::Viewport gameViewport = Magma::makeViewport(gameRenderer, false);
+      Magma::Viewport editorViewport = Magma::makeViewport(editorRenderer, true);
+
       Magma::WidgetManager widgetManager{};
-      Magma::UI_Manager uiManager{};
-      std::println("UI_Manager setup!");
+      widgetManager.addWidget(std::make_unique<Magma::GameView>(gameViewport));
+      widgetManager.addWidget(std::make_unique<Magma::GameEditor>(editorViewport));
 
-      auto imguiRenderer = uiManager.setupUI(&window, &widgetManager);
-      std::println("imguiRenderer setup!");
-      imguiRenderer->onDraw = [&widgetManager]() {
-        widgetManager.drawWidgets();
-      };
-      std::println("imguiRenderer onDraw!");
-
-      engine.addRenderer(std::move(imguiRenderer));
-      engine.addRenderer(uiManager.setupEditorRenderer());
-      engine.addRenderer(uiManager.setupGameRenderer());
-
-      engine.onEditorDock = [&widgetManager]() {
-        widgetManager.dock();
-      };
+      auto imguiRenderer = Magma::UI::setup(&window, &widgetManager);
+      engine.setImguiRenderer(std::move(imguiRenderer));
     #else
-      Magma::UI_Manager uiManager{};
-      engine.addRenderer(uiManager.setupEditorRenderer());
-      engine.addRenderer(uiManager.setupGameRenderer());
+      SceneRenderer gameRenderer = engine.createGameRenderer();
+      engine.addRenderer(std::move(gameRenderer));
     #endif
 
     engine.run();

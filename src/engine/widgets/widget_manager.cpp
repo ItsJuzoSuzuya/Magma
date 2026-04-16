@@ -1,6 +1,7 @@
 #include "engine/widgets/dock_layout.hpp"
 #include "engine/widgets/ui_context.hpp"
 #include "wiget_manger.hpp"
+#include <print>
 
 namespace Magma {
 

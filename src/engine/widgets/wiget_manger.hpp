@@ -1,3 +1,4 @@
+#pragma once
 #include "engine/widgets/widget.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"

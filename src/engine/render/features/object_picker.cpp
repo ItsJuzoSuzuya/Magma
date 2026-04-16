@@ -6,6 +6,7 @@
 #include "core/image_transitions.hpp"
 #include "core/render_target_info.hpp"
 #include "engine/scene.hpp"
+#include "engine/scene_manager.hpp"
 #include <vulkan/vulkan_core.h>
 
 namespace Magma {
@@ -31,7 +32,7 @@ void ObjectPicker::onResize(VkExtent2D newExtent) {
   targetExtent = newExtent;
 
   createImages();
-  idImageLayouts.resize(imageCount_, VK_IMAGE_LAYOUT_UNDEFINED);
+  idImageLayouts.assign(imageCount_, VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
 void ObjectPicker::prepare(uint32_t imageIndex) {
@@ -240,9 +241,7 @@ GameObject *ObjectPicker::pickAtPixel(uint32_t x, uint32_t y) {
     if (objectId == 0) 
       return nullptr;
 
-    if (Scene::current())
-      return Scene::current()->findGameObjectById(
-          static_cast<GameObject::id_t>(objectId));
+    return SceneManager::findGameObjectById(static_cast<GameObject::id_t>(objectId));
 
     return nullptr;
   }

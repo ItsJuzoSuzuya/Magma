@@ -46,6 +46,9 @@ public:
   void createImageWithInfo(const VkImageCreateInfo &imageInfo,
                            VkMemoryPropertyFlags properties, VkImage &image,
                            VkDeviceMemory &imageMemory);
+  void generateImage(const char *filename, VkImageView &imageView,
+                     VkSampler &sampler);
+
   VkFormat findSupportedFormat(const std::vector<VkFormat> &candidates,
                                VkImageTiling tiling,
                                VkFormatFeatureFlags features);

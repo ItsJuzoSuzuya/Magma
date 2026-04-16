@@ -1,9 +1,10 @@
 #pragma once
+#include "engine/render/imgui_renderer.hpp"
 #include "engine/render/render_context.hpp"
 #include "device.hpp"
+#include "engine/render/scene_renderer.hpp"
 #include "frame_info.hpp"
 #include "renderer.hpp"
-#include "swapchain.hpp"
 #include <memory>
 #include <vulkan/vulkan_core.h>
 
@@ -16,7 +17,8 @@ public:
   RenderSystem(Window &window);
   ~RenderSystem();
 
-  void addRenderer(std::unique_ptr<IRenderer> renderer);
+  void setImGuiRenderer(std::unique_ptr<ImGuiRenderer> renderer);
+  void addSceneRenderer(std::unique_ptr<SceneRenderer> renderer);
   void onRender();
 
 private:
@@ -31,7 +33,8 @@ private:
    * */
   void recreateSwapChain(VkExtent2D extent);
 
-  std::vector<std::unique_ptr<IRenderer>> renderers;
+  std::unique_ptr<ImGuiRenderer> imguiRenderer;
+  std::vector<std::unique_ptr<SceneRenderer>> sceneRenderers;
   void resizeSwapChainRenderer(const VkExtent2D extent);
 
   void destroyAllRenderers();
