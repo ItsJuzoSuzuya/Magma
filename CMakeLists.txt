@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 4.3.1)
 
+set(CMAKE_CXX_COMPILER clang++)
+
 project(Magma LANGUAGES CXX)
 
 # ------------------------
@@ -13,10 +15,30 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(MAGMA_WITH_EDITOR "Build with editor & ImGui tooling" YES)
 
 # ------------------------
+# Static C++ runtime
+# ------------------------
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
+
+# ------------------------
 # External libraries
 # ------------------------
 find_package(Vulkan REQUIRED)
 find_package(X11 REQUIRED)
+
+# ------------------------
+# GLFW (built statically from source)
+# ------------------------
+include(FetchContent)
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+  glfw
+  GIT_REPOSITORY https://github.com/glfw/glfw.git
+  GIT_TAG        3.4
+)
+FetchContent_MakeAvailable(glfw)
 
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/src/external/imgui)
 set(EXTERNAL_DIR ${CMAKE_SOURCE_DIR}/src/external)
