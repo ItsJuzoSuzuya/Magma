@@ -3,6 +3,7 @@
 #include <cstdint>
 
 namespace Magma {
+class GameObject;
 
 /**
  * Abstract class for all components.
@@ -10,7 +11,7 @@ namespace Magma {
  */
 class Component {
 public:
-  Component() {}
+  Component(GameObject *owner): owner{owner} {}
   virtual ~Component() = default;
 
   // --- Lifecycle ---
@@ -23,6 +24,9 @@ public:
     virtual const char *inspectorName() const = 0;
     virtual const float inspectorHeight() const = 0;
   #endif
+
+protected:
+  GameObject *owner = nullptr;
 };
 
 } // namespace Magma

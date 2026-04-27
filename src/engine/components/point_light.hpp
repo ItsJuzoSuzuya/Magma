@@ -1,5 +1,6 @@
 #pragma once
 #include "component.hpp"
+#include "engine/components/transform.hpp"
 #include <glm/vec4.hpp>
 
 namespace Magma {
@@ -10,15 +11,15 @@ struct PointLightData {
 };
 
 struct PointLightSSBO {
-  uint32_t lightCount;
-  alignas(16) PointLightData lights[128];
+  uint32_t lightCount = 0;
+  alignas(16) PointLightData lights[128] = {};
 };
 
 class PointLight : public Component {
 public:
-  PointLight() : Component() {}
+  PointLight(GameObject *owner) : Component(owner) {}
 
-  void onUpdate() override {}
+  void onUpdate() override;
   void collectProxy(RenderProxy &proxy) override;
 
   #if defined(MAGMA_WITH_EDITOR)
@@ -27,7 +28,9 @@ public:
     const float inspectorHeight() const override { return 100.f; }
   #endif
 
+private:
   PointLightData lightData{glm::vec4{0.f, 0.f, 0.f, 1.f}, glm::vec4{1.f, 1.f, 1.f, 1.f}};
+
 };
 
 } // namespace Magma

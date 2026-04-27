@@ -1,6 +1,5 @@
 #include "camera.hpp"
-#include "engine/scene_manager.hpp"
-#include <array>
+#include "engine/gameobject.hpp"
 #include <format>
 #include <glm/trigonometric.hpp>
 #include <stdexcept>
@@ -60,12 +59,13 @@ void Camera::calculateProjectionMatrix() {
 }
 
 void Camera::onUpdate() {
-  if (!ownerTransform) 
+  auto *transform = owner->getComponent<Transform>();
+  if (!transform)
     throw std::runtime_error(
-      std::format("No ownerTransform found in Camera Component: {}", (void*)ownerTransform)
+      std::format("No ownerTransform found in Camera Component: {}", (void*)transform)
     );
 
-  setView(ownerTransform->position, ownerTransform->rotation);
+  setView(transform->position, transform->rotation);
 }
 
 void Camera::collectProxy(RenderProxy &proxy) {
@@ -74,6 +74,7 @@ void Camera::collectProxy(RenderProxy &proxy) {
   proxy.camera = cameraProxy;
 }
 
+/*
 bool Camera::canSee(const glm::vec3 &position) const {
   AABB chunkBounds;
   chunkBounds.min = position;
@@ -100,6 +101,7 @@ bool Camera::canSee(const glm::vec3 &position) const {
   }
   return false;
 }
+*/
 
 #if defined(MAGMA_WITH_EDITOR)
 void Camera::onInspector() {

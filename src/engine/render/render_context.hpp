@@ -10,7 +10,8 @@
 namespace Magma {
 
 enum class LayoutKey {
-  PointLight = 0,
+  ObjectStorage = 0,
+  PointLight = 1,
 };
 
 /**
@@ -28,6 +29,7 @@ public:
   VkDescriptorSetLayout getLayout(LayoutKey key);
   VkDescriptorSet getDescriptorSet(LayoutKey key, uint32_t frameIndex);
 
+  void updateObjects(uint32_t frameIndex, const void *data, VkDeviceSize size);
   void updatePointLights(uint32_t frameIndex, const void *data, VkDeviceSize size);
 
 private:
@@ -36,6 +38,11 @@ private:
 
   std::unordered_map<LayoutKey, std::unique_ptr<DescriptorSetLayout>> layouts;
   void ensureLayout(LayoutKey key);
+
+  std::array<std::unique_ptr<Buffer>, SwapChain::MAX_FRAMES_IN_FLIGHT> objectBuffers;
+  std::array<VkDescriptorSet, SwapChain::MAX_FRAMES_IN_FLIGHT> objectStorageSets{};
+  bool objectStorageInitialized = false;
+  void initObjectStorage();
 
   std::array<std::unique_ptr<Buffer>, SwapChain::MAX_FRAMES_IN_FLIGHT> pointLightBuffers;
   std::array<VkDescriptorSet, SwapChain::MAX_FRAMES_IN_FLIGHT> pointLightSets{};

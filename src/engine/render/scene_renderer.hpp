@@ -1,6 +1,7 @@
 #pragma once
 #include "core/buffer.hpp"
 #include "core/descriptors.hpp"
+#include "core/object_data.hpp"
 #include "core/pipeline.hpp"
 #include "core/render_proxy.hpp"
 #include "core/render_target.hpp"
@@ -11,9 +12,8 @@
 #include "engine/render/features/render_feature.hpp"
 #include "engine/render/render_context.hpp"
 #include <array>
-#include <cstdint>
-#include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -40,6 +40,7 @@ public:
 
     std::vector<VkDescriptorSetLayout> layouts = {
         cameraLayout->getDescriptorSetLayout(),
+        renderContext->getLayout(LayoutKey::ObjectStorage),
         renderContext->getLayout(LayoutKey::PointLight)};
 
     createPipelineLayout(layouts);
@@ -96,17 +97,29 @@ private:
   void record() override;
   void end() override;
 
-  std::vector<RenderProxy> getSceneProxies();
-  void submitProxy(const RenderProxy &proxy);
+  struct MeshDraw {
+    MeshProxy mesh;
+    uint32_t objectIndex;
+  };
+  struct FrameSceneData {
+    ObjectStorageSSBO objects{};
+    PointLightSSBO lights{};
+    std::vector<MeshDraw> meshDraws;
+    std::optional<CameraProxy> sceneCamera;
+  };
+
+  void syncActiveCameraAspect();
+  FrameSceneData collectFrameData();
+  void uploadFrameData(const FrameSceneData &data);
 
   RenderContext *renderContext;
   std::unique_ptr<IRenderTarget> renderTarget = nullptr;
   std::vector<std::unique_ptr<RenderFeature>> renderFeatures = {};
   bool isSwapChainDependentFlag = false;
 
-#if defined(MAGMA_WITH_EDITOR)
-  std::vector<ImTextureID> sceneTextures = {};
-#endif
+  #if defined(MAGMA_WITH_EDITOR)
+    std::vector<ImTextureID> sceneTextures = {};
+  #endif
 
   inline static RenderProxy editorCameraProxy = {};
 };

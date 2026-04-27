@@ -3,6 +3,7 @@
 #include "core/pipeline.hpp"
 #include "core/renderer.hpp"
 #include "core/window.hpp"
+#include "engine/render/render_context.hpp"
 #include "engine/widgets/widget.hpp"
 #include "imgui_impl_vulkan.h"
 #include "swapchain_target.hpp"
@@ -14,6 +15,7 @@ namespace Magma {
 class ImGuiRenderer : public IRenderer {
 public:
   ImGuiRenderer(std::unique_ptr<SwapchainTarget> target, PipelineShaderInfo shaderInfo);
+  void initPipeline(RenderContext *rc);
   void initImGui(const Window &window);
 
   ~ImGuiRenderer() override;

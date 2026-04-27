@@ -16,8 +16,11 @@ class Engine {
 public:
   Engine(Window &window);
 
-  void setImguiRenderer(std::unique_ptr<ImGuiRenderer> renderer);
-  SceneRenderer *createEditorRenderer();
+  #if defined(MAGMA_WITH_EDITOR)
+    void setImGuiRenderer(std::unique_ptr<ImGuiRenderer> renderer);
+    SceneRenderer *createEditorRenderer();
+  #endif
+
   SceneRenderer *createGameRenderer();
 
   /**

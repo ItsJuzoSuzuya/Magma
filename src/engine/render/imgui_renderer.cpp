@@ -22,12 +22,16 @@ namespace Magma {
 ImGuiRenderer::ImGuiRenderer(std::unique_ptr<SwapchainTarget> target,
     PipelineShaderInfo shaderInfo): IRenderer(), shaderInfo{shaderInfo} {
   renderTarget = std::move(target);
-
   createDescriptorPool();
   createDescriptorSetLayout();
-  std::vector<VkDescriptorSetLayout> descritporSetLayouts = {
-      descriptorSetLayout->getDescriptorSetLayout()};
-  createPipelineLayout(descritporSetLayouts);
+}
+
+void ImGuiRenderer::initPipeline(RenderContext *rc) {
+  std::vector<VkDescriptorSetLayout> layouts = {
+      descriptorSetLayout->getDescriptorSetLayout(),
+      rc->getLayout(LayoutKey::ObjectStorage),
+      rc->getLayout(LayoutKey::PointLight)};
+  createPipelineLayout(layouts);
   createPipeline();
 }
 

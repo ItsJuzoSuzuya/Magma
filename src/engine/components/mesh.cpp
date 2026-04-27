@@ -52,7 +52,7 @@ void Mesh::collectProxy(RenderProxy &proxy) {
   MeshProxy meshProxy = {};
   meshProxy.meshData = meshData;
   meshProxy.vertexBuffer = vertexBuffer->getBuffer();
-  meshProxy.indexBuffer = indexBuffer ? indexBuffer->getBuffer() : VK_NULL_HANDLE;
+  meshProxy.indexBuffer = hasIndexBuffer ? indexBuffer->getBuffer() : VK_NULL_HANDLE;
   meshProxy.indexCount   = static_cast<uint32_t>(meshData->indices.size());
   meshProxy.vertexCount  = static_cast<uint32_t>(meshData->vertices.size());
   meshProxy.hasIndexBuffer = hasIndexBuffer;
@@ -111,36 +111,42 @@ bool Mesh::load(const std::string &filepath) {
         if (strncmp(key.data, "TEXCOORD_0",  key.len) == 0) 
           uvIdx = prim.attributes[ai].value;
         if (strncmp(key.data, "COLOR_0",  key.len) == 0) 
-          uvIdx = prim.attributes[ai].value;
+          colorIdx = prim.attributes[ai].value;
       }
 
       if (posIdx == TG3_INDEX_NONE || normIdx == TG3_INDEX_NONE)
         continue;
 
       const tg3_accessor &posAcc  = model.accessors[posIdx];
-      const tg3_accessor &normAcc = model.accessors[normIdx];
-      const tg3_accessor &colorAcc = model.accessors[colorIdx];
       const tg3_buffer_view &posBV  = model.buffer_views[posAcc.buffer_view];
-      const tg3_buffer_view &normBV = model.buffer_views[normAcc.buffer_view];
-      const tg3_buffer_view &colorBV = model.buffer_views[colorAcc.buffer_view];
       const float *vertexData = reinterpret_cast<const float *>(
         model.buffers[posBV.buffer].data.data + 
         posBV.byte_offset + posAcc.byte_offset);
+
+      const tg3_accessor &normAcc = model.accessors[normIdx];
+      const tg3_buffer_view &normBV = model.buffer_views[normAcc.buffer_view];
       const float *normalData = reinterpret_cast<const float *>(
         model.buffers[normBV.buffer].data.data +
         normBV.byte_offset + normAcc.byte_offset);
-      const float *colorData = reinterpret_cast<const float *>(
-        model.buffers[colorBV.buffer].data.data +
-        colorBV.byte_offset + colorAcc.byte_offset);
+
+      bool hasColor = colorIdx != TG3_INDEX_NONE;
+      const float* colorData = nullptr;
+      if (hasColor) {
+        const tg3_accessor &colorAcc = model.accessors[colorIdx];
+        const tg3_buffer_view &colorBV = model.buffer_views[colorAcc.buffer_view];
+        colorData = reinterpret_cast<const float*>(
+          model.buffers[colorBV.buffer].data.data +
+          colorBV.byte_offset + colorAcc.byte_offset);
+      }
 
       meshData = new MeshData();
-        for (uint64_t i = 0; i < posAcc.count; i++) {
-          MeshData::Vertex vertex;
-          vertex.position = {vertexData[i*3], vertexData[i*3+1], vertexData[i*3+2]};
-          vertex.normal   = {normalData[i*3], normalData[i*3+1], normalData[i*3+2]};
-          vertex.color    = {colorData[i*3], colorData[i*3+1], colorData[i*3+2], colorData[i*3+3] };
-          meshData->vertices.push_back(vertex);
-        }
+      for (uint64_t i = 0; i < posAcc.count; i++) {
+        MeshData::Vertex vertex;
+        vertex.position = {vertexData[i*3], vertexData[i*3+1], vertexData[i*3+2]};
+        vertex.normal   = {normalData[i*3], normalData[i*3+1], normalData[i*3+2]};
+        vertex.color    = {colorData[i*3], colorData[i*3+1], colorData[i*3+2]};
+        meshData->vertices.push_back(vertex);
+      }
 
       if (prim.indices != TG3_INDEX_NONE) {
         const tg3_accessor   &idxAcc = model.accessors[prim.indices];

@@ -7,24 +7,19 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 namespace Magma {
+class GameObject;
 
 struct CameraUBO {
   glm::mat4 projectionView{1.f};
 };
 
-struct AABB {
-  glm::vec3 min;
-  glm::vec3 max;
-};
-
 class Camera : public Component {
 public:
-  Camera() : Component() {}
+  Camera(GameObject *owner) : Component(owner) {}
 
   void setPerspectiveProjection(float fov, float aspect, float near, float far);
   void setFOV(float fov);
   void setAspectRatio(float aspect);
-  void setOwnerTransform(Transform *t) { ownerTransform = t; }
 
   const glm::mat4 &getProjection() const { return projectionMatrix; }
   const glm::mat4 &getView() const { return viewMatrix; }
@@ -42,8 +37,6 @@ public:
   #endif
 
 private:
-  Transform *ownerTransform = nullptr;
-
   float fov = glm::radians(60.f);
   float aspectRatio = 16.f / 9.f;
   float nearPlane = 0.1f;

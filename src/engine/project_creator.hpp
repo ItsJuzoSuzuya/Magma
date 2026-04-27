@@ -21,7 +21,6 @@ public:
     auto *camTransform = camObj->addComponent<Transform>();
     auto *cam = camObj->addComponent<Camera>();
     cam->setPerspectiveProjection(glm::radians(60.0f), 16.0f / 9.0f, 0.1f, 100.0f);
-    cam->setOwnerTransform(camTransform);
     project.camera = camObj;
 
     auto *obj = project.scene->createGameObject("Test Object");
@@ -31,9 +30,11 @@ public:
     transform->scale = {0.1f, 0.1f, 0.1f};
 
     auto *lightObj = project.scene->createGameObject("Light Object");
-    lightObj->addComponent<PointLight>();
+    auto *lightTransform = lightObj->addComponent<Transform>();
+    lightTransform->position = {0.f, 5.f, 0.f};
+    auto *light = lightObj->addComponent<PointLight>();
 
-    if (!obj->addComponent<Mesh>()->load("assets/cube/scene.gltf"))
+    if (!obj->addComponent<Mesh>()->load("assets/pinecone/scene.gltf"))
       throw std::runtime_error("Failed to load model!");
 
     return project;

@@ -37,6 +37,7 @@ public:
 
   void onResize(VkExtent2D newExtent) override;
   void cleanup() override;
+  uint32_t activeIndex() const override;
 
 private:
   // Color images (offscreen-owned)

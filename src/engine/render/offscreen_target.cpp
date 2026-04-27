@@ -121,6 +121,10 @@ void OffscreenTarget::transitionDepthImage(size_t index, ImageTransitionDescript
 }
 
 
+uint32_t OffscreenTarget::activeIndex() const {
+  return static_cast<uint32_t>(FrameInfo::frameIndex);
+}
+
 void OffscreenTarget::cleanup() {
   VkDevice device = Device::get().device();
 

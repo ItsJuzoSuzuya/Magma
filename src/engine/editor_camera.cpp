@@ -8,9 +8,8 @@ EditorCamera::EditorCamera(std::unique_ptr<GameObject> obj) : cameraObject(std::
   if (cameraObject) {
     transform = cameraObject->getComponent<Transform>();
     camera = cameraObject->getComponent<Camera>();
-    if (camera && transform) 
-      camera->setOwnerTransform(transform);
-    else throw std::runtime_error("EditorCamera constructed without Camera or Transform!");
+    if (!camera || !transform) 
+      throw std::runtime_error("EditorCamera constructed without Camera or Transform!");
   }
 }
 

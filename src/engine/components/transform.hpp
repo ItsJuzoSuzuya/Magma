@@ -4,10 +4,11 @@
 #include <glm/vec3.hpp>
 
 namespace Magma {
+class GameObject;
 
 class Transform : public Component {
 public:
-  Transform(uint32_t ownerID) : Component(), ownerID{ownerID} {}
+  Transform(GameObject* owner) : Component(owner) {}
   ~Transform() = default;
 
   glm::vec3 position{0.0f, 0.0f, 0.0f};
@@ -32,8 +33,6 @@ public:
 
 private:
   glm::mat4 normalMatrix() const;
-
-  uint32_t ownerID;
 };
 
 } // namespace Magma

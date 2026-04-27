@@ -1,4 +1,6 @@
 #include "gameobject.hpp"
+#include "components/camera.hpp"
+#include "components/transform.hpp"
 #include <algorithm>
 #include <memory>
 
@@ -72,12 +74,10 @@ void GameObject::drawChildren() {
 
 void GameObject::onUpdate() {
   for (const auto &[type, component] : components) {
-    if (component)
-      component->onUpdate();
+    if (component) component->onUpdate();
   }
   for (const auto &child : children) {
-    if (child)
-      child->onUpdate();
+    if (child) child->onUpdate();
   }
 }
 

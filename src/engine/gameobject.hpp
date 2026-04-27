@@ -96,26 +96,12 @@ public:
     return vec;
   }
 
-  template <typename T, typename... Args, typename std::enable_if<!std::is_same<T, Transform>::value, std::size_t>::type = 0>
+  template <typename T, typename... Args>
   T *addComponent(Args &&...args) {
     static_assert(std::is_base_of<Component, T>::value, "T must be a Component");
 
     std::unique_ptr<T> component = nullptr;
-    component = std::make_unique<T>(std::forward<Args>(args)...);
-    assert(component && "Failed to create component.");
-
-    T *ptr = component.get();
-    components[typeid(T)] = std::move(component);
-
-    return ptr;
-  }
-
-  template <typename T, typename std::enable_if<std::is_same<T, Transform>::value, std::size_t>::type = 0>
-  T *addComponent() {
-    static_assert(std::is_base_of<Component, T>::value, "T must be a Component");
-
-    std::unique_ptr<T> component = nullptr;
-    component = std::make_unique<T>(static_cast<uint32_t>(id));
+    component = std::make_unique<T>(std::forward<Args>(args)..., this);
     assert(component && "Failed to create component.");
 
     T *ptr = component.get();

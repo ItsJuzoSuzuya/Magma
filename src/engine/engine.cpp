@@ -1,12 +1,16 @@
 #include "engine.hpp"
 #include "engine/project_creator.hpp"
-#include "engine/render/imgui_renderer.hpp"
 #include "engine/render/offscreen_target.hpp"
 #include "engine/render/scene_renderer.hpp"
+#include "engine/render/swapchain_target.hpp"
 #include "engine/scene_manager.hpp"
 #include <memory>
 #include <print>
 #include <GLFW/glfw3.h>
+
+#if defined (MAGMA_WITH_EDITOR)
+#include "engine/render/imgui_renderer.hpp"
+#endif
 
 namespace Magma {
 
@@ -24,7 +28,8 @@ Engine::Engine(Window &window) : window(&window) {
 // Public Methods
 // ----------------------------------------------------------------------------
 
-void Engine::setImguiRenderer(std::unique_ptr<ImGuiRenderer> renderer) {
+#if defined (MAGMA_WITH_EDITOR)
+void Engine::setImGuiRenderer(std::unique_ptr<ImGuiRenderer> renderer) {
   renderSystem->setImGuiRenderer(std::move(renderer));
 }
 
@@ -49,6 +54,7 @@ SceneRenderer* Engine::createEditorRenderer(){
   renderSystem->addSceneRenderer(std::move(renderer));
   return rPtr;
 }
+#endif
 
 SceneRenderer* Engine::createGameRenderer(){
   PipelineShaderInfo gameShaderInfo = {
@@ -61,8 +67,15 @@ SceneRenderer* Engine::createGameRenderer(){
     .depthFormat = VK_FORMAT_D32_SFLOAT,
     .imageCount = SwapChain::MAX_FRAMES_IN_FLIGHT
   };
-  auto target = std::make_unique<OffscreenTarget>(rtInfo);
-  auto renderer = std::make_unique<SceneRenderer>(std::move(target), gameShaderInfo);
+  
+  #if defined (MAGMA_WITH_EDITOR)
+    auto target = std::make_unique<OffscreenTarget>(rtInfo);
+    auto renderer = std::make_unique<SceneRenderer>(std::move(target), gameShaderInfo);
+  #else 
+    auto target = std::make_unique<SwapchainTarget>(rtInfo);
+    auto renderer = std::make_unique<SceneRenderer>(std::move(target), gameShaderInfo);
+  #endif
+
   renderer->cameraSource = CameraSource::Scene;
   auto rPtr = renderer.get();
 

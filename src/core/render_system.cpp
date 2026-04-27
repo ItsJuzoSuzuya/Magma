@@ -3,7 +3,6 @@
 #include "core/frame_info.hpp"
 #include "core/window.hpp"
 #include "deletion_queue.hpp"
-#include "engine/render/imgui_renderer.hpp"
 #include "engine/render/scene_renderer.hpp"
 #include "engine/scene.hpp"
 #include "engine/scene_manager.hpp"
@@ -13,10 +12,11 @@
 #include <GLFW/glfw3.h>
 #include <cassert>
 #include <memory>
-#include "engine/widgets/game_view.hpp"
 
 #if defined(MAGMA_WITH_EDITOR)
+  #include "engine/render/imgui_renderer.hpp"
   #include "engine/widgets/game_editor.hpp"
+  #include "engine/widgets/game_view.hpp"
 #endif
 
 namespace Magma {
@@ -44,9 +44,12 @@ RenderSystem::~RenderSystem() {
 // Public Methods
 // ----------------------------------------------------------------------------
 
-void RenderSystem::setImGuiRenderer(std::unique_ptr<ImGuiRenderer> renderer) { 
+#if defined(MAGMA_WITH_EDITOR)
+void RenderSystem::setImGuiRenderer(std::unique_ptr<ImGuiRenderer> renderer) {
+  renderer->initPipeline(renderContext.get());
   imguiRenderer = std::move(renderer);
 }
+#endif
 
 void RenderSystem::addSceneRenderer(std::unique_ptr<SceneRenderer> renderer) { 
   renderer->initPipeline(renderContext.get());
@@ -77,7 +80,9 @@ void RenderSystem::onRender() {
 // ----------------------------------------------------------------------------
 
 void RenderSystem::destroyAllRenderers() {
-  imguiRenderer->destroy();
+  #if defined(MAGMA_WITH_EDITOR)
+    imguiRenderer->destroy();
+  #endif
 
   for (auto &renderer : sceneRenderers)
     renderer->destroy();
@@ -149,7 +154,9 @@ void RenderSystem::endFrame() {
   #if defined (MAGMA_WITH_EDITOR)
     result = imguiRenderer->getSwapChain()->submitCommandBuffer(&FrameInfo::commandBuffer);
   #else 
-    result = renderers[0]->getSwapChain()->submitCommandBuffer(&FrameInfo::commandBuffer);
+    for (auto &renderer : sceneRenderers)
+      if(renderer->isSwapChainDependent())
+        result = renderer->getSwapChain()->submitCommandBuffer(&FrameInfo::commandBuffer);
   #endif
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
@@ -181,9 +188,11 @@ void RenderSystem::resizeSwapChainRenderer(const VkExtent2D extent) {
   #if defined (MAGMA_WITH_EDITOR)
     imguiRenderer->onResize(extent);
   #else 
-    renderers[0]->onResize(extent);
+    for (auto &renderer : sceneRenderers) {
+      if (renderer->isSwapChainDependent())
+        renderer->onResize(extent);
+    }
   #endif
 }
-
 
 } // namespace Magma

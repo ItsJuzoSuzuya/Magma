@@ -1,10 +1,17 @@
 #include "point_light.hpp"
+#include "engine/gameobject.hpp"
 
 #if defined(MAGMA_WITH_EDITOR)
   #include "imgui.h"
 #endif
 
 namespace Magma {
+
+void PointLight::onUpdate() {
+  auto *transform = owner->getComponent<Transform>();
+  if (transform)
+    lightData.position = {transform->position, 0.f};
+}
 
 void PointLight::collectProxy(RenderProxy &proxy) {
   PointLightProxy plProxy = {};

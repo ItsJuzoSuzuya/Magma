@@ -2,6 +2,7 @@
 #include "core/device.hpp"
 #include "core/frame_info.hpp"
 #include "core/image_transitions.hpp"
+#include "core/object_data.hpp"
 #include "core/push_constant_data.hpp"
 #include "core/render_proxy.hpp"
 #include "core/render_target.hpp"
@@ -16,7 +17,7 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
-#include <print>
+#include <optional>
 #include <utility>
 #include <vector>
 #include <vulkan/vk_enum_string_helper.h>
@@ -112,55 +113,85 @@ void SceneRenderer::onResize(const VkExtent2D newExtent) {
   #endif
 }
 
+namespace {
+constexpr uint32_t kMaxPointLights =
+    sizeof(PointLightSSBO::lights) / sizeof(PointLightData);
+} // namespace
+
 void SceneRenderer::onRender() {
   begin();
   record();
 
-  PointLightSSBO ssbo{};
-  auto &gos = SceneManager::activeScene->getGameObjects();
-  for (auto &go : gos) {
-    if (cameraSource == CameraSource::Scene && go.get() == SceneManager::activeScene->activeCamera) 
-      go->getComponent<Camera>()->onUpdate();
+  syncActiveCameraAspect();
+  FrameSceneData data = collectFrameData();
+  uploadFrameData(data);
 
-    auto proxy = go->collectProxies();
-    if (proxy.pointLight && ssbo.lightCount < 128) {
-      ssbo.lights[ssbo.lightCount++] = {
-          proxy.pointLight->position,
-          proxy.pointLight->color
-      };
-    }
-    if (cameraSource == CameraSource::Scene && proxy.camera && go.get() == SceneManager::activeScene->activeCamera) {
-      uploadCameraUBO({proxy.camera->projView});
-    }
-  }
-  renderContext->updatePointLights(FrameInfo::frameIndex, &ssbo, sizeof(ssbo));
-
-  if (cameraSource == CameraSource::Editor && editorCameraProxy.camera) 
-    uploadCameraUBO({editorCameraProxy.camera->projView});
-
-  for (auto &proxy : getSceneProxies())
-    submitProxy(proxy);
+  for (const auto &draw : data.meshDraws)
+    RenderCallback::renderMesh(draw.mesh, draw.objectIndex);
 
   end();
 }
 
-SwapChain* SceneRenderer::getSwapChain() const {
-  #if defined(MAGMA_WITH_EDITOR)
-    if (auto *swapchainTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get()))
-      return swapchainTarget->swapChain();
-    else
-      return nullptr;
-  #else
-    return nullptr;
-  #endif
+void SceneRenderer::syncActiveCameraAspect() {
+  if (cameraSource != CameraSource::Scene) return;
+  GameObject *activeCam = SceneManager::activeScene->activeCamera;
+  if (!activeCam) return;
+
+  auto *cam = activeCam->getComponent<Camera>();
+  if (!cam) return;
+
+  VkExtent2D ext = renderTarget->extent();
+  cam->setAspectRatio(static_cast<float>(ext.width) / static_cast<float>(ext.height));
 }
 
-std::vector<RenderProxy> SceneRenderer::getSceneProxies(){
-  std::vector<RenderProxy> proxies;
-  if (!SceneManager::activeScene) return proxies;
-  for (auto &go : SceneManager::activeScene->getGameObjects())
-    proxies.push_back(go->collectProxies());
-  return proxies;
+SceneRenderer::FrameSceneData SceneRenderer::collectFrameData() {
+  FrameSceneData data;
+  GameObject *activeCam = SceneManager::activeScene->activeCamera;
+
+  for (auto &go : SceneManager::activeScene->getGameObjects()) {
+    go->onUpdate();
+    auto proxy = go->collectProxies();
+
+    uint32_t idx = 0;
+    if (proxy.mesh && proxy.transform) {
+      data.objects.objects[idx] = {
+          .modelMatrix = proxy.transform->modelMatrix,
+          .normalMatrix = proxy.transform->normalMatrix,
+          .objectID = proxy.transform->objectId,
+      };
+      data.meshDraws.push_back({*proxy.mesh, idx});
+      idx++;
+    }
+
+    if (proxy.pointLight && data.lights.lightCount < kMaxPointLights) {
+      data.lights.lights[data.lights.lightCount] = {
+          proxy.pointLight->position,
+          proxy.pointLight->color,
+      };
+      data.lights.lightCount++;
+    }
+
+    if (proxy.camera && go.get() == activeCam)
+      data.sceneCamera = *proxy.camera;
+  }
+
+  return data;
+}
+
+void SceneRenderer::uploadFrameData(const FrameSceneData &data) {
+  renderContext->updateObjects(FrameInfo::frameIndex, &data.objects, sizeof(data.objects));
+  renderContext->updatePointLights(FrameInfo::frameIndex, &data.lights, sizeof(data.lights));
+
+  if (cameraSource == CameraSource::Scene && data.sceneCamera)
+    uploadCameraUBO({data.sceneCamera->projView});
+  else if (cameraSource == CameraSource::Editor && editorCameraProxy.camera)
+    uploadCameraUBO({editorCameraProxy.camera->projView});
+}
+
+SwapChain* SceneRenderer::getSwapChain() const {
+  if (auto *swapchainTarget = dynamic_cast<SwapchainTarget*>(renderTarget.get()))
+    return swapchainTarget->swapChain();
+  return nullptr;
 }
 
 #if defined(MAGMA_WITH_EDITOR)
@@ -186,7 +217,7 @@ void SceneRenderer::begin() {
       FrameInfo::frameIndex >= SwapChain::MAX_FRAMES_IN_FLIGHT)
     throw std::runtime_error("Invalid frame index in FrameInfo!");
 
-  const uint32_t idx = FrameInfo::frameIndex;
+  const uint32_t idx = renderTarget->activeIndex();
 
   // Transition scene color image to COLOR_ATTACHMENT_OPTIMAL
   VkImageLayout colorLayout = renderTarget->getColorImageLayout(idx);
@@ -243,11 +274,12 @@ void SceneRenderer::record() {
 
   VkDescriptorSet sets[] = {
       cameraDescriptorSets[FrameInfo::frameIndex],
+      renderContext->getDescriptorSet(LayoutKey::ObjectStorage, FrameInfo::frameIndex),
       renderContext->getDescriptorSet(LayoutKey::PointLight, FrameInfo::frameIndex)};
 
   vkCmdBindDescriptorSets(FrameInfo::commandBuffer,
                           VK_PIPELINE_BIND_POINT_GRAPHICS, getPipelineLayout(),
-                          0, 2, sets, 0, nullptr);
+                          0, 3, sets, 0, nullptr);
 }
 
 void SceneRenderer::end() {
@@ -259,7 +291,7 @@ void SceneRenderer::end() {
 
   vkCmdEndRendering(FrameInfo::commandBuffer);
 
-  const uint32_t idx = FrameInfo::frameIndex;
+  const uint32_t idx = renderTarget->activeIndex();
   #if defined(MAGMA_WITH_EDITOR)
     // Transition scene color to SHADER_READ_ONLY for ImGui sampling
     renderTarget->transitionColorImage(
@@ -271,11 +303,6 @@ void SceneRenderer::end() {
 
   for (auto &feature : renderFeatures)
     feature->finish(idx);
-}
-
-void SceneRenderer::submitProxy(const RenderProxy &proxy) {
-  if (proxy.transform) RenderCallback::renderTransform(*this, *proxy.transform);
-  if (proxy.mesh) RenderCallback::renderMesh(*proxy.mesh);
 }
 
 void SceneRenderer::uploadCameraUBO(const CameraUBO &ubo) {

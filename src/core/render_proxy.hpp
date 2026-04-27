@@ -17,6 +17,7 @@ struct MeshProxy {
 
 struct TransformProxy {
     glm::mat4 modelMatrix{1.f};
+    glm::mat4 normalMatrix{1.f};
     uint32_t  objectId = 0;
 };
 

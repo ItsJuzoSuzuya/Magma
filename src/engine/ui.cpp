@@ -17,8 +17,13 @@ std::unique_ptr<ImGuiRenderer> UI::setup(Window *window, WidgetManager *widgetMa
     .vertFile = "src/shaders/shader.vert.spv",
     .fragFile = "src/shaders/imgui.frag.spv"
   };
-  RenderTargetInfo rtInfo = {};
-  auto swapchainTarget = std::make_unique<SwapchainTarget>(window->getExtent(), rtInfo);
+  RenderTargetInfo rtInfo = {
+    .extent = window->getExtent(),
+    .colorFormat = VK_FORMAT_R8G8B8A8_UNORM,
+    .depthFormat = VK_FORMAT_D32_SFLOAT,
+    .imageCount = SwapChain::MAX_FRAMES_IN_FLIGHT
+  };
+  auto swapchainTarget = std::make_unique<SwapchainTarget>(rtInfo);
   auto imguiRenderer =
     std::make_unique<ImGuiRenderer>(std::move(swapchainTarget), imguiShaderInfo);
 

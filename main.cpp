@@ -2,13 +2,16 @@
 #include "core/specifications.hpp"
 #include "engine/engine.hpp"
 #include "engine/render/scene_renderer.hpp"
-#include "engine/render/viewport.hpp"
-#include "engine/ui.hpp"
-#include "engine/widgets/game_editor.hpp"
-#include "engine/widgets/game_view.hpp"
-#include "engine/widgets/wiget_manger.hpp"
 #include <print>
-#include <utility>
+
+#if defined(MAGMA_WITH_EDITOR)
+  #include "engine/render/viewport.hpp"
+  #include "engine/ui.hpp"
+  #include "engine/widgets/game_editor.hpp"
+  #include "engine/widgets/game_view.hpp"
+  #include "engine/widgets/wiget_manger.hpp"
+  #include "engine/widgets/game_editor.hpp"
+#endif
 
 // Main code
 int main(int, char **) {
@@ -32,10 +35,9 @@ int main(int, char **) {
       widgetManager.addWidget(std::make_unique<Magma::GameEditor>(editorViewport));
 
       auto imguiRenderer = Magma::UI::setup(&window, &widgetManager);
-      engine.setImguiRenderer(std::move(imguiRenderer));
+      engine.setImGuiRenderer(std::move(imguiRenderer));
     #else
-      SceneRenderer gameRenderer = engine.createGameRenderer();
-      engine.addRenderer(std::move(gameRenderer));
+      Magma::SceneRenderer *gameRenderer = engine.createGameRenderer();
     #endif
 
     engine.run();

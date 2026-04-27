@@ -1,10 +1,13 @@
 #pragma once
-#include "engine/render/imgui_renderer.hpp"
+
+#if defined (MAGMA_WITH_EDITOR)
+  #include "engine/render/imgui_renderer.hpp"
+#endif
+
 #include "engine/render/render_context.hpp"
 #include "device.hpp"
 #include "engine/render/scene_renderer.hpp"
 #include "frame_info.hpp"
-#include "renderer.hpp"
 #include <memory>
 #include <vulkan/vulkan_core.h>
 
@@ -17,7 +20,9 @@ public:
   RenderSystem(Window &window);
   ~RenderSystem();
 
-  void setImGuiRenderer(std::unique_ptr<ImGuiRenderer> renderer);
+  #if defined (MAGMA_WITH_EDITOR)
+    void setImGuiRenderer(std::unique_ptr<ImGuiRenderer> renderer);
+  #endif
   void addSceneRenderer(std::unique_ptr<SceneRenderer> renderer);
   void onRender();
 
@@ -32,8 +37,10 @@ private:
    * @note The swap chain must be recreated when the window is resized
    * */
   void recreateSwapChain(VkExtent2D extent);
-
-  std::unique_ptr<ImGuiRenderer> imguiRenderer;
+  
+  #if defined (MAGMA_WITH_EDITOR)
+    std::unique_ptr<ImGuiRenderer> imguiRenderer;
+  #endif
   std::vector<std::unique_ptr<SceneRenderer>> sceneRenderers;
   void resizeSwapChainRenderer(const VkExtent2D extent);
 

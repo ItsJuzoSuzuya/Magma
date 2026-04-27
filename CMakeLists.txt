@@ -50,6 +50,13 @@ include_directories(${IMGUI_DIR} ${EXTERNAL_DIR} ${CMAKE_SOURCE_DIR}/src)
 file(GLOB_RECURSE CORE_SOURCES src/core/*.cpp)
 file(GLOB_RECURSE ENGINE_SOURCES src/engine/*.cpp)
 
+if(NOT MAGMA_WITH_EDITOR)
+  list(FILTER ENGINE_SOURCES EXCLUDE REGEX ".*/engine/widgets/.*\\.cpp$")
+  list(FILTER ENGINE_SOURCES EXCLUDE REGEX ".*/engine/render/imgui_renderer\\.cpp$")
+  list(FILTER ENGINE_SOURCES EXCLUDE REGEX ".*/engine/editor_camera\\.cpp$")
+  list(FILTER ENGINE_SOURCES EXCLUDE REGEX ".*/engine/ui\\.cpp$")
+endif()
+
 # ------------------------
 # ImGui sources (editor only)
 # ------------------------

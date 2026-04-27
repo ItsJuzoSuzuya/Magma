@@ -1,4 +1,5 @@
 #include "transform.hpp"
+#include "engine/gameobject.hpp"
 #include <glm/trigonometric.hpp>
 
 #if defined(MAGMA_WITH_EDITOR)
@@ -10,7 +11,8 @@ namespace Magma {
 void Transform::collectProxy(RenderProxy &proxy) {
   TransformProxy transformProxy = {};
   transformProxy.modelMatrix = modelMatrix();
-  transformProxy.objectId = ownerID;
+  transformProxy.normalMatrix = normalMatrix();
+  transformProxy.objectId = owner->id;
 
   proxy.transform = transformProxy;
 }

@@ -9,8 +9,8 @@ namespace Magma {
 struct MeshData {
   struct Vertex {
     glm::vec3 position{0.f, 0.f, 0.f};
-    glm::vec4 color{1.f, 1.f, 0.f, 1.f};
     glm::vec3 normal{0.f, 0.f, 0.f};
+    glm::vec3 color{1.f, 1.f, 1.f};
 
     static std::vector<VkVertexInputBindingDescription>
     getBindingDescriptions();

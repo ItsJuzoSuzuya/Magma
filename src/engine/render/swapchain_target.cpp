@@ -1,6 +1,7 @@
 #include "swapchain_target.hpp"
 #include "core/device.hpp"
 #include "core/frame_info.hpp"
+#include <cassert>
 #include "core/render_target_info.hpp"
 #include <stdexcept>
 #include <vector>
@@ -9,8 +10,8 @@
 using namespace std;
 namespace Magma {
 
-SwapchainTarget::SwapchainTarget(VkExtent2D extent, RenderTargetInfo &info) {
-  swapChain_ = std::make_unique<SwapChain>(extent);
+SwapchainTarget::SwapchainTarget(RenderTargetInfo &info) {
+  swapChain_ = std::make_unique<SwapChain>(info.extent);
   info = swapChain_->getRenderInfo();
 
   targetExtent = info.extent;
@@ -32,6 +33,11 @@ SwapchainTarget::~SwapchainTarget() { cleanup(); }
 // ----------------------------------------------------------------------------
 // Public Methods
 // ----------------------------------------------------------------------------
+
+uint32_t SwapchainTarget::activeIndex() const {
+  assert(FrameInfo::imageIndex < imageCount_ && "SwapchainTarget: imageIndex out of bounds");
+  return FrameInfo::imageIndex;
+}
 
 void SwapchainTarget::cleanup() {
   VkDevice device = Device::get().device();

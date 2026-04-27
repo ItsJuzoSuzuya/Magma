@@ -4,14 +4,13 @@
 #include "core/render_proxy.hpp"
 #include "core/renderer.hpp"
 #include <cassert>
-#include <print>
 #include <vulkan/vulkan_core.h>
 
 namespace Magma {
 
 class RenderCallback {
 public:
-  static void renderMesh(const MeshProxy &mesh) {
+  static void renderMesh(const MeshProxy &mesh, uint32_t objectIndex) {
     if (!mesh.meshData) return;
 
     VkBuffer vertexBuffers[] = {mesh.vertexBuffer};
@@ -26,14 +25,15 @@ public:
     }
 
     if (mesh.hasIndexBuffer)
-      vkCmdDrawIndexed(FrameInfo::commandBuffer, mesh.indexCount, 1, 0, 0, 0);
+      vkCmdDrawIndexed(FrameInfo::commandBuffer, mesh.indexCount, 1, 0, 0, objectIndex);
     else
-      vkCmdDraw(FrameInfo::commandBuffer, mesh.vertexCount, 1, 0, 0);
+      vkCmdDraw(FrameInfo::commandBuffer, mesh.vertexCount, 1, 0, objectIndex);
   }
 
   static void renderTransform(IRenderer &renderer, const TransformProxy &transform) {
     PushConstantData push{};
     push.modelMatrix = transform.modelMatrix;
+    push.normalMatrix = transform.normalMatrix;
     push.objectId = transform.objectId;
 
     vkCmdPushConstants(FrameInfo::commandBuffer, renderer.getPipelineLayout(),

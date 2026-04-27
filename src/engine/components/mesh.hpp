@@ -1,6 +1,7 @@
 #pragma once
 #include "component.hpp"
 #include "core/buffer.hpp"
+#include "engine/gameobject.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -12,7 +13,7 @@ class MeshData;
 
 class Mesh : public Component {
 public:
-  Mesh() : Component() {}
+  Mesh(GameObject* owner): Component(owner) {}
   ~Mesh();
 
   bool load();

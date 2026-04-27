@@ -9,7 +9,7 @@ namespace Magma {
 
 class SwapchainTarget : public IRenderTarget {
 public:
-  explicit SwapchainTarget(VkExtent2D extent, RenderTargetInfo &info);
+  explicit SwapchainTarget(RenderTargetInfo &info);
   ~SwapchainTarget();
 
   uint32_t imageCount() const override { return imageCount_; }
@@ -34,6 +34,7 @@ public:
 
   void onResize(const VkExtent2D newExtent) override;
   void cleanup() override;
+  uint32_t activeIndex() const override;
 
 private:
   std::unique_ptr<SwapChain> swapChain_ = nullptr;

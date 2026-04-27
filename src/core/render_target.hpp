@@ -32,6 +32,10 @@ public:
 
   virtual void onResize(const VkExtent2D newExtent) = 0;
 
+  // Returns the index to use when accessing per-image resources this frame.
+  // SwapchainTarget uses imageIndex; OffscreenTarget uses frameIndex.
+  virtual uint32_t activeIndex() const = 0;
+
 
 
 };

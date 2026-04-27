@@ -11,13 +11,13 @@ struct PointLightData {
   vec4 color;
 };
 
-layout(set = 1, binding = 0, std430) readonly buffer PointLights {
+layout(set = 2, binding = 0, std430) readonly buffer PointLights {
   uint lightCount;
   PointLightData lights[];
 };
 
 void main() {
-  vec3 ambientLight = vec3(0.1);
+  vec3 ambientLight = vec3(0.0);
   vec3 diffuseLight = ambientLight;
 
   for (uint i = 0; i < lightCount; ++i) {
@@ -31,7 +31,7 @@ void main() {
 
     float NdotL = max(dot(N, L), 0.0);
 
-    float attenuation = 1.0 / (1.0 + 0.01 * distanceToLight + 0.0001 * distanceToLight * distanceToLight);
+    float attenuation = 1.0 / (1.0 + 0.09 * distanceToLight + 0.032 * distanceToLight * distanceToLight);
     diffuseLight += light.color.rgb * light.color.a * NdotL * attenuation;
   }
 
